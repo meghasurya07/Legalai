@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Using <img> for favicons (any domain), no special config needed.
 };
 
 export default nextConfig;

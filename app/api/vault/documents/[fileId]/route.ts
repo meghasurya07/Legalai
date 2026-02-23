@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase/server'
+import { apiError } from '@/lib/api-utils'
+
+interface RouteParams {
+    params: Promise<{ fileId: string }>
+}
+
+// GET /api/vault/documents/[fileId] - Get document content for viewer
+export async function GET(request: NextRequest, { params }: RouteParams) {
+    try {
+        const { fileId } = await params
+
+        const { data: file, error } = await supabase
+            .from('files')
+            .select('id, name, type, size, url, project_id, extracted_text, status, uploaded_at')
+            .eq('id', fileId)
+            .single()
+
+        if (error || !file) {
+            return apiError('Document not found', 404, error)
+        }
+
+        // Generate signed URL for the document
+        const { data: signedData, error: signedError } = await supabase.storage
+            .from('vault')
+            .createSignedUrl(file.url, 3600)
+
+        if (signedError) {
+            console.error('Failed to generate signed URL for document:', signedError)
+        }
+
+        // Fetch analysis and clauses
+        const { data: analysis } = await supabase
+            .from('document_analysis')
+            .select('*')
+            .eq('file_id', fileId)
+            .single()
+
+        const { data: clauses } = await supabase
+            .from('document_clauses')
+            .select('*')
+            .eq('file_id', fileId)
+            .order('created_at', { ascending: true })
+
+        return NextResponse.json({
+            id: file.id,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: signedData?.signedUrl || file.url,
+            projectId: file.project_id,
+            status: file.status,
+            uploadedAt: file.uploaded_at,
+            content: file.extracted_text || '',
+            analysis: analysis || null,
+            clauses: clauses || []
+        })
+    } catch (error) {
+        return apiError('Internal server error', 500, error)
+    }
+}
