@@ -3,9 +3,9 @@ import { supabase } from '@/lib/supabase/server';
 import { logEvent } from '@/lib/logger';
 import { auth0 } from '@/lib/auth0';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const teamId = params.id;
+        const { id: teamId } = await params;
 
         const { data, error } = await supabase
             .from('team_settings')
@@ -23,9 +23,9 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
-        const teamId = params.id;
+        const { id: teamId } = await params;
         const session = await auth0.getSession();
         const actor = session?.user?.email || 'system_admin';
 
