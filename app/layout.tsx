@@ -23,6 +23,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { DocumentsProvider } from "@/context/vault-context"
 import { RecentChatsProvider } from "@/context/history-context"
+import { UserSettingsProvider } from "@/context/user-settings-context"
 import { Auth0Provider } from "@auth0/nextjs-auth0/client"
 
 import { Toaster } from "@/components/ui/sonner"
@@ -39,16 +40,18 @@ export default function RootLayout({
       >
         <Auth0Provider>
           <SidebarProvider>
-            <DocumentsProvider>
-              <RecentChatsProvider>
-                <AppSidebar />
-                <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
-                  <AppHeader />
-                  {children}
-                </SidebarInset>
-                <Toaster />
-              </RecentChatsProvider>
-            </DocumentsProvider>
+            <UserSettingsProvider>
+              <DocumentsProvider>
+                <RecentChatsProvider>
+                  <AppSidebar />
+                  <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
+                    <AppHeader />
+                    {children}
+                  </SidebarInset>
+                  <Toaster />
+                </RecentChatsProvider>
+              </DocumentsProvider>
+            </UserSettingsProvider>
           </SidebarProvider>
         </Auth0Provider>
       </body>

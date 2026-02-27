@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useUserSettings } from "@/context/user-settings-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +27,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [userSettings, setUserSettings] = useState<UserSettings>({})
     const [savingUser, setSavingUser] = useState(false)
+    const { updateSettings: pushToContext } = useUserSettings()
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -101,6 +103,8 @@ export default function SettingsPage() {
             })
             const data = await res.json()
             if (data.success) {
+                // Push to shared context so sidebar updates live
+                pushToContext(userSettings)
                 toast.success("Preferences updated successfully")
             } else {
                 toast.error("Failed to update preferences")
