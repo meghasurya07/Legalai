@@ -21,8 +21,8 @@ export const metadata: Metadata = {
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
-import { VaultProvider } from "@/context/vault-context"
-import { HistoryProvider } from "@/context/history-context"
+import { DocumentsProvider } from "@/context/vault-context"
+import { RecentChatsProvider } from "@/context/history-context"
 import { Auth0Provider } from "@auth0/nextjs-auth0/client"
 
 import { Toaster } from "@/components/ui/sonner"
@@ -39,16 +39,16 @@ export default function RootLayout({
       >
         <Auth0Provider>
           <SidebarProvider>
-            <VaultProvider>
-              <HistoryProvider>
+            <DocumentsProvider>
+              <RecentChatsProvider>
                 <AppSidebar />
                 <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
                   <AppHeader />
                   {children}
                 </SidebarInset>
                 <Toaster />
-              </HistoryProvider>
-            </VaultProvider>
+              </RecentChatsProvider>
+            </DocumentsProvider>
           </SidebarProvider>
         </Auth0Provider>
       </body>

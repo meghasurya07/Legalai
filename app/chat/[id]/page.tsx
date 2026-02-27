@@ -48,7 +48,7 @@ export default function ChatConversationPage() {
         <div className="flex flex-1 min-h-0 flex-col">
             <ChatInterface
                 initialConversationId={id}
-                conversationType={(conversationMeta?.type as 'assistant' | 'vault' | 'workflow') || 'assistant'}
+                conversationType={(conversationMeta?.type as 'assistant' | 'documents' | 'templates') || 'assistant'}
                 projectId={conversationMeta?.projectId}
                 workflowId={conversationMeta?.workflowId}
             />

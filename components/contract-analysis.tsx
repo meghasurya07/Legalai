@@ -102,7 +102,7 @@ export default function ContractAnalysis() {
         formData.append('contract', contractFile)
 
         try {
-            const response = await fetch('/api/workflows/contract-analysis', {
+            const response = await fetch('/api/templates/contract-analysis', {
                 method: 'POST',
                 body: formData
             })
@@ -136,7 +136,7 @@ export default function ContractAnalysis() {
                 <div className="max-w-7xl mx-auto p-6 md:p-8 lg:p-12 pb-32">
                     {/* Header */}
                     <div className="flex items-center gap-4 mb-8">
-                        <Button variant="ghost" size="icon" onClick={() => router.push('/workflows')}>
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/templates')}>
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                         <div className="flex-1">

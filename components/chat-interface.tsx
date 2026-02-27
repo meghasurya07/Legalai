@@ -1,10 +1,11 @@
 ﻿"use client"
 
 import * as React from "react"
-import { Paperclip, ArrowUp, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Copy, Search, ShieldAlert, Table, TableProperties, MessageSquareText, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
+import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Copy, Search, ShieldAlert, Table, ChevronDown, ChevronRight, ExternalLink, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -34,10 +35,10 @@ function getCitationSourceDisplayName(url: string, title: string): string {
         const urlObj = new URL(url)
         const hostname = urlObj.hostname.replace('www.', '')
 
-        // For vault document sources, show file name from title
+        // For project document sources, show file name from title
         if (hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local') {
-            // Title format: "filename.pdf — Page X — Section"
-            const fileName = title.split(' — ')[0]
+            // Title format: "filename.pdf - Page X - Section"
+            const fileName = title.split(' - ')[0]
             return fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName
         }
 
@@ -52,7 +53,7 @@ function getCitationSourceDisplayName(url: string, title: string): string {
     }
 }
 
-function isVaultSource(url: string): boolean {
+function isDocumentSource(url: string): boolean {
     try {
         const hostname = new URL(url).hostname.replace('www.', '')
         return hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local'
@@ -61,8 +62,8 @@ function isVaultSource(url: string): boolean {
     }
 }
 
-/** Extract in-app route from vault.app URL: /vault/document/{fileId}?ci={chunkIndex} */
-function getVaultDocumentRoute(url: string): string | null {
+/** Extract in-app route from vault.app URL: /documents/document/{fileId}?ci={chunkIndex} */
+function getDocumentRoute(url: string): string | null {
     try {
         const urlObj = new URL(url)
         if (urlObj.hostname !== 'vault.app') return null
@@ -71,7 +72,7 @@ function getVaultDocumentRoute(url: string): string | null {
         const fileId = pathParts[pathParts.length - 1]
         const ci = urlObj.searchParams.get('ci')
         if (!fileId) return null
-        return `/vault/document/${fileId}${ci ? `?ci=${ci}` : ''}`
+        return `/documents/document/${fileId}${ci ? `?ci=${ci}` : ''}`
     } catch {
         return null
     }
@@ -165,7 +166,7 @@ function CitationPill({
 
     const displayName = getCitationSourceDisplayName(source.url, source.title)
     const faviconUrl = getFaviconUrl(source.url)
-    const isVault = isVaultSource(source.url)
+    const isDocument = isDocumentSource(source.url)
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -178,8 +179,8 @@ function CitationPill({
                     onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        if (isVault) {
-                            const route = getVaultDocumentRoute(source.url)
+                        if (isDocument) {
+                            const route = getDocumentRoute(source.url)
                             if (route) {
                                 pillRouter.push(route)
                             }
@@ -190,7 +191,7 @@ function CitationPill({
                     aria-label={`Citation ${citationNum}: ${source.title}`}
                 >
                     <span className="inline-flex h-3.5 w-3.5 items-center justify-center overflow-hidden rounded-sm shrink-0 relative">
-                        {isVault ? (
+                        {isDocument ? (
                             <FileText className="h-3 w-3 text-primary/70" />
                         ) : faviconUrl && !faviconFailed ? (
                             <Image
@@ -219,7 +220,7 @@ function CitationPill({
             >
                 <div className="flex items-start gap-3">
                     <div className="mt-0.5 h-8 w-8 rounded-full border border-border bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
-                        {isVault ? (
+                        {isDocument ? (
                             <FileText className="h-4 w-4 text-primary/70" />
                         ) : (
                             <SourceFavicon url={source.url} size={32} className="h-8 w-8 object-cover" />
@@ -227,13 +228,13 @@ function CitationPill({
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
                         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">
-                            {isVault ? 'Project Document' : displayName}
+                            {isDocument ? 'Project Document' : displayName}
                         </div>
                         <h4 className="text-sm font-bold leading-tight line-clamp-2">
                             {source.title}
                         </h4>
                         <div className="text-[11px] text-muted-foreground line-clamp-2 pt-0.5 leading-snug">
-                            {source.snippet || (isVault ? 'Document' : source.url)}
+                            {source.snippet || (isDocument ? 'Document' : source.url)}
                         </div>
                     </div>
                 </div>
@@ -408,11 +409,15 @@ interface ChatInterfaceProps {
     projectTitle?: string
     projectId?: string
     workflowId?: string
-    conversationType?: 'assistant' | 'vault' | 'workflow'
+    conversationType?: 'assistant' | 'documents' | 'templates'
     initialConversationId?: string
 }
 
+const RandomGreeting = dynamic(() => import("@/components/random-greeting"), { ssr: false })
+
 export function ChatInterface({ onMessageSent, mode = "default", projectTitle, projectId, workflowId, conversationType = 'assistant', initialConversationId }: ChatInterfaceProps) {
+
+
 
     const [inputValue, setInputValue] = React.useState("")
     const [isFileDialogOpen, setIsFileDialogOpen] = React.useState(false)
@@ -428,6 +433,16 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null)
     const [openCitationsIndex, setOpenCitationsIndex] = React.useState<number | null>(null)
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
+    const abortControllerRef = React.useRef<AbortController | null>(null)
+
+    const handleStop = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
+        setIsLoading(false)
+        setActivityPhase(null)
+    }
 
     const router = useRouter()
     const pathname = usePathname()
@@ -503,8 +518,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
 
     // Query Mode State
-    const [queryMode, setQueryMode] = React.useState<"ask" | "review">("ask")
-    const [isQueryModeOpen, setIsQueryModeOpen] = React.useState(false)
+    const queryMode = "ask"
 
     const handleSend = async () => {
         if ((!inputValue.trim() && uploadedFiles.length === 0) || isLoading) return
@@ -594,9 +608,13 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
             }))
 
             // Stream response from API
+            const controller = new AbortController()
+            abortControllerRef.current = controller
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
                 body: JSON.stringify({
                     message: userMessage,
                     files: processedFiles,
@@ -719,11 +737,16 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
             // Assistant message is now saved by the backend to ensure persistence even if client disconnects
 
             if (onMessageSent) onMessageSent()
-        } catch (error) {
-            toast.error('Failed to send message')
-            console.error(error)
+        } catch (error: unknown) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                console.log('Fetch aborted')
+            } else {
+                toast.error('Failed to send message')
+                console.error(error)
+            }
         } finally {
             setIsLoading(false)
+            abortControllerRef.current = null
         }
     }
 
@@ -816,7 +839,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                             <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 animate-in fade-in zoom-in-95 duration-700">
                                 <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6">
                                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
-                                        {mode === "project" ? projectTitle : "How can I assist you today?"}
+                                        {mode === "project" ? projectTitle : <RandomGreeting />}
                                     </h1>
                                 </div>
                             </div>
@@ -1219,90 +1242,29 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         <div className="relative rounded-[2rem] border border-border/60 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-border overflow-hidden">
 
 
-                            {/* Query Mode Selector - Only for Project/Vaults Mode */}
-                            {mode === "project" && (
-                                <div className="px-4 pt-3 flex items-center justify-between">
+                            {/* Mode Badges (In Flow for Project Mode) */}
+                            {mode === "project" && (isThinking || isWebSearch || isDeepResearch) && (
+                                <div className="px-4 pt-3 flex items-center">
                                     <div className="flex items-center gap-2">
-                                        <Popover open={isQueryModeOpen} onOpenChange={setIsQueryModeOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-8 gap-2 text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/50 border border-transparent hover:border-border transition-all">
-                                                    {queryMode === "review" ? <TableProperties className="h-4 w-4" /> : <MessageSquareText className="h-4 w-4" />}
-                                                    <span className="text-xs font-medium">{queryMode === "review" ? "Review Query" : "Ask Query"}</span>
-                                                    <ArrowUp className="h-3 w-3 rotate-180 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[340px] p-2" align="start">
-                                                <div className="p-2 pb-3 border-b mb-1">
-                                                    <h4 className="font-medium text-sm">Choose query type</h4>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div
-                                                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${queryMode === "review" ? "bg-muted" : "hover:bg-muted/50"}`}
-                                                        onClick={() => {
-                                                            setQueryMode("review")
-                                                            setIsQueryModeOpen(false)
-                                                        }}
-                                                    >
-                                                        <div className="mt-0.5 h-8 w-8 shrink-0 rounded bg-background border flex items-center justify-center text-muted-foreground">
-                                                            <TableProperties className="h-4 w-4" />
-                                                        </div>
-                                                        <div className="flex-1 space-y-1">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-sm font-medium">Review query</span>
-                                                                {queryMode === "review" && <Check className="h-3 w-3 text-primary" />}
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground leading-snug">Get individual answers for each file in a table.</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${queryMode === "ask" ? "bg-muted" : "hover:bg-muted/50"}`}
-                                                        onClick={() => {
-                                                            setQueryMode("ask")
-                                                            setIsQueryModeOpen(false)
-                                                        }}
-                                                    >
-                                                        <div className="mt-0.5 h-8 w-8 shrink-0 rounded bg-background border flex items-center justify-center text-muted-foreground">
-                                                            <MessageSquareText className="h-4 w-4" />
-                                                        </div>
-                                                        <div className="flex-1 space-y-1">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-sm font-medium">Ask query</span>
-                                                                {queryMode === "ask" && <Check className="h-3 w-3 text-primary" />}
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground leading-snug">Get a single answer on collective information across all files.</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-
-                                        {/* Mode Badges (In Flow for Project Mode) */}
-                                        {(isThinking || isWebSearch || isDeepResearch) && (
-                                            <div className="flex items-center gap-2">
-                                                {isThinking && (
-                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                        <Brain className="h-3 w-3" />
-                                                        <span>Reasoning Model</span>
-                                                    </div>
-                                                )}
-                                                {isWebSearch && (
-                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                        <Globe className="h-3 w-3" />
-                                                        <span>Web Search</span>
-                                                    </div>
-                                                )}
-                                                {isDeepResearch && (
-                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                        <Sparkles className="h-3 w-3" />
-                                                        <span>Deep Research</span>
-                                                    </div>
-                                                )}
+                                        {isThinking && (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
+                                                <Brain className="h-3 w-3" />
+                                                <span>Reasoning Model</span>
+                                            </div>
+                                        )}
+                                        {isWebSearch && (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
+                                                <Globe className="h-3 w-3" />
+                                                <span>Web Search</span>
+                                            </div>
+                                        )}
+                                        {isDeepResearch && (
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
+                                                <Sparkles className="h-3 w-3" />
+                                                <span>Deep Research</span>
                                             </div>
                                         )}
                                     </div>
-
-
                                 </div>
                             )}
 
@@ -1371,7 +1333,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                             <Textarea
                                 id="chat-input"
                                 placeholder={isLoading ? "AI is thinking..." : "Ask Legal AI anything..."}
-                                className={`min-h-[120px] max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
+                                className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 disabled={isLoading}
@@ -1383,7 +1345,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                 }}
                             />
 
-                            <div className="flex items-center justify-between p-3 border-t bg-muted/20 rounded-b-xl">
+                            <div className={`flex items-center justify-between p-3 ${hasMessages ? "" : "border-t"} bg-muted/20 rounded-b-xl`}>
                                 <div className="flex items-center gap-1 md:gap-2">
                                     <Dialog open={isFileDialogOpen} onOpenChange={setIsFileDialogOpen}>
                                         <DialogTrigger asChild>
@@ -1488,11 +1450,16 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                 <div className="flex items-center gap-2">
                                     <Button
                                         size="sm"
-                                        className="gap-2 bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-50 px-3 md:px-4"
-                                        onClick={handleSend}
-                                        disabled={(!inputValue.trim() && uploadedFiles.length === 0) || isLoading}
+                                        className={`gap-2 bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-50 px-3 md:px-4 transition-all`}
+                                        onClick={isLoading ? handleStop : handleSend}
+                                        disabled={!isLoading && (!inputValue.trim() && uploadedFiles.length === 0)}
                                     >
-                                        {isLoading ? "Sending..." : (
+                                        {isLoading ? (
+                                            <>
+                                                <Square className="h-3 w-3 fill-current" />
+                                                <span>Stop</span>
+                                            </>
+                                        ) : (
                                             <>
                                                 <span className="hidden sm:inline">Ask Legal AI</span>
                                                 <span className="sm:hidden">Ask</span>
@@ -1536,23 +1503,23 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                 <p className="text-sm text-muted-foreground text-center mt-10">No citations found for this message.</p>
                             ) : (
                                 sources.map((src, idx) => {
-                                    const vault = isVaultSource(src.url)
-                                    const route = vault ? getVaultDocumentRoute(src.url) : null
+                                    const isDocument = isDocumentSource(src.url)
+                                    const route = isDocument ? getDocumentRoute(src.url) : null
 
                                     const inner = (
                                         <>
                                             <div className="flex items-center gap-2">
                                                 <div className="h-5 w-5 rounded-sm overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                                                    {vault ? (
+                                                    {isDocument ? (
                                                         <FileText className="h-3.5 w-3.5 text-primary/70" />
                                                     ) : (
                                                         <SourceFavicon url={src.url} size={20} className="h-5 w-5 object-contain" />
                                                     )}
                                                 </div>
                                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
-                                                    {vault ? 'Project Document' : getCitationSourceDisplayName(src.url, src.title)}
+                                                    {isDocument ? 'Project Document' : getCitationSourceDisplayName(src.url, src.title)}
                                                 </span>
-                                                {!vault && (
+                                                {!isDocument && (
                                                     <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors ml-auto" />
                                                 )}
                                             </div>
@@ -1560,12 +1527,12 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                 {src.title}
                                             </h3>
                                             <p className="text-[12px] text-muted-foreground/70 line-clamp-3 leading-snug">
-                                                {src.snippet || (vault ? 'Document' : src.url)}
+                                                {src.snippet || (isDocument ? 'Document' : src.url)}
                                             </p>
                                         </>
                                     )
 
-                                    if (vault && route) {
+                                    if (isDocument && route) {
                                         return (
                                             <div
                                                 key={idx}

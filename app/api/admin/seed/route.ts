@@ -21,7 +21,7 @@ export async function POST() {
         ]
 
         const { error } = await supabase
-            .from('workflows')
+            .from('templates')
             .upsert(workflows, { onConflict: 'id' })
 
         if (error) {

@@ -32,9 +32,27 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
                         </div>
                     )
                 } else if (attachment.type === 'docx' && (attachment.file || attachment.url)) {
-                    const arrayBuffer = attachment.file
-                        ? await attachment.file.arrayBuffer()
-                        : await fetch(attachment.url!).then(res => res.arrayBuffer())
+                    let arrayBuffer: ArrayBuffer
+
+                    if (attachment.file) {
+                        arrayBuffer = await attachment.file.arrayBuffer()
+                    } else {
+                        const res = await fetch(attachment.url!)
+                        if (!res.ok) {
+                            throw new Error(`Failed to fetch file: ${res.status}`)
+                        }
+                        // Check content-type to avoid parsing HTML error pages as ZIP
+                        const contentType = res.headers.get('content-type') || ''
+                        if (contentType.includes('text/html') || contentType.includes('text/xml')) {
+                            throw new Error('Received HTML/XML instead of document binary')
+                        }
+                        arrayBuffer = await res.arrayBuffer()
+                        // Validate it looks like a ZIP (docx = zip with PK header)
+                        const header = new Uint8Array(arrayBuffer.slice(0, 4))
+                        if (header[0] !== 0x50 || header[1] !== 0x4B) {
+                            throw new Error('File does not appear to be a valid .docx document')
+                        }
+                    }
 
                     const result = await mammoth.convertToHtml({ arrayBuffer })
                     const sanitizedHtml = DOMPurify.sanitize(result.value)
@@ -117,12 +135,30 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
                 }
             } catch (error) {
                 console.error("Preview error:", error)
-                setContent(
-                    <div className="flex flex-col items-center gap-2 text-destructive h-full justify-center">
-                        <AlertTriangle className="h-12 w-12" />
-                        <p>Failed to load preview</p>
-                    </div>
-                )
+                // Show extracted text as fallback if available
+                if (attachment.extractedText) {
+                    setContent(
+                        <div className="p-6 h-full overflow-auto">
+                            <div className="flex items-center gap-2 mb-4 text-amber-600 dark:text-amber-400 text-sm">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                <span>Showing extracted text (document preview unavailable)</span>
+                            </div>
+                            <pre className="text-sm font-mono whitespace-pre-wrap text-foreground bg-muted/20 p-4 rounded-lg">
+                                {attachment.extractedText}
+                            </pre>
+                        </div>
+                    )
+                } else {
+                    setContent(
+                        <div className="flex flex-col items-center gap-3 text-destructive h-full justify-center p-8">
+                            <AlertTriangle className="h-12 w-12" />
+                            <p className="font-medium">Failed to load preview</p>
+                            <p className="text-xs text-muted-foreground text-center max-w-sm">
+                                The file may have expired or is not in a supported format. Try re-uploading the document.
+                            </p>
+                        </div>
+                    )
+                }
             } finally {
                 setLoading(false)
             }

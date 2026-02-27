@@ -45,8 +45,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const pathname = usePathname()
     const router = useRouter()
     const { user } = useUser()
+    const [dbUserName, setDbUserName] = React.useState<string | null>(null)
+    const [dbProfileImage, setDbProfileImage] = React.useState<string | null>(null)
 
-    const userName = user?.name || "User Name"
+    React.useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await fetch('/api/user/settings')
+                const data = await res.json()
+                if (data.success && data.data) {
+                    if (data.data.user_name) setDbUserName(data.data.user_name)
+                    if (data.data.profile_image) setDbProfileImage(data.data.profile_image)
+                }
+            } catch (error) {
+                console.error("Failed to load user settings for sidebar", error)
+            }
+        }
+        fetchSettings()
+    }, [])
+
+    const userName = dbUserName || user?.name || "User Name"
     const userEmail = user?.email || "user@example.com"
     const userInitials = userName
         .split(" ")
@@ -91,20 +109,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </SidebarMenuItem>
 
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname?.startsWith('/vault')} tooltip="Documents" onClick={() => router.push('/vault')}>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/documents')} tooltip="Documents" onClick={() => router.push('/documents')}>
                                     <BookOpen />
                                     <span>Documents</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
 
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/workflows'} tooltip="Templates" onClick={() => router.push('/workflows')}>
+                                <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => router.push('/templates')}>
                                     <Library />
                                     <span>Templates</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/history'} tooltip="Recent Chats" onClick={() => router.push('/history')}>
+                                <SidebarMenuButton isActive={pathname === '/recent-chats'} tooltip="Recent Chats" onClick={() => router.push('/recent-chats')}>
                                     <History />
                                     <span>Recent Chats</span>
                                 </SidebarMenuButton>
@@ -123,7 +141,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuButton size="lg" className="h-auto p-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground" tooltip="User Profile">
                                     <div className="flex items-center gap-2 w-full">
                                         <Avatar className="h-8 w-8 rounded-full">
-                                            <AvatarImage src={user?.picture || "/avatar.png"} alt={userName} />
+                                            <AvatarImage src={dbProfileImage || user?.picture || "/avatar.png"} alt={userName} className="object-cover" />
                                             <AvatarFallback>{userInitials}</AvatarFallback>
                                         </Avatar>
                                         <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

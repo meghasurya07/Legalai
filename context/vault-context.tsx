@@ -2,9 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 import { toast } from "sonner"
-import { Project, VaultFile } from "@/types"
+import { Project, DocumentFile } from "@/types"
 
-interface VaultContextType {
+interface DocumentsContextType {
     projects: Project[]
     isLoading: boolean
     error: string | null
@@ -20,9 +20,9 @@ interface VaultContextType {
     fetchProjectWithFiles: (id: string) => Promise<Project | null>
 }
 
-const VaultContext = createContext<VaultContextType | undefined>(undefined)
+const DocumentsContext = createContext<DocumentsContextType | undefined>(undefined)
 
-export function VaultProvider({ children }: { children: ReactNode }) {
+export function DocumentsProvider({ children }: { children: ReactNode }) {
     const [projects, setProjects] = useState<Project[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -30,7 +30,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const refreshProjects = useCallback(async () => {
         try {
             setError(null)
-            const response = await fetch('/api/vault/projects')
+            const response = await fetch('/api/documents/projects', { cache: 'no-store' })
             if (!response.ok) {
                 throw new Error('Failed to fetch projects')
             }
@@ -51,7 +51,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const addProject = async (title: string) => {
         try {
-            const response = await fetch('/api/vault/projects', {
+            const response = await fetch('/api/documents/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title })
@@ -66,14 +66,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             toast.success(`Project "${title}" created`)
 
             // Add to history
-            await fetch('/api/history', {
+            await fetch('/api/recent-chats', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: `Project: ${title}`,
-                    subtitle: 'Vault Project • 0 Files',
-                    type: 'vault',
-                    preview: `Created new vault project "${title}"`,
+                    subtitle: 'Documents Project • 0 Files',
+                    type: 'documents',
+                    preview: `Created new documents project "${title}"`,
                     meta: { projectId: newProject.id, fileCount: 0 }
                 })
             })
@@ -85,7 +85,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const renameProject = async (id: string, newTitle: string) => {
         try {
-            const response = await fetch(`/api/vault/projects/${id}`, {
+            const response = await fetch(`/api/documents/projects/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: newTitle })
@@ -108,7 +108,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const deleteProject = async (id: string) => {
         const project = projects.find(p => p.id === id)
         try {
-            const response = await fetch(`/api/vault/projects/${id}`, {
+            const response = await fetch(`/api/documents/projects/${id}`, {
                 method: 'DELETE'
             })
 
@@ -129,7 +129,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const addFileToProject = async (projectId: string, file: File) => {
         // Optimistic update (show processing state)
         const tempId = Math.random().toString(36).substring(7)
-        const tempFile: VaultFile = {
+        const tempFile: DocumentFile = {
             id: tempId,
             name: file.name,
             size: (file.size / 1024).toFixed(1) + ' KB',
@@ -154,7 +154,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             const formData = new FormData()
             formData.append('file', file)
 
-            const response = await fetch(`/api/vault/projects/${projectId}/files`, {
+            const response = await fetch(`/api/documents/projects/${projectId}/files`, {
                 method: 'POST',
                 body: formData
             })
@@ -209,7 +209,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }))
 
         try {
-            const response = await fetch(`/api/vault/projects/${projectId}/files/${fileId}`, {
+            const response = await fetch(`/api/documents/projects/${projectId}/files/${fileId}`, {
                 method: 'DELETE'
             })
 
@@ -247,14 +247,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const incrementQueryCount = async (projectId: string) => {
         try {
-            await fetch(`/api/vault/projects/${projectId}`, {
+            await fetch(`/api/documents/projects/${projectId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ incrementQueryCount: true })
             })
 
             setProjects(prev => prev.map(p =>
-                p.id === projectId ? { ...p, queryCount: p.queryCount + 1 } : p
+                p.id === projectId ? { ...p, queryCount: (p.queryCount || 0) + 1 } : p
             ))
         } catch (err) {
             console.error('Error incrementing query count:', err)
@@ -263,7 +263,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const decrementQueryCount = useCallback((projectId: string) => {
         setProjects(prev => prev.map(p =>
-            p.id === projectId ? { ...p, queryCount: Math.max(0, p.queryCount - 1) } : p
+            p.id === projectId ? { ...p, queryCount: Math.max(0, (p.queryCount || 0) - 1) } : p
         ))
     }, [])
 
@@ -271,7 +271,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     const fetchProjectWithFiles = async (id: string): Promise<Project | null> => {
         try {
-            const response = await fetch(`/api/vault/projects/${id}`)
+            const response = await fetch(`/api/documents/projects/${id}`, { cache: 'no-store' })
             if (!response.ok) {
                 return null
             }
@@ -279,7 +279,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             // Transform files to include proper Date objects
             const project: Project = {
                 ...data,
-                files: (data.files || []).map((f: VaultFile) => ({
+                files: (data.files || []).map((f: DocumentFile) => ({
                     ...f,
                     uploadedAt: new Date(f.uploadedAt)
                 }))
@@ -296,7 +296,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <VaultContext.Provider value={{
+        <DocumentsContext.Provider value={{
             projects,
             isLoading,
             error,
@@ -312,14 +312,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             fetchProjectWithFiles
         }}>
             {children}
-        </VaultContext.Provider>
+        </DocumentsContext.Provider>
     )
 }
 
-export function useVault() {
-    const context = useContext(VaultContext)
+export function useDocuments() {
+    const context = useContext(DocumentsContext)
     if (context === undefined) {
-        throw new Error("useVault must be used within a VaultProvider")
+        throw new Error("useDocuments must be used within a DocumentsProvider")
     }
     return context
 }

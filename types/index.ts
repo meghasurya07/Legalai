@@ -6,10 +6,10 @@ export interface Project {
     queryCount: number
     isSecured: boolean
     icon: "book" | "folder"
-    files: VaultFile[]
+    files: DocumentFile[]
 }
 
-export interface VaultFile {
+export interface DocumentFile {
     id: string
     name: string
     size: string
@@ -71,4 +71,5 @@ export interface Attachment {
     type: 'image' | 'pdf' | 'docx' | 'csv' | 'text' | 'other'
     source: 'upload' | 'drive'
     file?: File
+    extractedText?: string | null
 }

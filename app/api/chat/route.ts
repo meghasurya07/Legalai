@@ -315,27 +315,43 @@ export async function POST(request: NextRequest) {
                     })
 
                     let streamedContent = ''
+                    let controllerClosed = false
+
+                    const safeEnqueue = (data: Uint8Array) => {
+                        if (controllerClosed) return false
+                        try {
+                            controller.enqueue(data)
+                            return true
+                        } catch {
+                            controllerClosed = true
+                            return false
+                        }
+                    }
+
                     for await (const chunk of stream) {
+                        if (controllerClosed) break
                         const content = chunk.choices[0]?.delta?.content || ''
                         if (content) {
                             streamedContent += content
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
                         }
                     }
 
                     // If we have a backend-generated sources block (from Tavily or RAG),
                     // strip any AI-generated <!--SOURCES: block to prevent conflicts,
                     // then always append the real one.
-                    if (sourcesBlock) {
+                    if (sourcesBlock && !controllerClosed) {
                         // Strip AI-hallucinated sources from the streamed text
                         const aiSourcesRegex = /\n*<!--SOURCES:\n[\s\S]*?-->/g
                         if (aiSourcesRegex.test(streamedContent)) {
                             streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
                         }
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
                     }
 
                     // Save assistant message to database if we have a conversationId
+                    // This runs regardless of whether the stream was interrupted,
+                    // so partial responses are preserved on refresh
                     if (conversationId && streamedContent) {
                         try {
                             // Build final content: clean text + real sources (if any)
@@ -371,18 +387,19 @@ export async function POST(request: NextRequest) {
                         }
                     }
 
-                    controller.enqueue(encoder.encode(phaseEvent('complete', 'end')))
-                    controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-                    controller.close()
+                    if (!controllerClosed) {
+                        safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))
+                        safeEnqueue(encoder.encode('data: [DONE]\n\n'))
+                        try { controller.close() } catch { /* already closed */ }
+                    }
                 } catch (err) {
                     console.error('Stream error:', err)
                     try {
                         controller.enqueue(encoder.encode(phaseEvent('error', 'error', 'Something went wrong while processing')))
                         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
                         controller.close()
-                    } catch (e) {
-                        // Controller might already be closed or errored
-                        console.error('Failed to close controller safely:', e)
+                    } catch {
+                        // Controller already closed (client disconnected)
                     }
                 }
             }

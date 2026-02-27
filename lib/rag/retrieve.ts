@@ -174,7 +174,7 @@ export function buildRAGContext(chunks: RetrievedChunk[]): string {
  * Build a <!--SOURCES: block from retrieved chunks matching the exact format
  * used by web search, so the frontend renders them as hoverable citation cards.
  * 
- * Uses in-app URLs: /vault/document/{fileId}?ci={chunkIndex}
+ * Uses in-app URLs: /documents/document/{fileId}?ci={chunkIndex}
  * so clicking a citation navigates to the document viewer with highlighting.
  */
 export function buildRAGSourcesBlock(chunks: RetrievedChunk[]): string {
@@ -191,7 +191,7 @@ export function buildRAGSourcesBlock(chunks: RetrievedChunk[]): string {
         if (chunk.sectionHeading) title += ` — ${chunk.sectionHeading}`
 
         // Use in-app document viewer URL with chunk index for highlighting
-        const url = `https://vault.app/document/${chunk.fileId}?ci=${chunk.chunkIndex}`
+        const url = `https://documents.app/document/${chunk.fileId}?ci=${chunk.chunkIndex}`
 
         // Deduplicate by fileId+chunkIndex 
         const key = `${chunk.fileId}#${chunk.chunkIndex}`

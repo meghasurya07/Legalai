@@ -3,13 +3,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react"
 import { toast } from "sonner"
 
-export type HistoryType = "assistant" | "vault" | "workflow"
+export type RecentChatType = "assistant" | "documents" | "templates"
 
-export interface HistoryItem {
+export interface RecentChatItem {
     id: string
     title: string
     subtitle?: string
-    type: HistoryType
+    type: RecentChatType
     date: Date
     preview: string
     meta?: {
@@ -19,38 +19,38 @@ export interface HistoryItem {
     }
 }
 
-interface HistoryContextType {
-    history: HistoryItem[]
+interface RecentChatsContextType {
+    history: RecentChatItem[]
     isLoading: boolean
-    addHistoryItem: (item: Omit<HistoryItem, "id" | "date">) => Promise<void>
+    addHistoryItem: (item: Omit<RecentChatItem, "id" | "date">) => Promise<void>
     clearHistory: () => Promise<void>
-    getHistoryByType: (type: HistoryType | "all") => HistoryItem[]
+    getHistoryByType: (type: RecentChatType | "all") => RecentChatItem[]
     refreshHistory: () => Promise<void>
 }
 
-const HistoryContext = createContext<HistoryContextType | undefined>(undefined)
+const RecentChatsContext = createContext<RecentChatsContextType | undefined>(undefined)
 
-export function useHistory() {
-    const context = useContext(HistoryContext)
+export function useRecentChats() {
+    const context = useContext(RecentChatsContext)
     if (!context) {
-        throw new Error("useHistory must be used within a HistoryProvider")
+        throw new Error("useRecentChats must be used within a RecentChatsProvider")
     }
     return context
 }
 
-export function HistoryProvider({ children }: { children: ReactNode }) {
-    const [history, setHistory] = useState<HistoryItem[]>([])
+export function RecentChatsProvider({ children }: { children: ReactNode }) {
+    const [history, setHistory] = useState<RecentChatItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
     const refreshHistory = useCallback(async () => {
         try {
-            const response = await fetch('/api/history')
+            const response = await fetch('/api/recent-chats')
             if (!response.ok) {
                 throw new Error('Failed to fetch history')
             }
             const data = await response.json()
             // Convert date strings to Date objects
-            const hydrated = data.map((item: HistoryItem) => ({
+            const hydrated = data.map((item: RecentChatItem) => ({
                 ...item,
                 date: new Date(item.date)
             }))
@@ -67,9 +67,9 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
         refreshHistory()
     }, [refreshHistory])
 
-    const addHistoryItem = async (item: Omit<HistoryItem, "id" | "date">) => {
+    const addHistoryItem = async (item: Omit<RecentChatItem, "id" | "date">) => {
         try {
-            const response = await fetch('/api/history', {
+            const response = await fetch('/api/recent-chats', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(item)
@@ -91,7 +91,7 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
 
     const clearHistory = async () => {
         try {
-            const response = await fetch('/api/history', {
+            const response = await fetch('/api/recent-chats', {
                 method: 'DELETE'
             })
 
@@ -100,21 +100,21 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
             }
 
             setHistory([])
-            toast.success('History cleared')
+            toast.success('Recent chats cleared')
         } catch (err) {
-            console.error('Error clearing history:', err)
-            toast.error('Failed to clear history')
+            console.error('Error clearing recent chats:', err)
+            toast.error('Failed to clear recent chats')
         }
     }
 
-    const getHistoryByType = (type: HistoryType | "all") => {
+    const getHistoryByType = (type: RecentChatType | "all") => {
         if (type === "all") return history
         return history.filter((item) => item.type === type)
     }
 
     return (
-        <HistoryContext.Provider value={{ history, isLoading, addHistoryItem, clearHistory, getHistoryByType, refreshHistory }}>
+        <RecentChatsContext.Provider value={{ history, isLoading, addHistoryItem, clearHistory, getHistoryByType, refreshHistory }}>
             {children}
-        </HistoryContext.Provider>
+        </RecentChatsContext.Provider>
     )
 }
