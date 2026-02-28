@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getUserId } from '@/lib/get-user-id'
 
-// GET /api/recent-chats - List all history items
+// GET /api/recent-chats - List all history items for current user
 export async function GET(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type')
 
         let query = supabase
             .from('recent_chats')
             .select('*')
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(100)
 
@@ -43,6 +48,9 @@ export async function GET(request: NextRequest) {
 // POST /api/recent-chats - Create a history item
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const body = await request.json()
         const { title, subtitle, type, preview, meta } = body
 
@@ -57,7 +65,8 @@ export async function POST(request: NextRequest) {
                 subtitle,
                 type,
                 preview,
-                meta: meta || {}
+                meta: meta || {},
+                user_id: userId
             })
             .select()
             .single()
@@ -80,13 +89,16 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// DELETE /api/recent-chats - Clear all history
+// DELETE /api/recent-chats - Clear all history for current user
 export async function DELETE() {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { error } = await supabase
             .from('recent_chats')
             .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000') // Delete all rows
+            .eq('user_id', userId)
 
         if (error) {
             console.error('Error clearing history:', error)

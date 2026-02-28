@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getUserId } from '@/lib/get-user-id'
 
-// GET /api/documents/projects - List all projects
+// GET /api/documents/projects - List all projects for the current user
 export async function GET() {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { data, error } = await supabase
             .from('projects')
             .select('*')
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
 
         if (error) {
@@ -35,6 +40,9 @@ export async function GET() {
 // POST /api/documents/projects - Create a new project
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const body = await request.json()
         const { title } = body
 
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
 
         const { data, error } = await supabase
             .from('projects')
-            .insert({ title: title.trim() })
+            .insert({ title: title.trim(), user_id: userId })
             .select()
             .single()
 

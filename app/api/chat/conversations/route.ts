@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
+import { getUserId } from '@/lib/get-user-id'
 
-// GET /api/chat/conversations - List conversations
+// GET /api/chat/conversations - List conversations for current user
 export async function GET(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type') // 'assistant' | 'vault' | 'workflow'
         const projectId = searchParams.get('projectId')
@@ -28,6 +32,7 @@ export async function GET(request: NextRequest) {
                     created_at
                 )
             `)
+            .eq('user_id', userId)
             .order('pinned', { ascending: false })
             .order('updated_at', { ascending: false })
             .limit(limit)
@@ -79,6 +84,9 @@ export async function GET(request: NextRequest) {
 // POST /api/chat/conversations - Create new conversation
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const body = await request.json()
         const { title, type = 'assistant', projectId, workflowId } = body
 
@@ -88,7 +96,8 @@ export async function POST(request: NextRequest) {
                 title: title || null,
                 type,
                 project_id: projectId || null,
-                workflow_id: workflowId || null
+                workflow_id: workflowId || null,
+                user_id: userId
             })
             .select()
             .single()

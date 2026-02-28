@@ -3,10 +3,14 @@ import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
 import { executeWorkflow } from '@/lib/workflow/engine'
 import { PIPELINES } from '@/lib/workflow/pipelines'
+import { getUserId } from '@/lib/get-user-id'
 
 // POST /api/templates/runs - Create a new workflow run with real AI
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const body = await request.json()
         const { workflowId, inputData } = body
 
@@ -27,7 +31,8 @@ export async function POST(request: NextRequest) {
             .insert({
                 workflow_id: workflowId,
                 status: 'running',
-                input_data: inputData || {}
+                input_data: inputData || {},
+                user_id: userId
             })
             .select()
             .single()
@@ -121,15 +126,19 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// GET /api/templates/runs - List workflow runs
+// GET /api/templates/runs - List workflow runs for current user
 export async function GET(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { searchParams } = new URL(request.url)
         const workflowId = searchParams.get('workflowId')
 
         let query = supabase
             .from('workflow_runs')
             .select('*')
+            .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(50)
 

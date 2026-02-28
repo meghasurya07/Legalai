@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
+import { getUserId } from '@/lib/get-user-id'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -8,12 +9,16 @@ interface RouteParams {
 // GET /api/chat/conversations/[id] - Get conversation with messages
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { id } = await params
 
         const { data: conversation, error: convError } = await supabase
             .from('conversations')
             .select('*')
             .eq('id', id)
+            .eq('user_id', userId)
             .single()
 
         if (convError || !conversation) {
@@ -56,6 +61,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/chat/conversations/[id] - Update conversation (title, pinned)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { id } = await params
         const body = await request.json()
 
@@ -74,6 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             .from('conversations')
             .update(updateFields)
             .eq('id', id)
+            .eq('user_id', userId)
             .select()
             .single()
 
@@ -98,6 +107,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/chat/conversations/[id] - Delete conversation
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { id } = await params
 
         // get conversation first to check project linkage
@@ -105,12 +117,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .from('conversations')
             .select('project_id')
             .eq('id', id)
+            .eq('user_id', userId)
             .single()
 
         const { error } = await supabase
             .from('conversations')
             .delete()
             .eq('id', id)
+            .eq('user_id', userId)
 
         if (error) {
             console.error('Error deleting conversation:', error)
@@ -123,6 +137,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
                 .from('projects')
                 .select('query_count')
                 .eq('id', conversation.project_id)
+                .eq('user_id', userId)
                 .single()
 
             if (project) {
@@ -133,6 +148,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', conversation.project_id)
+                    .eq('user_id', userId)
             }
         }
 

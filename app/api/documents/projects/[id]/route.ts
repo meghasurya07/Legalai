@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getUserId } from '@/lib/get-user-id'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -9,12 +10,16 @@ interface RouteParams {
 // GET /api/documents/projects/[id] - Get single project with files
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
 
         const { data: project, error: projectError } = await supabase
             .from('projects')
             .select('*')
             .eq('id', id)
+            .eq('user_id', userId)
             .single()
 
         if (projectError || !project) {
@@ -73,6 +78,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/documents/projects/[id] - Update project (rename, increment query count)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
         const body = await request.json()
         const { title, incrementQueryCount } = body
@@ -89,6 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 .from('projects')
                 .select('query_count')
                 .eq('id', id)
+                .eq('user_id', userId)
                 .single()
 
             if (current) {
@@ -100,6 +109,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             .from('projects')
             .update(updates)
             .eq('id', id)
+            .eq('user_id', userId)
             .select()
             .single()
 
@@ -124,12 +134,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/documents/projects/[id] - Delete project
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
 
         const { error } = await supabase
             .from('projects')
             .delete()
             .eq('id', id)
+            .eq('user_id', userId)
 
         if (error) {
             return apiError('Failed to delete project', 500, error)
