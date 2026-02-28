@@ -1,46 +1,46 @@
 import { truncateText } from './client'
 
 export type UseCase =
-    | 'assistant_chat'
-    | 'contract_analysis'
-    | 'translation'
-    | 'legal_memo'
-    | 'client_alert'
-    | 'draft_from_template'
-    | 'document_comparison'
-    | 'redline_analysis'
-    | 'company_profile'
-    | 'transcript_analysis'
-    | 'document_summary'
-    | 'document_analysis'
-    | 'workflow_execution'
-    | 'prompt_improve'
-    | 'prompt_details'
-    | 'doc_intel_summary'
-    | 'doc_intel_metadata'
-    | 'doc_intel_clauses'
-    | 'memory_extraction'
-    | 'graph_extraction'
-    | 'conflict_detection'
-    | 'vault_insights'
-    | 'project_summary'
+  | 'assistant_chat'
+  | 'contract_analysis'
+  | 'translation'
+  | 'legal_memo'
+  | 'client_alert'
+  | 'draft_from_template'
+  | 'document_comparison'
+  | 'redline_analysis'
+  | 'company_profile'
+  | 'transcript_analysis'
+  | 'document_summary'
+  | 'document_analysis'
+  | 'workflow_execution'
+  | 'prompt_improve'
+  | 'prompt_details'
+  | 'doc_intel_summary'
+  | 'doc_intel_metadata'
+  | 'doc_intel_clauses'
+  | 'memory_extraction'
+  | 'graph_extraction'
+  | 'conflict_detection'
+  | 'vault_insights'
+  | 'project_summary'
 
 interface PromptResult {
-    systemPrompt: string
-    userPrompt: string
+  systemPrompt: string
+  userPrompt: string
 }
 
 // ─── Prompt Templates ────────────────────────────────────────────────
 
 const PROMPTS: Record<UseCase, (input: Record<string, unknown>) => PromptResult> = {
 
-    assistant_chat: (input) => ({
-        systemPrompt: buildAssistantSystemPrompt(input),
-        userPrompt: String(input.message || '')
-    }),
+  assistant_chat: (input) => ({
+    systemPrompt: buildAssistantSystemPrompt(input),
+    userPrompt: String(input.message || '')
+  }),
 
-    contract_analysis: (input) => ({
-        systemPrompt: `You are a contract analysis expert. Analyze the contract and return JSON:
+  contract_analysis: (input) => ({
+    systemPrompt: `You are a contract analysis expert. Analyze the contract and return JSON:
 {
   "summary": "Overview",
   "parties": [{"name":"","role":""}],
@@ -53,11 +53,11 @@ const PROMPTS: Record<UseCase, (input: Record<string, unknown>) => PromptResult>
   "recommendations": ["..."]
 }
 Focus on legally significant terms.`,
-        userPrompt: `Analyze this contract:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Analyze this contract:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    translation: (input) => ({
-        systemPrompt: `You are a professional legal translator. Return JSON:
+  translation: (input) => ({
+    systemPrompt: `You are a professional legal translator. Return JSON:
 {
   "originalLanguage": "detected language code",
   "targetLanguage": "${input.targetLanguage || 'en'}",
@@ -66,11 +66,11 @@ Focus on legally significant terms.`,
   "notes": ["translation notes"]
 }
 Preserve legal terminology. Accuracy is paramount.`,
-        userPrompt: `Translate to ${input.targetLanguageName || input.targetLanguage || 'English'}:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Translate to ${input.targetLanguageName || input.targetLanguage || 'English'}:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    legal_memo: (input) => ({
-        systemPrompt: `You are a legal research specialist. Draft a memo in IRAC format. Return JSON:
+  legal_memo: (input) => ({
+    systemPrompt: `You are a legal research specialist. Draft a memo in IRAC format. Return JSON:
 {
   "heading": {"to":"${input.to || 'File'}","from":"${input.from || 'Legal AI'}","date":"${new Date().toLocaleDateString()}","re":"Subject"},
   "question": "Question presented",
@@ -81,11 +81,11 @@ Preserve legal terminology. Accuracy is paramount.`,
   "authorities": ["Cited authorities"]
 }
 Write in formal legal memo style.`,
-        userPrompt: `Draft a memo:\n\nLegal Question: ${input.legalQuestion || ''}\n${input.facts ? `Facts: ${input.facts}` : ''}\n${input.jurisdiction ? `Jurisdiction: ${input.jurisdiction}` : ''}`
-    }),
+    userPrompt: `Draft a memo:\n\nLegal Question: ${input.legalQuestion || ''}\n${input.facts ? `Facts: ${input.facts}` : ''}\n${input.jurisdiction ? `Jurisdiction: ${input.jurisdiction}` : ''}`
+  }),
 
-    client_alert: (input) => ({
-        systemPrompt: `You are a legal communications specialist. Draft a client alert. Return JSON:
+  client_alert: (input) => ({
+    systemPrompt: `You are a legal communications specialist. Draft a client alert. Return JSON:
 {
   "title": "Alert title",
   "summary": "Executive summary",
@@ -95,22 +95,22 @@ Write in formal legal memo style.`,
   "recommendedActions": ["Actions"]
 }
 Professional tone for C-suite and general counsel.`,
-        userPrompt: `Draft a ${input.alertTypeName || input.alertType || 'Legal'} alert:\n\nTopic: ${input.topic || ''}\n${input.context ? `Background: ${input.context}` : ''}\n${input.targetAudience ? `Audience: ${input.targetAudience}` : ''}`
-    }),
+    userPrompt: `Draft a ${input.alertTypeName || input.alertType || 'Legal'} alert:\n\nTopic: ${input.topic || ''}\n${input.context ? `Background: ${input.context}` : ''}\n${input.targetAudience ? `Audience: ${input.targetAudience}` : ''}`
+  }),
 
-    draft_from_template: (input) => ({
-        systemPrompt: `You are a legal document drafting assistant. Return JSON:
+  draft_from_template: (input) => ({
+    systemPrompt: `You are a legal document drafting assistant. Return JSON:
 {
   "documentText": "Complete legal document",
   "templateUsed": "${input.template || 'custom'}",
   "fieldsPopulated": 0
 }
 Generate professional legal documents suitable for review.`,
-        userPrompt: `Generate a ${input.templateName || input.template || 'legal document'}:\n\n${input.fieldsText || ''}\n${input.additionalInstructions ? `Requirements: ${input.additionalInstructions}` : ''}`
-    }),
+    userPrompt: `Generate a ${input.templateName || input.template || 'legal document'}:\n\n${input.fieldsText || ''}\n${input.additionalInstructions ? `Requirements: ${input.additionalInstructions}` : ''}`
+  }),
 
-    document_comparison: (input) => ({
-        systemPrompt: `You are a legal document comparison expert. Return JSON:
+  document_comparison: (input) => ({
+    systemPrompt: `You are a legal document comparison expert. Return JSON:
 {
   "summary": "Overview of key findings",
   "materialChanges": ["Substantive changes"],
@@ -120,21 +120,21 @@ Generate professional legal documents suitable for review.`,
   "recommendations": ["Actions"]
 }
 Focus on legally significant differences.`,
-        userPrompt: `Compare:\n\nDOCUMENT 1:\n${truncateText(String(input.text1 || ''), 2000)}\n\nDOCUMENT 2:\n${truncateText(String(input.text2 || ''), 2000)}`
-    }),
+    userPrompt: `Compare:\n\nDOCUMENT 1:\n${truncateText(String(input.text1 || ''), 2000)}\n\nDOCUMENT 2:\n${truncateText(String(input.text2 || ''), 2000)}`
+  }),
 
-    redline_analysis: (input) => ({
-        systemPrompt: `You are a legal document comparison expert. Return JSON:
+  redline_analysis: (input) => ({
+    systemPrompt: `You are a legal document comparison expert. Return JSON:
 {
   "summary": "Overview of changes",
   "changes": {"additions":[""],"deletions":[""],"modifications":[""]},
   "statistics": {"totalChanges":0,"addedLines":0,"deletedLines":0,"modifiedLines":0}
 }`,
-        userPrompt: `Compare versions:\n\nORIGINAL:\n${truncateText(String(input.originalText || ''), 2000)}\n\nREVISED:\n${truncateText(String(input.revisedText || ''), 2000)}`
-    }),
+    userPrompt: `Compare versions:\n\nORIGINAL:\n${truncateText(String(input.originalText || ''), 2000)}\n\nREVISED:\n${truncateText(String(input.revisedText || ''), 2000)}`
+  }),
 
-    company_profile: (input) => ({
-        systemPrompt: `You are a legal research specialist creating company research profiles for due diligence.
+  company_profile: (input) => ({
+    systemPrompt: `You are a legal research specialist creating company research profiles for due diligence.
 
 ${input.searchResults ? `### Context from Web Search:\n${input.searchResults}\n\n` : ''}
 ${input.userPrompt ? `### Custom User Instructions:\n${input.userPrompt}\n\n` : ''}
@@ -151,11 +151,11 @@ Return JSON:
   "legalRisks": {"high":[""],"medium":[""],"low":[""]}
 }
 Focus on legal and regulatory aspects. Use the provided search context to populate real data. ${input.userPrompt ? `Pay special attention to the areas mentioned in the Custom User Instructions.` : ''}`,
-        userPrompt: `Generate a legal company research profile for: ${input.company || ''}`
-    }),
+    userPrompt: `Generate a legal company research profile for: ${input.company || ''}`
+  }),
 
-    transcript_analysis: (input) => ({
-        systemPrompt: `You are a legal transcript analyst. Return JSON:
+  transcript_analysis: (input) => ({
+    systemPrompt: `You are a legal transcript analyst. Return JSON:
 {
   "summary": "Executive summary",
   "keyThemes": [{"theme":"","description":"","importance":"high|medium|low"}],
@@ -165,38 +165,38 @@ Focus on legal and regulatory aspects. Use the provided search context to popula
   "timeline": [{"date":"","event":""}]
 }
 Focus on legally significant testimony.`,
-        userPrompt: `Analyze this transcript:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Analyze this transcript:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    document_summary: (input) => ({
-        systemPrompt: `You are a legal document analyst. Provide a concise, structured summary of the document. Focus on:
+  document_summary: (input) => ({
+    systemPrompt: `You are a legal document analyst. Provide a concise, structured summary of the document. Focus on:
 1. Document type and purpose
 2. Key parties involved
 3. Main provisions or findings
 4. Important dates and deadlines
 5. Notable risks or concerns
 Be thorough but concise. Use professional legal language.`,
-        userPrompt: `Summarize this document:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Summarize this document:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    document_analysis: (input) => ({
-        systemPrompt: `You are a legal document analyst. Provide a detailed legal analysis including:
+  document_analysis: (input) => ({
+    systemPrompt: `You are a legal document analyst. Provide a detailed legal analysis including:
 1. Document classification and jurisdiction
 2. Legal implications and obligations
 3. Risk assessment (high/medium/low items)
 4. Compliance considerations
 5. Recommendations for action
 Be thorough and precise. Flag anything legally significant.`,
-        userPrompt: `Analyze this document:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Analyze this document:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    workflow_execution: (input) => ({
-        systemPrompt: `You are Legal AI executing a workflow. Provide structured, professional output for the workflow "${input.workflowName || 'Unknown'}". Be concise and actionable.`,
-        userPrompt: `Execute workflow: ${input.workflowName || ''}\n\nInputs: ${JSON.stringify(input.inputData || {})}`
-    }),
+  workflow_execution: (input) => ({
+    systemPrompt: `You are Legal AI executing a workflow. Provide structured, professional output for the workflow "${input.workflowName || 'Unknown'}". Be concise and actionable.`,
+    userPrompt: `Execute workflow: ${input.workflowName || ''}\n\nInputs: ${JSON.stringify(input.inputData || {})}`
+  }),
 
-    prompt_improve: (input) => ({
-        systemPrompt: `You are a prompt engineering expert for legal AI. The user has written a prompt and wants you to enhance it with additional points they may have missed.
+  prompt_improve: (input) => ({
+    systemPrompt: `You are a prompt engineering expert for legal AI. The user has written a prompt and wants you to enhance it with additional points they may have missed.
 
 Your job is to generate 3 to 5 bullet points that ADD to the user's prompt — do NOT rewrite or repeat their original text. Each bullet should:
 - Add a specific legal consideration, angle, or detail the user missed
@@ -204,32 +204,32 @@ Your job is to generate 3 to 5 bullet points that ADD to the user's prompt — d
 - Start with "- " (markdown bullet format)
 
 Return ONLY the bullet points, nothing else. No intro text, no explanation. Just 3-5 lines starting with "- ".`,
-        userPrompt: `Generate enhancement bullet points for this prompt:\n\n${String(input.prompt || '')}`
-    }),
+    userPrompt: `Generate enhancement bullet points for this prompt:\n\n${String(input.prompt || '')}`
+  }),
 
-    prompt_details: (input) => ({
-        systemPrompt: `Generate a short title (max 5 words) and brief description (max 15 words) for a saved prompt. Return valid JSON: { "title": "...", "description": "..." }`,
-        userPrompt: `Generate title and description for this prompt:\n\n${String(input.prompt || '')}`
-    }),
+  prompt_details: (input) => ({
+    systemPrompt: `Generate a short title (max 5 words) and brief description (max 15 words) for a saved prompt. Return valid JSON: { "title": "...", "description": "..." }`,
+    userPrompt: `Generate title and description for this prompt:\n\n${String(input.prompt || '')}`
+  }),
 
-    // Document Intelligence use cases — prompts are provided via systemOverride/userOverride
-    doc_intel_summary: (input) => ({
-        systemPrompt: String(input.systemOverride || 'You are a legal document analyst. Return a JSON object with a "summary" field.'),
-        userPrompt: String(input.userOverride || `Summarize this document:\n\n${truncateText(String(input.text || ''))}`)
-    }),
+  // Document Intelligence use cases — prompts are provided via systemOverride/userOverride
+  doc_intel_summary: (input) => ({
+    systemPrompt: String(input.systemOverride || 'You are a legal document analyst. Return a JSON object with a "summary" field.'),
+    userPrompt: String(input.userOverride || `Summarize this document:\n\n${truncateText(String(input.text || ''))}`)
+  }),
 
-    doc_intel_metadata: (input) => ({
-        systemPrompt: String(input.systemOverride || 'You are a legal metadata extraction specialist. Return structured JSON.'),
-        userPrompt: String(input.userOverride || `Extract metadata from this document:\n\n${truncateText(String(input.text || ''))}`)
-    }),
+  doc_intel_metadata: (input) => ({
+    systemPrompt: String(input.systemOverride || 'You are a legal metadata extraction specialist. Return structured JSON.'),
+    userPrompt: String(input.userOverride || `Extract metadata from this document:\n\n${truncateText(String(input.text || ''))}`)
+  }),
 
-    doc_intel_clauses: (input) => ({
-        systemPrompt: String(input.systemOverride || 'You are a legal clause detection specialist. Return JSON with a "clauses" array.'),
-        userPrompt: String(input.userOverride || `Detect legal clauses in this document:\n\n${truncateText(String(input.text || ''))}`)
-    }),
+  doc_intel_clauses: (input) => ({
+    systemPrompt: String(input.systemOverride || 'You are a legal clause detection specialist. Return JSON with a "clauses" array.'),
+    userPrompt: String(input.userOverride || `Detect legal clauses in this document:\n\n${truncateText(String(input.text || ''))}`)
+  }),
 
-    memory_extraction: (input) => ({
-        systemPrompt: `You are a legal intelligence analyst. Extract persistent project facts, decisions, risks, and obligations from the provided text.
+  memory_extraction: (input) => ({
+    systemPrompt: `You are a legal intelligence analyst. Extract persistent project facts, decisions, risks, and obligations from the provided text.
 Return a JSON object:
 {
   "memories": [
@@ -248,11 +248,11 @@ Rules:
 - Risks: Legal or commercial liabilities.
 - Obligations: Immediate or future actions required.
 - Importance: 5 is critical, 1 is minor context.`,
-        userPrompt: `Extract intelligence from this legal text or dialogue:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Extract intelligence from this legal text or dialogue:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    graph_extraction: (input) => ({
-        systemPrompt: `You are a legal knowledge graph specialist. Extract entities and relationships from legal text.
+  graph_extraction: (input) => ({
+    systemPrompt: `You are a legal knowledge graph specialist. Extract entities and relationships from legal text.
 Return a JSON object:
 {
   "entities": [
@@ -268,11 +268,11 @@ Rules:
 - Link parties to their obligations and risks.
 - Link documents to their clauses.
 - Use evidence from the text to justify each relationship.`,
-        userPrompt: `Extract entities and relationships from this legal text:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Extract entities and relationships from this legal text:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    conflict_detection: (input) => ({
-        systemPrompt: `You are a legal conflict detection specialist. Analyze the provided clauses from different documents and identify contradictions or inconsistencies.
+  conflict_detection: (input) => ({
+    systemPrompt: `You are a legal conflict detection specialist. Analyze the provided clauses from different documents and identify contradictions or inconsistencies.
 Return a JSON object:
 {
   "conflicts": [
@@ -283,11 +283,11 @@ Rules:
 - Only report genuine contradictions, not mere differences.
 - A conflict is where two clauses impose incompatible requirements.
 - Severity: high = legally dangerous, medium = needs review, low = minor inconsistency.`,
-        userPrompt: `Identify conflicts between these clauses from different documents:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Identify conflicts between these clauses from different documents:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    vault_insights: (input) => ({
-        systemPrompt: `You are a legal intelligence analyst. Generate actionable insights from the provided project data.
+  vault_insights: (input) => ({
+    systemPrompt: `You are a legal intelligence analyst. Generate actionable insights from the provided project data.
 Return a JSON object:
 {
   "insights": [
@@ -298,11 +298,11 @@ Rules:
 - Focus on risks, gaps, and exposures.
 - Each insight must be specific and actionable.
 - Prioritize findings that a lawyer would flag.`,
-        userPrompt: `Generate legal insights from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
-    }),
+    userPrompt: `Generate legal insights from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
+  }),
 
-    project_summary: (input) => ({
-        systemPrompt: `You are a legal matter summarizer. Generate a comprehensive project/matter summary.
+  project_summary: (input) => ({
+    systemPrompt: `You are a legal matter summarizer. Generate a comprehensive project/matter summary.
 Return a JSON object:
 {
   "summary": "2-3 paragraph overview of the matter",
@@ -314,14 +314,14 @@ Return a JSON object:
 Rules:
 - Summarize factually from provided data only.
 - Highlight the most critical risks and obligations.`,
-        userPrompt: `Generate a matter summary from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
-    })
+    userPrompt: `Generate a matter summary from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
+  })
 }
 
 // ─── Helper ──────────────────────────────────────────────────────────
 
 function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
-    let prompt = `You are Legal AI, an enterprise-grade legal assistant designed for lawyers and professionals.
+  let prompt = `You are Legal AI, an enterprise-grade legal assistant designed for lawyers and professionals.
     
     
 **MANDATORY RESPONSE CONTRACT**
@@ -355,41 +355,46 @@ function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
        - **Grounding:** Prioritize these established project facts over general knowledge. If a governing law or a specific decision was previously identified, always reference it.
        - **Continuity:** Treat the conversation as part of an ongoing project. Use phrases like "As previously identified..." or "Building on the prior analysis of..." when relevant.`
 
-    // For default (non-search) mode: instruct AI to generate its own sources block
-    // For web search/deep research: backend generates real sources from Tavily, so AI should NOT include its own
-    const isSearchMode = input.webSearch || input.deepResearch
-    if (!isSearchMode) {
-        prompt += `\n\nWhen you cite specific statutes, cases, regulations, or authoritative sources, you MUST include a hidden sources block at the very end of your response in this EXACT format:
+  // For default (non-search) mode: instruct AI to generate its own sources block
+  // For web search/deep research: backend generates real sources from Tavily, so AI should NOT include its own
+  const isSearchMode = input.webSearch || input.deepResearch
+  if (!isSearchMode) {
+    prompt += `\n\n**MANDATORY CITATION RULE:** For EVERY response where you reference external legal sources (statutes, cases, regulations, legal principles, authoritative guidelines, government publications, or any factual claim that originates from an external source), you MUST:
+1. Use inline numbered citations [1], [2], [3] etc. throughout your response, placed IMMEDIATELY after the relevant claim or reference.
+2. Include a hidden sources block at the VERY END of your response in this EXACT format:
+
 <!--SOURCES:
 [1] Source Name | https://real-url.com/path | Brief snippet describing the source
 [2] Another Source | https://another-real-url.com | Brief snippet
 -->
-Rules:
-- Use REAL source names (e.g., "Indian Contract Act, 1872", "Smith v. Jones, 2023")
-- Use REAL URLs to authoritative legal websites (indiankanoon.org, legislation.gov.uk, law.cornell.edu, etc.)
+
+Rules for the SOURCES block:
+- Use REAL source names (e.g., "Indian Contract Act, 1872", "Smith v. Jones, 2023", "GDPR Article 17")
+- Use REAL URLs to authoritative legal websites (indiankanoon.org, legislation.gov.uk, law.cornell.edu, supremecourt.gov, eur-lex.europa.eu, etc.)
 - NEVER use placeholder text like "Source Title" or "example.com"
 - Each line MUST have exactly two pipe (|) separators: title | url | snippet
-- Only include this block if you actually cited sources with [1], [2] etc.`
-    }
+- You MUST include this block whenever you cite ANY external source with [1], [2] etc.
+- Even for well-known legal principles, cite the authoritative source.`
+  }
 
-    const customization = input.customization as Record<string, string> | undefined
-    if (customization?.length === 'Concise') {
-        prompt += '\n\n**Constraint:** Keep responses brief and to the point.'
-    } else if (customization?.length === 'Detailed') {
-        prompt += '\n\n**Constraint:** Provide thorough, detailed responses.'
-    }
-    if (customization?.tone === 'Confident') {
-        prompt += '\n\n**Constraint:** Respond with confidence and authority.'
-    } else if (customization?.tone === 'Persuasive') {
-        prompt += '\n\n**Constraint:** Use persuasive language.'
-    }
-    if (customization?.jurisdiction) {
-        prompt += `\n\n**Constraint:** Focus strictly on ${customization.jurisdiction} law.`
-    }
+  const customization = input.customization as Record<string, string> | undefined
+  if (customization?.length === 'Concise') {
+    prompt += '\n\n**Constraint:** Keep responses brief and to the point.'
+  } else if (customization?.length === 'Detailed') {
+    prompt += '\n\n**Constraint:** Provide thorough, detailed responses.'
+  }
+  if (customization?.tone === 'Confident') {
+    prompt += '\n\n**Constraint:** Respond with confidence and authority.'
+  } else if (customization?.tone === 'Persuasive') {
+    prompt += '\n\n**Constraint:** Use persuasive language.'
+  }
+  if (customization?.jurisdiction) {
+    prompt += `\n\n**Constraint:** Focus strictly on ${customization.jurisdiction} law.`
+  }
 
-    const queryMode = input.queryMode as string | undefined
-    if (queryMode === 'review') {
-        prompt += `\n\n**REVIEW MODE: EXPERT LEGAL AUDIT**
+  const queryMode = input.queryMode as string | undefined
+  if (queryMode === 'review') {
+    prompt += `\n\n**REVIEW MODE: EXPERT LEGAL AUDIT**
     You are acting as a Senior Partner at a top-tier law firm reviewing a document. Your goal is to conduct a rigorous, line-by-line audit.
 
     **MANDATORY RESPONSE STRUCTURE**
@@ -418,33 +423,33 @@ Rules:
     - **Be ruthless.** If a clause is weak, say so.
     - **Be specific.** Don't say "make it better." Say "Add a mutual indemnification cap of 12 months' fees."
     - **Ignore fluff.** Focus on legal effect, liability, and obligation.`
-    }
+  }
 
-    // Web Search mode
-    if (input.webSearch) {
-        prompt += `\n\nIMPORTANT: The user has enabled WEB SEARCH mode. You must:
+  // Web Search mode
+  if (input.webSearch) {
+    prompt += `\n\nIMPORTANT: The user has enabled WEB SEARCH mode. You must:
 1. Act as if you have access to the latest information from the internet
 2. Use inline numbered citations like [1], [2], [3] next to the relevant sentences or claims 
 3. Prioritize recent developments, news, case law, and regulatory updates
 4. If discussing legal topics, reference the most current statutes and regulations
 5. Do NOT include a "Sources" or "References" section in the visible text
 6. Do NOT generate a <!--SOURCES: block — the system will automatically attach real source data`
-    }
+  }
 
-    // Thinking/Reasoning mode
-    if (input.thinking) {
-        prompt += `\n\nIMPORTANT: The user has enabled THINKING/REASONING mode. You must:
+  // Thinking/Reasoning mode
+  if (input.thinking) {
+    prompt += `\n\nIMPORTANT: The user has enabled THINKING/REASONING mode. You must:
 1. Show your complete reasoning process step by step
 2. Start with a "## Reasoning" section wrapped in a blockquote that walks through your thought process
 3. Consider multiple angles and perspectives
 4. Identify assumptions and potential counterarguments
 5. Then provide your final answer in a "## Answer" section
 6. Be thorough in your analysis — quality of reasoning matters more than brevity`
-    }
+  }
 
-    // Deep Research mode
-    if (input.deepResearch) {
-        prompt += `\n\nIMPORTANT: The user has enabled DEEP RESEARCH mode. You must:
+  // Deep Research mode
+  if (input.deepResearch) {
+    prompt += `\n\nIMPORTANT: The user has enabled DEEP RESEARCH mode. You must:
 1. Provide an exhaustively detailed, comprehensive response
 2. Structure your response with clear sections using markdown headers
 3. Cover the topic from multiple dimensions: legal analysis, practical implications, precedents, risks, and recommendations
@@ -453,17 +458,17 @@ Rules:
 6. Consider jurisdictional variations if applicable
 7. This should read like a professional legal research memo — thorough and authoritative
 8. Do NOT generate a <!--SOURCES: block — the system will automatically attach real source data`
-    }
+  }
 
-    return prompt
+  return prompt
 }
 
 // ─── Public API ──────────────────────────────────────────────────────
 
 export function getPrompts(useCase: UseCase, input: Record<string, unknown>): PromptResult {
-    const promptFn = PROMPTS[useCase]
-    if (!promptFn) {
-        throw new Error(`Unknown use case: ${useCase}`)
-    }
-    return promptFn(input)
+  const promptFn = PROMPTS[useCase]
+  if (!promptFn) {
+    throw new Error(`Unknown use case: ${useCase}`)
+  }
+  return promptFn(input)
 }

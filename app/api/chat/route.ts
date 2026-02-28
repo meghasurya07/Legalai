@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
         // Determine model and token limits based on mode
         const model = 'gpt-4o-mini' // Default & requested cost-safe standard
-        let maxTokens = 800
+        let maxTokens = 1500
 
         if (deepResearch) {
             maxTokens = 4000
