@@ -896,15 +896,44 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                             {msg.role === 'user' ? (
                                                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</p>
                                             ) : (() => {
-                                                // Parse out hidden sources block
-                                                const sourcesMatch = msg.content.match(/<!--SOURCES:\n([\s\S]*?)-->/)
-                                                const displayContent = msg.content.replace(/<!--SOURCES:\n[\s\S]*?-->/, '').trim()
+                                                // Parse out hidden sources block - case-insensitive and flexible
+                                                const sourcesMatch = msg.content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
+
+                                                // STEP 1: Strip sources block FIRST (before any citation escaping).
+                                                // Aggressively hide ALL source block content — both complete and partial (during streaming).
+                                                // This prevents raw <!--SOURCES: text from ever being visible to the user.
+                                                const rawDisplayContent = msg.content
+                                                    .replace(/<!--SOURCES:?[\s\S]*?-->/gi, '')   // complete blocks
+                                                    .replace(/<!--S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')  // any partial <!--S... during streaming
+                                                    .replace(/<!--\s*$/i, '')                      // just "<!--"
+                                                    .trim()
+
+                                                // STEP 2: Escape citation markers [1], [2] etc. AFTER stripping sources.
+                                                // ReactMarkdown + remarkGfm interprets [N] as markdown link references and swallows them.
+                                                // We replace them with unique placeholders that survive markdown parsing,
+                                                // then our custom text handler converts them to CitationPill components.
+                                                const displayContent = rawDisplayContent.replace(/\[\s*(\d+)\s*\]/g, '⟦CITE_$1⟧')
+
                                                 const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
-                                                    const match = line.match(/\[(\d+)\]\s*(.+?)\s*\|\s*(https?:\/\/.+?)(?:\s*\|\s*(.*))?(?:\n|$)/)
+                                                    // Robust source parsing: [num] Title | URL | Snippet (URL and Snippet are optional)
+                                                    // Handles cases like [1] Title | URL or [1] Title (no pipe)
+                                                    const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
                                                     if (!match) return null
-                                                    const src: ChatCitationSource = { num: match[1], title: match[2], url: match[3], snippet: match[4] || '' }
-                                                    return src
-                                                }).filter((x: ChatCitationSource | null): x is ChatCitationSource => x !== null) : []
+
+                                                    let url = (match[3] || '').trim()
+                                                    // If URL doesn't start with http, it might be just a domain or snippet moved up
+                                                    if (url && !url.startsWith('http') && !url.includes('.')) {
+                                                        // Likely not a URL, move it to snippet if possible
+                                                        url = ''
+                                                    }
+
+                                                    return {
+                                                        num: match[1],
+                                                        title: match[2].trim(),
+                                                        url: url || 'https://legal-source.internal',
+                                                        snippet: (match[4] || '').trim()
+                                                    } as ChatCitationSource
+                                                }).filter((x): x is ChatCitationSource => x !== null) : []
 
                                                 // Create a sources map for quick lookup
                                                 const sourcesMap = new Map(sources.map((src) => [src.num, src]))
@@ -913,8 +942,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                 const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
                                                     if (!text || typeof text !== 'string') return [text]
 
-                                                    // Check if this text contains citations
-                                                    const citationRegex = /\[(\d+)\]/g
+                                                    // Check if this text contains citations - match our escaped ⟦CITE_N⟧ placeholders
+                                                    const citationRegex = /⟦CITE_(\d+)⟧/g
                                                     const matches = Array.from(text.matchAll(citationRegex))
 
                                                     if (matches.length === 0) {
@@ -1482,12 +1511,20 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 const msg = messages[openCitationsIndex]
                 if (!msg) return null
 
-                const sourcesMatch = msg.content.match(/<!--SOURCES:\n([\s\S]*?)-->/)
+                const sourcesMatch = msg.content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
                 const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
-                    const match = line.match(/\[(\d+)\]\s*(.+?)\s*\|\s*(https?:\/\/.+?)(?:\s*\|\s*(.*))?(?:\n|$)/)
+                    const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
                     if (!match) return null
-                    const src: ChatCitationSource = { num: match[1], title: match[2], url: match[3], snippet: match[4] || '' }
-                    return src
+
+                    let url = (match[3] || '').trim()
+                    if (url && !url.startsWith('http') && !url.includes('.')) url = ''
+
+                    return {
+                        num: match[1],
+                        title: match[2].trim(),
+                        url: url || 'https://legal-source.internal',
+                        snippet: (match[4] || '').trim()
+                    } as ChatCitationSource
                 }).filter((x): x is ChatCitationSource => x !== null) : []
 
                 return (

@@ -279,7 +279,10 @@ export async function POST(request: NextRequest) {
                     })
 
                     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-                        { role: 'system', content: ragSystemMessage || systemPrompt }
+                        {
+                            role: 'system',
+                            content: ragSystemMessage ? `${systemPrompt}\n\n${ragSystemMessage}` : systemPrompt
+                        }
                     ]
 
                     // Inject RAG document context if available
@@ -341,12 +344,25 @@ export async function POST(request: NextRequest) {
                     // strip any AI-generated <!--SOURCES: block to prevent conflicts,
                     // then always append the real one.
                     if (sourcesBlock && !controllerClosed) {
-                        // Strip AI-hallucinated sources from the streamed text
-                        const aiSourcesRegex = /\n*<!--SOURCES:\n[\s\S]*?-->/g
+                        // Strip AI-hallucinated sources from the streamed text - case insensitive and flexible whitespace
+                        const aiSourcesRegex = /\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi
                         if (aiSourcesRegex.test(streamedContent)) {
                             streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
                         }
                         safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                    } else if (!sourcesBlock && !controllerClosed) {
+                        // Normal mode: AI may have generated its own <!--SOURCES: block.
+                        // Extract it from streamed content so we can send it cleanly.
+                        const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
+                        if (aiSourcesMatch) {
+                            const extractedSources = aiSourcesMatch[1]
+                            // Strip the sources from the display and re-send clean content
+                            const cleanContent = streamedContent.replace(/\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi, '').trim()
+                            streamedContent = cleanContent
+                            // Send the full clean content (overwrite what was streamed) + sources as a final chunk
+                            // The frontend accumulates content, so we send a special marker to replace
+                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: '\n\n' + extractedSources })}\n\n`))
+                        }
                     }
 
                     // Save assistant message to database if we have a conversationId
