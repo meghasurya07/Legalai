@@ -4,6 +4,7 @@ import { extractText } from '@/lib/ai/extract-text'
 import { UseCase } from '@/lib/ai/prompts'
 import { apiError, parseAIJSON } from './api-utils'
 import { supabase } from '@/lib/supabase/server'
+import { getUserId } from '@/lib/get-user-id'
 
 interface WorkflowConfig {
     fileField?: string | string[]
@@ -17,6 +18,9 @@ interface WorkflowConfig {
 
 export async function handleWorkflowRequest(request: NextRequest, config: WorkflowConfig) {
     try {
+        // Get user ID early, before consuming the request body
+        const userId = await getUserId()
+
         let inputData: Record<string, unknown> = {}
         const variables: Record<string, unknown> = {}
 
@@ -66,7 +70,7 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
         const parsedResult = parseAIJSON(result, config.responseKey)
 
         // Persist to database if workflowId is provided
-        if (config.workflowId) {
+        if (config.workflowId && userId) {
             try {
                 // Generate a title based on input variables
                 let title = `Workflow: ${config.workflowId}`
@@ -82,7 +86,8 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
                     .insert({
                         title,
                         type: 'workflow',
-                        workflow_id: config.workflowId
+                        workflow_id: config.workflowId,
+                        user_id: userId
                     })
                     .select()
                     .single()
@@ -97,7 +102,6 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
                 }
             } catch (persistError) {
                 console.error('[WorkflowHandler] Failed to persist workflow execution:', persistError)
-                // Don't fail the request if persistence fails
             }
         }
 

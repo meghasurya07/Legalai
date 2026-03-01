@@ -369,6 +369,13 @@ interface ChatInterfaceProps {
     initialConversationId?: string
 }
 
+// Map UI conversation types to database types
+const DB_TYPE_MAP: Record<string, string> = {
+    'documents': 'vault',
+    'templates': 'workflow',
+    'assistant': 'assistant',
+}
+
 const RandomGreeting = dynamic(() => import("@/components/random-greeting"), { ssr: false })
 
 export function ChatInterface({ onMessageSent, mode = "default", projectTitle, projectId, workflowId, conversationType = 'assistant', initialConversationId }: ChatInterfaceProps) {
@@ -504,7 +511,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        type: conversationType,
+                        type: DB_TYPE_MAP[conversationType] || conversationType,
                         projectId: projectId || null,
                         workflowId: workflowId || null
                     })
@@ -1200,5 +1207,3 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         </div >
     )
 }
-
-

@@ -1,22 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { HistoryHeader } from "@/components/recent-chats/history-header"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { formatDistanceToNow } from "date-fns"
 import { MessageSquare, Folder, Workflow, Loader2, Trash2, Clock, ArrowRight, Sparkles, Pin, PinOff, Pencil, Check, X } from "lucide-react"
 import { toast } from "sonner"
@@ -74,11 +65,21 @@ export default function RecentChatsPage() {
                     fetch('/api/templates/list')
                 ])
 
-                if (convsRes.ok) setConversations(await convsRes.json())
-                // setProjects(await projectsRes.json()) -> removed
-                if (workflowsRes.ok) setWorkflows(await workflowsRes.json())
+                if (convsRes.ok) {
+                    setConversations(await convsRes.json())
+                } else {
+                    const errBody = await convsRes.text()
+                    console.error('Failed to fetch conversations:', convsRes.status, errBody)
+                    toast.error(`Failed to load conversations (${convsRes.status})`)
+                }
+                if (workflowsRes.ok) {
+                    setWorkflows(await workflowsRes.json())
+                } else {
+                    console.error('Failed to fetch workflows:', workflowsRes.status)
+                }
             } catch (error) {
                 console.error('Failed to fetch recent chats data:', error)
+                toast.error('Failed to load recent chats data')
             } finally {
                 setIsLoading(false)
             }
@@ -143,18 +144,22 @@ export default function RecentChatsPage() {
         setRenamingId(null)
     }
 
+    // Helper to check type across both old ('documents','templates') and new ('vault','workflow') names
+    const isVaultType = (type: string) => type === 'vault' || type === 'documents'
+    const isWorkflowType = (type: string) => type === 'workflow' || type === 'templates'
+
     // Filtered conversations
     const filteredConversations = React.useMemo(() => {
         let filtered = conversations
         if (activeTab === "assistant") {
             filtered = conversations.filter(c => c.type === 'assistant')
         } else if (activeTab === "vault") {
-            filtered = conversations.filter(c => c.type === 'vault')
+            filtered = conversations.filter(c => isVaultType(c.type))
             if (selectedProject !== "all") {
                 filtered = filtered.filter(c => c.projectId === selectedProject)
             }
         } else if (activeTab === "workflow") {
-            filtered = conversations.filter(c => c.type === 'workflow')
+            filtered = conversations.filter(c => isWorkflowType(c.type))
             if (selectedWorkflow !== "all") {
                 filtered = filtered.filter(c => c.workflowId === selectedWorkflow)
             }
@@ -166,12 +171,12 @@ export default function RecentChatsPage() {
     const unpinnedConvs = filteredConversations.filter(c => !c.pinned)
 
     const projectsWithConversations = React.useMemo(() => {
-        const ids = new Set(conversations.filter(c => c.type === 'vault').map(c => c.projectId))
+        const ids = new Set(conversations.filter(c => isVaultType(c.type)).map(c => c.projectId))
         return projects.filter((p: Project) => ids.has(p.id))
     }, [conversations, projects])
 
     const workflowsWithConversations = React.useMemo(() => {
-        const ids = new Set(conversations.filter(c => c.type === 'workflow').map(c => c.workflowId))
+        const ids = new Set(conversations.filter(c => isWorkflowType(c.type)).map(c => c.workflowId))
         return workflows.filter(w => ids.has(w.id))
     }, [conversations, workflows])
 
@@ -179,14 +184,14 @@ export default function RecentChatsPage() {
     const stats = React.useMemo(() => ({
         total: conversations.length,
         assistant: conversations.filter(c => c.type === 'assistant').length,
-        vault: conversations.filter(c => c.type === 'vault').length,
-        workflow: conversations.filter(c => c.type === 'workflow').length,
+        vault: conversations.filter(c => isVaultType(c.type)).length,
+        workflow: conversations.filter(c => isWorkflowType(c.type)).length,
     }), [conversations])
 
     const getTypeIcon = (type: string) => {
         if (type === 'assistant') return <Sparkles className="h-4 w-4" />
-        if (type === 'vault') return <Folder className="h-4 w-4" />
-        if (type === 'workflow') return <Workflow className="h-4 w-4" />
+        if (isVaultType(type)) return <Folder className="h-4 w-4" />
+        if (isWorkflowType(type)) return <Workflow className="h-4 w-4" />
         return <MessageSquare className="h-4 w-4" />
     }
 
@@ -194,10 +199,12 @@ export default function RecentChatsPage() {
         const variants: Record<string, string> = {
             assistant: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
             vault: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+            documents: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
             workflow: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+            templates: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
         }
         const labels: Record<string, string> = {
-            assistant: 'Chat', vault: 'Documents', workflow: 'Templates'
+            assistant: 'Chat', vault: 'Documents', documents: 'Documents', workflow: 'Templates', templates: 'Templates'
         }
         return (
             <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${variants[type] || ''}`}>
@@ -228,7 +235,7 @@ export default function RecentChatsPage() {
             >
                 {/* Icon */}
                 <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${conv.type === 'assistant' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
-                    conv.type === 'vault' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                    isVaultType(conv.type) ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                         'bg-purple-500/10 text-purple-600 dark:text-purple-400'
                     }`}>
                     {getTypeIcon(conv.type)}
@@ -266,13 +273,13 @@ export default function RecentChatsPage() {
                                 {activeTab === 'all' && getTypeBadge(conv.type)}
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
-                                {conv.type === 'vault' && project && (
+                                {isVaultType(conv.type) && project && (
                                     <span className="text-xs text-muted-foreground truncate">{project.title}</span>
                                 )}
-                                {conv.type === 'workflow' && workflow && (
+                                {isWorkflowType(conv.type) && workflow && (
                                     <span className="text-xs text-muted-foreground truncate">{workflow.title}</span>
                                 )}
-                                {((conv.type === 'vault' && project) || (conv.type === 'workflow' && workflow)) && (
+                                {((isVaultType(conv.type) && project) || (isWorkflowType(conv.type) && workflow)) && (
                                     <span className="text-muted-foreground/40">•</span>
                                 )}
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -473,31 +480,47 @@ export default function RecentChatsPage() {
                 </div>
             </div>
 
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will permanently delete &quot;{deleteTarget?.title || 'New Conversation'}&quot; and all its messages. This action cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isDeleting ? (
-                                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Deleting...</>
-                            ) : (
-                                'Delete'
-                            )}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {/* Delete Confirmation Dialog - Portal to body for proper centering */}
+            {!!deleteTarget && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
+                        onClick={() => { if (!isDeleting) setDeleteTarget(null) }}
+                    />
+                    {/* Dialog */}
+                    <div className="relative z-50 w-full max-w-md mx-4 bg-white dark:bg-zinc-900 rounded-xl border border-border/60 shadow-2xl p-6 animate-in fade-in-0 zoom-in-95 duration-200">
+                        <div className="space-y-2">
+                            <h2 className="text-lg font-semibold text-foreground">Delete conversation?</h2>
+                            <p className="text-sm text-muted-foreground">
+                                This will permanently delete &quot;{deleteTarget?.title || 'New Conversation'}&quot; and all its messages. This action cannot be undone.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <Button
+                                variant="outline"
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={isDeleting}
+                                className="rounded-lg"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="rounded-lg bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+                            >
+                                {isDeleting ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Deleting...</>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     )
 }

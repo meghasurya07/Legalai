@@ -23,6 +23,7 @@ export function AppHeader() {
     const [isOpen, setIsOpen] = React.useState(false)
     const [conversations, setConversations] = React.useState<RecentConversation[]>([])
     const [isLoading, setIsLoading] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
 
     // Determine context from the current route
     const getContext = React.useCallback(() => {
@@ -43,6 +44,7 @@ export function AppHeader() {
         if (!open) return
 
         setIsLoading(true)
+        setError(null)
         const ctx = getContext()
 
         try {
@@ -52,6 +54,11 @@ export function AppHeader() {
             if (ctx.workflowId) urlParams.set('workflowId', ctx.workflowId)
 
             const res = await fetch(`/api/chat/conversations?${urlParams.toString()}`)
+            if (!res.ok) {
+                console.error('Failed to fetch recents:', res.status)
+                setError(`Failed to load (${res.status})`)
+                return
+            }
             const data = await res.json()
 
             if (Array.isArray(data)) {
@@ -59,6 +66,7 @@ export function AppHeader() {
             }
         } catch (err) {
             console.error("Failed to fetch recent conversations", err)
+            setError('Failed to load conversations')
         } finally {
             setIsLoading(false)
         }
@@ -118,6 +126,10 @@ export function AppHeader() {
                                 {isLoading ? (
                                     <div className="flex items-center justify-center py-8">
                                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : error ? (
+                                    <div className="text-center py-8 text-sm text-destructive">
+                                        {error}
                                     </div>
                                 ) : conversations.length === 0 ? (
                                     <div className="text-center py-8 text-sm text-muted-foreground">

@@ -8,7 +8,8 @@ export async function getUserId(): Promise<string | null> {
     try {
         const session = await auth0.getSession()
         return session?.user?.sub || null
-    } catch {
+    } catch (error) {
+        console.error('[getUserId] Error getting session:', error)
         return null
     }
 }

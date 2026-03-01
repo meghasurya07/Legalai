@@ -3,9 +3,11 @@ import { searchWeb, formatSearchResultsAsContext } from '@/lib/ai/search'
 import { callAISafe } from '@/lib/ai/client'
 import { apiError, parseAIJSON } from '@/lib/api-utils'
 import { supabase } from '@/lib/supabase/server'
+import { getUserId } from '@/lib/get-user-id'
 
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
         const inputData = await request.json()
         const company = inputData.company
         const userPrompt = inputData.prompt
@@ -35,26 +37,29 @@ export async function POST(request: NextRequest) {
         const parsedResult = parseAIJSON(result, 'profile')
 
         // Persist to database
-        try {
-            const { data: conversation } = await supabase
-                .from('conversations')
-                .insert({
-                    title: `Company Research Profile: ${company}`,
-                    type: 'workflow',
-                    workflow_id: 'company-profile'
-                })
-                .select()
-                .single()
+        if (userId) {
+            try {
+                const { data: conversation } = await supabase
+                    .from('conversations')
+                    .insert({
+                        title: `Company Research Profile: ${company}`,
+                        type: 'workflow',
+                        workflow_id: 'company-profile',
+                        user_id: userId
+                    })
+                    .select()
+                    .single()
 
-            if (conversation) {
-                await supabase.from('messages').insert({
-                    conversation_id: conversation.id,
-                    role: 'assistant',
-                    content: JSON.stringify(parsedResult, null, 2)
-                })
+                if (conversation) {
+                    await supabase.from('messages').insert({
+                        conversation_id: conversation.id,
+                        role: 'assistant',
+                        content: JSON.stringify(parsedResult, null, 2)
+                    })
+                }
+            } catch (e) {
+                console.error('Failed to persist company profile:', e)
             }
-        } catch (e) {
-            console.error('Failed to persist company profile:', e)
         }
 
         return NextResponse.json(parsedResult)
