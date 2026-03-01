@@ -90,11 +90,13 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     const [isGeneratingColumns, setIsGeneratingColumns] = useState(true)
     const [isLoadingCached, setIsLoadingCached] = useState(true)
     const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([])
+    const [chatWidth, setChatWidth] = useState(340)
 
     const hasInitialized = useRef(false)
     const autoRunTriggered = useRef(false)
     const savedFileIds = useRef<Set<string>>(new Set())
     const pendingNewDocs = useRef<DocumentFile[]>([])
+    const isDraggingRef = useRef(false)
 
     const documents = useMemo(() => project.files || [], [project.files])
     const docsWithText = useMemo(() => documents.filter(d => d.extracted_text), [documents])
@@ -527,11 +529,40 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         saveToDatabase(columns, cells, newMessages)
     }, [columns, cells, saveToDatabase])
 
+    // Handle chat resizing
+    const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
+        mouseDownEvent.preventDefault()
+        isDraggingRef.current = true
+
+        const startX = mouseDownEvent.clientX
+        const startWidth = chatWidth
+
+        const onMouseMove = (mouseMoveEvent: MouseEvent) => {
+            if (!isDraggingRef.current) return
+            const newWidth = startWidth + (mouseMoveEvent.clientX - startX)
+            setChatWidth(Math.min(Math.max(newWidth, 250), 800))
+        }
+
+        const onMouseUp = () => {
+            isDraggingRef.current = false
+            document.removeEventListener("mousemove", onMouseMove)
+            document.removeEventListener("mouseup", onMouseUp)
+            document.body.style.cursor = 'default'
+        }
+
+        document.body.style.cursor = 'col-resize'
+        document.addEventListener("mousemove", onMouseMove)
+        document.addEventListener("mouseup", onMouseUp)
+    }, [chatWidth])
+
     return (
         <div className="flex flex-1 h-full overflow-hidden">
             {/* Chat Sidebar */}
             {chatOpen && (
-                <div className="w-[340px] shrink-0 border-r bg-background flex flex-col h-full">
+                <div
+                    style={{ width: `${chatWidth}px` }}
+                    className="shrink-0 border-r bg-background flex flex-col h-full relative group"
+                >
                     <TabularReviewChat
                         projectId={projectId}
                         projectTitle={project.title}
@@ -541,6 +572,12 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                         onClose={() => setChatOpen(false)}
                         initialMessages={chatMessages}
                         onSaveMessages={handleSaveMessages}
+                    />
+
+                    {/* Drag Handle */}
+                    <div
+                        onMouseDown={startResizing}
+                        className="absolute right-[-4px] top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-primary/20 transition-colors"
                     />
                 </div>
             )}
