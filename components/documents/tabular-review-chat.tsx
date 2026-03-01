@@ -38,8 +38,10 @@ export function TabularReviewChat({
     const [isStreaming, setIsStreaming] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const latestMessagesRef = useRef<ChatMessage[]>(messages)
 
     useEffect(() => {
+        latestMessagesRef.current = messages
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }, [messages])
 
@@ -146,11 +148,10 @@ export function TabularReviewChat({
             }])
         } finally {
             setIsStreaming(false)
-            // Save messages after streaming completes
-            setMessages(current => {
-                onSaveMessages?.(current)
-                return current
-            })
+            // Save messages after streaming completes, deferred to avoid setState in render warning
+            setTimeout(() => {
+                onSaveMessages?.(latestMessagesRef.current)
+            }, 10)
         }
     }
 
