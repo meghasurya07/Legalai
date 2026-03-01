@@ -5,13 +5,15 @@ import { ChatCitationSource, CitationPill, SourceFavicon } from '@/components/ch
 
 interface MarkdownRendererProps {
     content: string;
+    onSourceClick?: (index: string) => void;
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, onSourceClick }: MarkdownRendererProps) {
     const [openCitationMatch, setOpenCitationMatch] = useState<string | null>(null);
 
     const openCitations = (id: string) => {
         setOpenCitationMatch(openCitationMatch === id ? null : id);
+        if (onSourceClick) onSourceClick(id);
     };
 
     const sourcesMatch = content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i);
@@ -121,13 +123,13 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         pre: ({ children, ...props }) => <pre {...props}>{children}</pre>,
         p: ({ children, ...props }) => {
             const processed = React.Children.map(children, (child) => processNodeForCitations(child, `p`, 0));
-            return <p className="leading-7 whitespace-pre-wrap" {...props}>{processed}</p>;
+            return <p className="leading-normal mb-2 last:mb-0" {...props}>{processed}</p>;
         },
-        ul: ({ children, ...props }) => <ul className="list-disc pl-6 my-3 space-y-2" {...props}>{children}</ul>,
-        ol: ({ children, ...props }) => <ol className="list-decimal pl-6 my-3 space-y-2" {...props}>{children}</ol>,
+        ul: ({ children, ...props }) => <ul className="list-disc pl-5 my-1.5 space-y-1" {...props}>{children}</ul>,
+        ol: ({ children, ...props }) => <ol className="list-decimal pl-5 my-1.5 space-y-1" {...props}>{children}</ol>,
         li: ({ children, ...props }) => {
             const processed = React.Children.map(children, (child) => processNodeForCitations(child, `li`, 0));
-            return React.createElement('li', { className: "my-0 leading-7", ...props }, processed);
+            return React.createElement('li', { className: "my-0.5 leading-normal", ...props }, processed);
         },
         strong: ({ children, ...props }) => {
             const processed = React.Children.map(children, (child) => processNodeForCitations(child, `strong`, 0));
@@ -154,7 +156,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
     return (
         <div className="w-full">
-            <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground prose-headings:mt-6 prose-headings:mb-3 prose-headings:font-semibold prose-h2:text-lg prose-h3:text-base prose-ul:my-3 prose-ul:space-y-1 prose-ol:my-3 prose-ol:space-y-1 prose-li:my-0 prose-li:leading-7 prose-pre:my-4 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-blockquote:my-4 prose-blockquote:border-primary/30 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px] prose-code:before:content-none prose-code:after:content-none">
+            <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:text-foreground prose-a:text-primary prose-strong:text-foreground prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-ul:my-1.5 prose-ul:space-y-0.5 prose-ol:my-1.5 prose-ol:space-y-0.5 prose-li:my-0 prose-li:leading-normal prose-pre:my-2 prose-pre:rounded-lg prose-pre:overflow-x-auto prose-blockquote:my-2 prose-blockquote:border-primary/30 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:rounded-r-lg prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[12px] prose-code:before:content-none prose-code:after:content-none">
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={markdownComponents}

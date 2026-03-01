@@ -54,11 +54,25 @@ export function getCitationSourceDisplayName(url: string, title: string): string
 }
 
 export function isDocumentSource(url: string): boolean {
+    if (!url) return false
+    const lowerUrl = url.toLowerCase()
+
+    // If it's a relative path or doesn't have a protocol, it's almost certainly a document ref
+    if (!lowerUrl.startsWith('http')) return true
+
     try {
-        const hostname = new URL(url).hostname.replace('www.', '')
-        return hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local'
+        const urlObj = new URL(url)
+        const hostname = urlObj.hostname.replace('www.', '')
+        return (
+            hostname === 'vault.app' ||
+            hostname.includes('supabase') ||
+            hostname === 'vault.local' ||
+            hostname === 'legal-source.internal' ||
+            hostname.includes('document') ||
+            lowerUrl.includes('/documents/')
+        )
     } catch {
-        return false
+        return true
     }
 }
 
@@ -110,6 +124,25 @@ export function SourceFavicon({
     className?: string
 }) {
     const [failed, setFailed] = React.useState(false)
+    const isDocument = isDocumentSource(url)
+
+    // If it's a project document, always use the FileText icon instead of fetching a favicon
+    if (isDocument) {
+        const sizeClasses: Record<number, string> = {
+            14: "h-3.5 w-3.5",
+            16: "h-4 w-4",
+            20: "h-5 w-5",
+            32: "h-8 w-8",
+            64: "h-16 w-16"
+        }
+        const sizeClass = sizeClasses[size] || "h-5 w-5"
+        return (
+            <div className={`flex items-center justify-center bg-primary/5 rounded-sm overflow-hidden shrink-0 ${sizeClass} ${className || ""}`}>
+                <FileText className="h-[75%] w-[75%] text-primary/70" />
+            </div>
+        )
+    }
+
     const src = getFaviconUrl(url, size)
 
     // Map common sizes to Tailwind classes to avoid inline styles
@@ -125,10 +158,10 @@ export function SourceFavicon({
 
     if (!src || failed) {
         return React.createElement('div', {
-            className: `flex items-center justify-center bg-foreground/10 shrink-0 ${sizeClass} ${className || ""}`,
+            className: `flex items-center justify-center bg-primary/5 shrink-0 ${sizeClass} ${className || ""}`,
             style: style,
             'aria-hidden': "true"
-        }, React.createElement(Globe, { className: "h-full w-full p-0.5 text-foreground/40" }))
+        }, React.createElement(FileText, { className: "h-full w-full p-0.5 text-primary/40" }))
     }
 
     return (
@@ -204,7 +237,7 @@ export function CitationPill({
                                 onError={() => setFaviconFailed(true)}
                             />
                         ) : (
-                            <Globe className="h-3 w-3 text-foreground/40" />
+                            <FileText className="h-3 w-3 text-primary/40" />
                         )}
                     </span>
                     <span className="truncate max-w-[120px]">{displayName}</span>
@@ -243,7 +276,7 @@ export function CitationPill({
     )
 }
 
-type ActivityPhase =
+export type ActivityPhase =
     | 'research_planning'
     | 'source_collection'
     | 'searching_web'
@@ -259,7 +292,7 @@ type ActivityPhase =
     | 'error'
     | null
 
-interface AIActivityTimelineProps {
+export interface AIActivityTimelineProps {
     phase: ActivityPhase
     entries: { phase: string; detail: string; time: Date }[]
     completedPhases: string[]
@@ -269,7 +302,7 @@ interface AIActivityTimelineProps {
     onToggleExpand: () => void
 }
 
-function AIActivityTimeline({
+export function AIActivityTimeline({
     phase,
     entries,
     completedPhases,

@@ -2,10 +2,12 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Send, Loader2, Sparkles, FileText } from "lucide-react"
+import { X, Send, Loader2, Sparkles, FileText, ExternalLink } from "lucide-react"
 import { DocumentFile } from "@/types"
 import type { ReviewColumn, ReviewCell } from "./tabular-review-view"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
+import { ActivityPhase, ChatCitationSource, getCitationSourceDisplayName, isDocumentSource, getDocumentRoute, SourceFavicon } from "@/components/chat-interface"
+import { TaskActivityTimeline } from "@/components/ui/task-activity-timeline"
 
 interface TabularReviewChatProps {
     projectId: string
@@ -39,6 +41,26 @@ export function TabularReviewChat({
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     const latestMessagesRef = useRef<ChatMessage[]>(messages)
+
+    // Activity indicator state
+    const [activityPhase, setActivityPhase] = useState<ActivityPhase>(null)
+    const [activityEntries, setActivityEntries] = useState<{ phase: string; detail: string; time: Date }[]>([])
+    const [completedPhases, setCompletedPhases] = useState<string[]>([])
+    const [activityExpanded, setActivityExpanded] = useState(true)
+
+    // Citations Sidebar state
+    const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = useState(false)
+    const [openCitationsIndex, setOpenCitationsIndex] = useState<number | null>(null)
+
+    const openCitationsSidebar = (messageIndex: number) => {
+        setOpenCitationsIndex(messageIndex)
+        setIsCitationsSidebarOpen(true)
+    }
+
+    const closeCitationsSidebar = () => {
+        setIsCitationsSidebarOpen(false)
+        setOpenCitationsIndex(null)
+    }
 
     // Sync initialMessages when they load asynchronously from the DB
     useEffect(() => {
@@ -92,8 +114,38 @@ export function TabularReviewChat({
         setMessages(prev => [...prev, { role: "user", content: userMessage }])
         setIsStreaming(true)
 
+        // Reset activity state for new message
+        setActivityPhase(null)
+        setActivityEntries([])
+        setCompletedPhases([])
+        setActivityExpanded(true)
+
         try {
             const tabularContext = buildTabularContext()
+
+            // Set initial phase
+            setActivityPhase('thinking')
+            setActivityEntries([{ phase: 'thinking', detail: 'Analyzed query', time: new Date() }])
+
+            // Simulate the inspection phase since it's local
+            setTimeout(() => {
+                setCompletedPhases(['thinking'])
+                setActivityPhase('reading_extraction')
+                setActivityEntries(prev => [...prev, { phase: 'reading_extraction', detail: 'Tabular review inspected', time: new Date() }])
+
+                setTimeout(() => {
+                    setCompletedPhases(prev => [...prev, 'reading_extraction'])
+                    setActivityPhase('synthesis')
+                    setActivityEntries(prev => [...prev, { phase: 'synthesis', detail: `Analyzed ${columns.length} columns by sorting table`, time: new Date() }])
+
+                    setTimeout(() => {
+                        setCompletedPhases(prev => [...prev, 'synthesis'])
+                        setActivityPhase('drafting')
+                        setActivityEntries(prev => [...prev, { phase: 'drafting', detail: 'Generating response...', time: new Date() }])
+                    }, 800)
+                }, 800)
+            }, 500)
+
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -117,6 +169,8 @@ export function TabularReviewChat({
 
             setMessages(prev => [...prev, { role: "assistant", content: "" }])
 
+            let firstTokenReceived = false
+
             while (true) {
                 const { done, value } = await reader.read()
                 if (done) break
@@ -127,10 +181,46 @@ export function TabularReviewChat({
                 for (const line of lines) {
                     if (line.startsWith("data: ")) {
                         const data = line.slice(6)
-                        if (data === "[DONE]") break
+                        if (data === "[DONE]") {
+                            setActivityPhase('complete')
+                            setActivityExpanded(false)
+                            break
+                        }
+
                         try {
                             const parsed = JSON.parse(data)
+
+                            // Handle SSE Phase Events
+                            if (parsed.phase && parsed.status) {
+                                if (parsed.status === 'start') {
+                                    setActivityPhase(parsed.phase)
+                                    setActivityEntries(prev => [...prev, { phase: parsed.phase, detail: parsed.detail, time: new Date() }])
+                                    // Complete previous phases logically by analyzing entries
+                                    setCompletedPhases(prev => {
+                                        const phases = new Set(prev)
+                                        activityEntries.forEach(e => {
+                                            if (e.phase !== parsed.phase) phases.add(e.phase)
+                                        })
+                                        return Array.from(phases)
+                                    })
+                                } else if (parsed.status === 'update') {
+                                    setActivityEntries(prev => [...prev, { phase: parsed.phase, detail: parsed.detail, time: new Date() }])
+                                }
+                                continue
+                            }
+
                             if (parsed.content) {
+                                if (!firstTokenReceived) {
+                                    firstTokenReceived = true
+                                    // Ensure visual transition to 'writing' state
+                                    setCompletedPhases(prev => {
+                                        const phases = new Set(prev)
+                                        if (activityPhase && activityPhase !== 'writing') phases.add(activityPhase)
+                                        return Array.from(phases)
+                                    })
+                                    setActivityPhase('writing')
+                                }
+
                                 assistantContent += parsed.content
                                 setMessages(prev => {
                                     const updated = [...prev]
@@ -142,19 +232,22 @@ export function TabularReviewChat({
                                 })
                             }
                         } catch {
-                            // Skip non-JSON lines (phase events)
+                            // Skip non-JSON lines
                         }
                     }
                 }
             }
         } catch (err) {
             console.error("Chat error:", err)
+            setActivityPhase('error')
             setMessages(prev => [...prev, {
                 role: "assistant",
                 content: "Sorry, I encountered an error. Please try again.",
             }])
         } finally {
             setIsStreaming(false)
+            setActivityPhase('complete')
+            setActivityExpanded(false)
             // Save messages after streaming completes, deferred to avoid setState in render warning
             setTimeout(() => {
                 onSaveMessages?.(latestMessagesRef.current)
@@ -166,7 +259,7 @@ export function TabularReviewChat({
     const totalPossible = documents.length * columns.length
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-background border-l shadow-xl relative overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
                 <div className="flex items-center gap-2">
@@ -232,12 +325,15 @@ export function TabularReviewChat({
                             className={
                                 msg.role === "user"
                                     ? "bg-foreground text-background px-3 py-1.5 rounded-2xl rounded-br-sm text-[12px] max-w-[85%]"
-                                    : "text-[12px] leading-relaxed whitespace-pre-wrap"
+                                    : "text-[12px] leading-relaxed"
                             }
                         >
                             {msg.role === "assistant" ? (
                                 <>
-                                    <MarkdownRenderer content={msg.content} />
+                                    <MarkdownRenderer
+                                        content={msg.content}
+                                        onSourceClick={() => openCitationsSidebar(i)}
+                                    />
                                     {isStreaming && i === messages.length - 1 && (
                                         <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
                                     )}
@@ -248,6 +344,19 @@ export function TabularReviewChat({
                         </div>
                     </div>
                 ))}
+
+                {/* AI Activity Timeline */}
+                {activityPhase && activityExpanded && (
+                    <div className="mb-4">
+                        <TaskActivityTimeline
+                            phase={activityPhase}
+                            entries={activityEntries}
+                            completedPhases={completedPhases}
+                            onClose={() => setActivityExpanded(false)}
+                        />
+                    </div>
+                )}
+
                 <div ref={messagesEndRef} />
             </div>
 
@@ -278,6 +387,99 @@ export function TabularReviewChat({
                     </Button>
                 </div>
             </div>
+
+            {/* Citations Sidebar */}
+            {isCitationsSidebarOpen && openCitationsIndex !== null && (() => {
+                const msg = messages[openCitationsIndex]
+                if (!msg) return null
+
+                const sourcesMatch = msg.content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
+                const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
+                    const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
+                    if (!match) return null
+
+                    let url = (match[3] || '').trim()
+                    if (url && !url.startsWith('http') && !url.includes('.')) url = ''
+
+                    return {
+                        num: match[1],
+                        title: match[2].trim(),
+                        url: url || 'https://legal-source.internal',
+                        snippet: (match[4] || '').trim()
+                    } as ChatCitationSource
+                }).filter((x): x is ChatCitationSource => x !== null) : []
+
+                return (
+                    <div className="absolute inset-y-0 right-0 w-[300px] border-l bg-background flex flex-col shadow-xl animate-in slide-in-from-right duration-300 z-50">
+                        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+                            <h2 className="font-semibold text-sm">Citations</h2>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={closeCitationsSidebar}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                            {sources.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center mt-10">No citations found.</p>
+                            ) : (
+                                sources.map((src, idx) => {
+                                    const isDocument = isDocumentSource(src.url)
+                                    const route = isDocument ? getDocumentRoute(src.url) : null
+
+                                    const inner = (
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-4 w-4 rounded-sm overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                                                    {isDocument ? (
+                                                        <FileText className="h-3 w-3 text-primary/70" />
+                                                    ) : (
+                                                        <SourceFavicon url={src.url} size={16} className="h-4 w-4 object-contain" />
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+                                                    {isDocument ? 'Document' : getCitationSourceDisplayName(src.url, src.title)}
+                                                </span>
+                                                {!isDocument && (
+                                                    <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors ml-auto" />
+                                                )}
+                                            </div>
+                                            <h3 className="text-xs font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                                                {src.title}
+                                            </h3>
+                                            <p className="text-[11px] text-muted-foreground/70 line-clamp-2 leading-relaxed">
+                                                {src.snippet || (isDocument ? 'Document' : src.url)}
+                                            </p>
+                                        </div>
+                                    )
+
+                                    if (isDocument && route) {
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="group block space-y-2 border-b border-border/40 pb-4 last:border-0 cursor-pointer"
+                                                onClick={() => { closeCitationsSidebar(); window.open(route, '_blank') }}
+                                            >
+                                                {inner}
+                                            </div>
+                                        )
+                                    }
+
+                                    return (
+                                        <a
+                                            key={idx}
+                                            href={src.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group block space-y-2 border-b border-border/40 pb-4 last:border-0"
+                                        >
+                                            {inner}
+                                        </a>
+                                    )
+                                })
+                            )}
+                        </div>
+                    </div>
+                )
+            })()}
         </div>
     )
 }
