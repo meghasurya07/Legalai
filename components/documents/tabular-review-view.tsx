@@ -560,6 +560,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
             {/* Chat Sidebar */}
             {chatOpen && (
                 <div
+                    // Edge Tools often flag inline styles dynamically injected by React, but this is required for smooth sliding
                     style={{ width: `${chatWidth}px` }}
                     className="shrink-0 border-r bg-background flex flex-col h-full relative group"
                 >
