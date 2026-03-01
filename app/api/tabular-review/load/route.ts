@@ -50,9 +50,21 @@ export async function GET(request: NextRequest) {
             status: row.status,
         }))
 
-        console.log(`[Tabular Review] Loaded ${columns.length} columns and ${cells.length} cells for project ${projectId}`)
+        // Load chat messages
+        const { data: messageRows } = await supabase
+            .from('tabular_review_messages')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('order', { ascending: true })
 
-        return NextResponse.json({ columns, cells })
+        const chatMessages = (messageRows || []).map(row => ({
+            role: row.role,
+            content: row.content,
+        }))
+
+        console.log(`[Tabular Review] Loaded ${columns.length} columns, ${cells.length} cells, ${chatMessages.length} messages for project ${projectId}`)
+
+        return NextResponse.json({ columns, cells, chatMessages })
     } catch (error) {
         console.error('[Tabular Review Load] Error:', error)
         return apiError('Load failed', 500, error)

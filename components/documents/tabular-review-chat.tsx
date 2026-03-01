@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { X, Send, Loader2, Sparkles, FileText } from "lucide-react"
 import { DocumentFile } from "@/types"
 import type { ReviewColumn, ReviewCell } from "./tabular-review-view"
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
 
 interface TabularReviewChatProps {
     projectId: string
@@ -13,6 +14,8 @@ interface TabularReviewChatProps {
     cells: Map<string, ReviewCell>
     documents: DocumentFile[]
     onClose: () => void
+    initialMessages?: ChatMessage[]
+    onSaveMessages?: (messages: ChatMessage[]) => void
 }
 
 interface ChatMessage {
@@ -27,8 +30,10 @@ export function TabularReviewChat({
     cells,
     documents,
     onClose,
+    initialMessages,
+    onSaveMessages,
 }: TabularReviewChatProps) {
-    const [messages, setMessages] = useState<ChatMessage[]>([])
+    const [messages, setMessages] = useState<ChatMessage[]>(initialMessages || [])
     const [input, setInput] = useState("")
     const [isStreaming, setIsStreaming] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -141,6 +146,11 @@ export function TabularReviewChat({
             }])
         } finally {
             setIsStreaming(false)
+            // Save messages after streaming completes
+            setMessages(current => {
+                onSaveMessages?.(current)
+                return current
+            })
         }
     }
 
@@ -217,9 +227,15 @@ export function TabularReviewChat({
                                     : "text-[12px] leading-relaxed whitespace-pre-wrap"
                             }
                         >
-                            {msg.content}
-                            {msg.role === "assistant" && isStreaming && i === messages.length - 1 && (
-                                <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
+                            {msg.role === "assistant" ? (
+                                <>
+                                    <MarkdownRenderer content={msg.content} />
+                                    {isStreaming && i === messages.length - 1 && (
+                                        <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
+                                    )}
+                                </>
+                            ) : (
+                                msg.content
                             )}
                         </div>
                     </div>

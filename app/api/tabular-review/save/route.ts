@@ -4,7 +4,7 @@ import { apiError } from '@/lib/api-utils'
 
 export async function POST(request: NextRequest) {
     try {
-        const { projectId, columns, cells } = await request.json()
+        const { projectId, columns, cells, chatMessages } = await request.json()
 
         if (!projectId || !columns || !Array.isArray(columns)) {
             return apiError('Missing required fields', 400)
@@ -70,7 +70,30 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log(`[Tabular Review] Saved ${columns.length} columns and ${cells?.length || 0} cells for project ${projectId}`)
+        // 3. Save chat messages (replace all for this project)
+        if (chatMessages && Array.isArray(chatMessages) && chatMessages.length > 0) {
+            await supabase
+                .from('tabular_review_messages')
+                .delete()
+                .eq('project_id', projectId)
+
+            const msgRows = chatMessages.map((msg: { role: string; content: string }, i: number) => ({
+                project_id: projectId,
+                role: msg.role,
+                content: msg.content,
+                order: i,
+            }))
+
+            const { error: msgError } = await supabase
+                .from('tabular_review_messages')
+                .insert(msgRows)
+
+            if (msgError) {
+                console.error('[Tabular Review Save] Message save error:', msgError)
+            }
+        }
+
+        console.log(`[Tabular Review] Saved ${columns.length} columns, ${cells?.length || 0} cells, ${chatMessages?.length || 0} messages for project ${projectId}`)
         return NextResponse.json({ success: true })
     } catch (error) {
         console.error('[Tabular Review Save] Error:', error)

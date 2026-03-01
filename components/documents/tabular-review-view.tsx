@@ -89,6 +89,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     const [runProgress, setRunProgress] = useState({ total: 0, completed: 0 })
     const [isGeneratingColumns, setIsGeneratingColumns] = useState(true)
     const [isLoadingCached, setIsLoadingCached] = useState(true)
+    const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([])
 
     const hasInitialized = useRef(false)
     const autoRunTriggered = useRef(false)
@@ -101,13 +102,18 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     // ──────────────────────────────────────────────────
     // Helper: Save columns + cells to the database
     // ──────────────────────────────────────────────────
-    const saveToDatabase = useCallback(async (cols: ReviewColumn[], cellMap: Map<string, ReviewCell>) => {
+    const saveToDatabase = useCallback(async (cols: ReviewColumn[], cellMap: Map<string, ReviewCell>, msgs?: { role: "user" | "assistant"; content: string }[]) => {
         try {
             const cellArray = Array.from(cellMap.values())
             await fetch('/api/tabular-review/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId, columns: cols, cells: cellArray })
+                body: JSON.stringify({
+                    projectId,
+                    columns: cols,
+                    cells: cellArray,
+                    chatMessages: msgs
+                })
             })
             console.log('[Tabular Review] Auto-saved to database')
         } catch (err) {
@@ -140,6 +146,10 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                             restoredCells.set(getCellKey(cell.documentId, cell.columnId), cell)
                         }
                         setCells(restoredCells)
+
+                        if (cached.chatMessages) {
+                            setChatMessages(cached.chatMessages)
+                        }
 
                         // Track which file IDs we already have data for
                         const cachedFileIds = new Set<string>((cached.cells || []).map((c: { documentId: string }) => c.documentId))
@@ -511,6 +521,12 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         return cells.get(getCellKey(docId, colId))
     }, [cells])
 
+    // Handle saving messages from chat
+    const handleSaveMessages = useCallback((newMessages: { role: "user" | "assistant"; content: string }[]) => {
+        setChatMessages(newMessages)
+        saveToDatabase(columns, cells, newMessages)
+    }, [columns, cells, saveToDatabase])
+
     return (
         <div className="flex flex-1 h-full overflow-hidden">
             {/* Chat Sidebar */}
@@ -523,6 +539,8 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                         cells={cells}
                         documents={documents}
                         onClose={() => setChatOpen(false)}
+                        initialMessages={chatMessages}
+                        onSaveMessages={handleSaveMessages}
                     />
                 </div>
             )}
