@@ -1,0 +1,150 @@
+/**
+ * Shared citation and source parsing utilities.
+ * Used by both chat-interface.tsx and markdown-renderer.tsx.
+ */
+
+export type ChatCitationSource = {
+    num: string
+    title: string
+    url: string
+    snippet?: string
+}
+
+/**
+ * Parse the <!--SOURCES:...--> block from AI response content.
+ */
+export function parseSources(content: string): ChatCitationSource[] {
+    const sourcesMatch = content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
+    if (!sourcesMatch) return []
+
+    return sourcesMatch[1].trim().split('\n').map((line: string) => {
+        const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
+        if (!match) return null
+
+        let url = (match[3] || '').trim()
+        if (url && !url.startsWith('http') && !url.includes('.')) {
+            url = ''
+        }
+
+        return {
+            num: match[1],
+            title: match[2].trim(),
+            url: url || 'https://legal-source.internal',
+            snippet: (match[4] || '').trim()
+        } as ChatCitationSource
+    }).filter((x): x is ChatCitationSource => x !== null)
+}
+
+/**
+ * Strip <!--SOURCES:...--> blocks from content for display.
+ * Handles both complete and partial (streaming) blocks.
+ */
+export function stripSourcesBlock(content: string): string {
+    return content
+        .replace(/<!--SOURCES:?[\s\S]*?-->/gi, '')           // complete blocks
+        .replace(/<!--S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')  // partial during streaming
+        .replace(/<!--\s*$/i, '')                              // just "<!--"
+        .trim()
+}
+
+/**
+ * Escape citation markers [1], [2] etc. with unique placeholders
+ * that survive markdown parsing.
+ */
+export function escapeCitationMarkers(text: string): string {
+    return text.replace(/\[\s*(\d+)\s*\]/g, '⟦CITE_$1⟧')
+}
+
+/**
+ * Get a user-friendly display name for a citation source URL.
+ */
+export function getCitationSourceDisplayName(url: string, title: string): string {
+    try {
+        const urlObj = new URL(url)
+        const hostname = urlObj.hostname.replace('www.', '')
+
+        if (hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local') {
+            const fileName = title.split(' - ')[0]
+            return fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName
+        }
+
+        const domainParts = hostname.split('.')
+        if (domainParts.length >= 2) {
+            const domainName = domainParts[domainParts.length - 2]
+            return domainName.charAt(0).toUpperCase() + domainName.slice(1)
+        }
+        return hostname
+    } catch {
+        return title.length > 20 ? title.substring(0, 20) + '...' : title
+    }
+}
+
+/**
+ * Check if a URL points to an internal document source.
+ */
+export function isDocumentSource(url: string): boolean {
+    if (!url) return false
+    const lowerUrl = url.toLowerCase()
+
+    if (!lowerUrl.startsWith('http')) return true
+
+    try {
+        const urlObj = new URL(url)
+        const hostname = urlObj.hostname.replace('www.', '')
+        return (
+            hostname === 'vault.app' ||
+            hostname.includes('supabase') ||
+            hostname === 'vault.local' ||
+            hostname === 'legal-source.internal' ||
+            hostname.includes('document') ||
+            lowerUrl.includes('/documents/')
+        )
+    } catch {
+        return true
+    }
+}
+
+/**
+ * Extract in-app route from vault.app URL: /documents/document/{fileId}?ci={chunkIndex}
+ */
+export function getDocumentRoute(url: string): string | null {
+    try {
+        const urlObj = new URL(url)
+        if (urlObj.hostname !== 'vault.app') return null
+        const pathParts = urlObj.pathname.split('/')
+        const fileId = pathParts[pathParts.length - 1]
+        const ci = urlObj.searchParams.get('ci')
+        if (!fileId) return null
+        return `/documents/document/${fileId}${ci ? `?ci=${ci}` : ''}`
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Get the hostname from a URL, stripping www. prefix.
+ */
+export function getHostname(url: string): string | null {
+    try {
+        const urlObj = new URL(url)
+        return urlObj.hostname.replace('www.', '')
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Get a Google Favicon URL for a given source URL.
+ */
+export function getFaviconUrl(url: string, size: number = 64): string | null {
+    try {
+        const host = getHostname(url)
+        if (!host) {
+            const u = new URL(url)
+            return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=${size}`
+        }
+        return `https://www.google.com/s2/favicons?domain=${host}&sz=${size}`
+    } catch {
+        return null
+    }
+}

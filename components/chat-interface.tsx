@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import * as React from "react"
-import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Copy, Search, ShieldAlert, Table, ChevronDown, ChevronRight, ExternalLink, Square } from "lucide-react"
+import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Search, ShieldAlert, Table, ChevronDown, ChevronRight, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
@@ -16,103 +16,26 @@ import { Attachment, Message } from "@/types"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ModeBadges } from "@/components/ui/mode-badges"
+import { CitationsSidebar } from "@/components/citations-sidebar"
+import { CopyButton } from "@/components/ui/copy-button"
+import {
+    ChatCitationSource,
+    parseSources,
+    stripSourcesBlock,
+    escapeCitationMarkers,
+    getCitationSourceDisplayName,
+    isDocumentSource,
+    getDocumentRoute,
+    getFaviconUrl,
+} from "@/lib/citations"
 
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-export type ChatCitationSource = {
-    num: string
-    title: string
-    url: string
-    snippet?: string
-}
-
-
-
-
-export function getCitationSourceDisplayName(url: string, title: string): string {
-    try {
-        const urlObj = new URL(url)
-        const hostname = urlObj.hostname.replace('www.', '')
-
-        // For project document sources, show file name from title
-        if (hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local') {
-            // Title format: "filename.pdf - Page X - Section"
-            const fileName = title.split(' - ')[0]
-            return fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName
-        }
-
-        const domainParts = hostname.split('.')
-        if (domainParts.length >= 2) {
-            const domainName = domainParts[domainParts.length - 2]
-            return domainName.charAt(0).toUpperCase() + domainName.slice(1)
-        }
-        return hostname
-    } catch {
-        return title.length > 20 ? title.substring(0, 20) + '...' : title
-    }
-}
-
-export function isDocumentSource(url: string): boolean {
-    if (!url) return false
-    const lowerUrl = url.toLowerCase()
-
-    // If it's a relative path or doesn't have a protocol, it's almost certainly a document ref
-    if (!lowerUrl.startsWith('http')) return true
-
-    try {
-        const urlObj = new URL(url)
-        const hostname = urlObj.hostname.replace('www.', '')
-        return (
-            hostname === 'vault.app' ||
-            hostname.includes('supabase') ||
-            hostname === 'vault.local' ||
-            hostname === 'legal-source.internal' ||
-            hostname.includes('document') ||
-            lowerUrl.includes('/documents/')
-        )
-    } catch {
-        return true
-    }
-}
-
-/** Extract in-app route from vault.app URL: /documents/document/{fileId}?ci={chunkIndex} */
-export function getDocumentRoute(url: string): string | null {
-    try {
-        const urlObj = new URL(url)
-        if (urlObj.hostname !== 'vault.app') return null
-        // Path: /document/{fileId}
-        const pathParts = urlObj.pathname.split('/')
-        const fileId = pathParts[pathParts.length - 1]
-        const ci = urlObj.searchParams.get('ci')
-        if (!fileId) return null
-        return `/documents/document/${fileId}${ci ? `?ci=${ci}` : ''}`
-    } catch {
-        return null
-    }
-}
-
-function getHostname(url: string): string | null {
-    try {
-        const urlObj = new URL(url)
-        return urlObj.hostname.replace('www.', '')
-    } catch {
-        return null
-    }
-}
-
-export function getFaviconUrl(url: string, size: number = 64): string | null {
-    try {
-        const host = getHostname(url)
-        if (!host) {
-            const u = new URL(url)
-            return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=${size}`
-        }
-        return `https://www.google.com/s2/favicons?domain=${host}&sz=${size}`
-    } catch {
-        return null
-    }
-}
+// Re-export types and utils for backwards compatibility (markdown-renderer.tsx imports from here)
+export type { ChatCitationSource } from "@/lib/citations"
+export { getCitationSourceDisplayName, isDocumentSource, getDocumentRoute, getFaviconUrl } from "@/lib/citations"
 
 export function SourceFavicon({
     url,
@@ -463,7 +386,6 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const messagesEndRef = React.useRef<HTMLDivElement>(null)
     const chatContainerRef = React.useRef<HTMLDivElement>(null)
     const isAtBottomRef = React.useRef(true)
-    const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null)
     const [openCitationsIndex, setOpenCitationsIndex] = React.useState<number | null>(null)
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
     const abortControllerRef = React.useRef<AbortController | null>(null)
@@ -929,59 +851,15 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                             {msg.role === 'user' ? (
                                                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</p>
                                             ) : (() => {
-                                                // Parse out hidden sources block - case-insensitive and flexible
-                                                const sourcesMatch = msg.content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
-
-                                                // STEP 1: Strip sources block FIRST (before any citation escaping).
-                                                // Aggressively hide ALL source block content — both complete and partial (during streaming).
-                                                // This prevents raw <!--SOURCES: text from ever being visible to the user.
-                                                const rawDisplayContent = msg.content
-                                                    .replace(/<!--SOURCES:?[\s\S]*?-->/gi, '')   // complete blocks
-                                                    .replace(/<!--S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')  // any partial <!--S... during streaming
-                                                    .replace(/<!--\s*$/i, '')                      // just "<!--"
-                                                    .trim()
-
-                                                // STEP 2: Escape citation markers [1], [2] etc. AFTER stripping sources.
-                                                // ReactMarkdown + remarkGfm interprets [N] as markdown link references and swallows them.
-                                                // We replace them with unique placeholders that survive markdown parsing,
-                                                // then our custom text handler converts them to CitationPill components.
-                                                const displayContent = rawDisplayContent.replace(/\[\s*(\d+)\s*\]/g, '⟦CITE_$1⟧')
-
-                                                const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
-                                                    // Robust source parsing: [num] Title | URL | Snippet (URL and Snippet are optional)
-                                                    // Handles cases like [1] Title | URL or [1] Title (no pipe)
-                                                    const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
-                                                    if (!match) return null
-
-                                                    let url = (match[3] || '').trim()
-                                                    // If URL doesn't start with http, it might be just a domain or snippet moved up
-                                                    if (url && !url.startsWith('http') && !url.includes('.')) {
-                                                        // Likely not a URL, move it to snippet if possible
-                                                        url = ''
-                                                    }
-
-                                                    return {
-                                                        num: match[1],
-                                                        title: match[2].trim(),
-                                                        url: url || 'https://legal-source.internal',
-                                                        snippet: (match[4] || '').trim()
-                                                    } as ChatCitationSource
-                                                }).filter((x): x is ChatCitationSource => x !== null) : []
-
-                                                // Create a sources map for quick lookup
+                                                const sources = parseSources(msg.content)
+                                                const displayContent = escapeCitationMarkers(stripSourcesBlock(msg.content))
                                                 const sourcesMap = new Map(sources.map((src) => [src.num, src]))
 
-                                                // Helper function to process text and replace citations
                                                 const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
                                                     if (!text || typeof text !== 'string') return [text]
-
-                                                    // Check if this text contains citations - match our escaped ⟦CITE_N⟧ placeholders
                                                     const citationRegex = /⟦CITE_(\d+)⟧/g
                                                     const matches = Array.from(text.matchAll(citationRegex))
-
-                                                    if (matches.length === 0) {
-                                                        return [text]
-                                                    }
+                                                    if (matches.length === 0) return [text]
 
                                                     const parts: React.ReactNode[] = []
                                                     let lastIndex = 0
@@ -989,11 +867,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                                                     for (const match of matches) {
                                                         const matchIndex = match.index!
-                                                        // Add text before citation
-                                                        if (matchIndex > lastIndex) {
-                                                            parts.push(text.slice(lastIndex, matchIndex))
-                                                        }
-                                                        // Add citation component
+                                                        if (matchIndex > lastIndex) parts.push(text.slice(lastIndex, matchIndex))
                                                         parts.push(
                                                             <CitationPill
                                                                 key={`${keyPrefix}-citation-${keyCounter++}-${matchIndex}`}
@@ -1004,177 +878,54 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                         )
                                                         lastIndex = matchIndex + match[0].length
                                                     }
-
-                                                    // Add remaining text
-                                                    if (lastIndex < text.length) {
-                                                        parts.push(text.slice(lastIndex))
-                                                    }
-
+                                                    if (lastIndex < text.length) parts.push(text.slice(lastIndex))
                                                     return parts.length > 0 ? parts : [text]
                                                 }
 
-                                                // Recursive function to process React nodes and replace citations in text
                                                 const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode => {
-                                                    if (depth > 10) return node // Prevent infinite recursion
-
+                                                    if (depth > 10) return node
                                                     if (typeof node === 'string') {
-                                                        // Don't process citations inside code blocks
                                                         if (isInCode) return node
                                                         const processed = processTextWithCitations(node, keyPrefix)
-                                                        // If processing didn't change anything, return original
                                                         if (processed.length === 1 && processed[0] === node) return node
                                                         return processed
                                                     }
-
                                                     if (React.isValidElement(node)) {
-                                                        const el = node as React.ReactElement<{
-                                                            className?: string
-                                                            children?: React.ReactNode
-                                                        }>
-                                                        // Skip processing if it's already a CitationComponent
-                                                        if (el.type === CitationPill) {
-                                                            return el
-                                                        }
-
-                                                        // Check if this is a code element
+                                                        const el = node as React.ReactElement<{ className?: string; children?: React.ReactNode }>
+                                                        if (el.type === CitationPill) return el
                                                         const nodeType = el.type
                                                         const className = typeof el.props?.className === "string" ? el.props.className : ""
-                                                        const isCodeElement = typeof nodeType === 'string' && (
-                                                            nodeType === 'code' ||
-                                                            nodeType === 'pre' ||
-                                                            className.includes('prose-code') ||
-                                                            className.includes('code') ||
-                                                            className.includes('language-')
-                                                        )
-
-                                                        // Skip code elements entirely
-                                                        if (isCodeElement) {
-                                                            return el
-                                                        }
-
-                                                        return React.cloneElement(
-                                                            el,
-                                                            { key: el.key || `${keyPrefix}-${depth}` },
-                                                            React.Children.map(el.props.children, (child, idx) =>
-                                                                processNodeForCitations(child, `${keyPrefix}-${idx}`, depth + 1, isInCode || isCodeElement)
-                                                            )
-                                                        )
+                                                        const isCodeElement = typeof nodeType === 'string' && (nodeType === 'code' || nodeType === 'pre' || className.includes('prose-code') || className.includes('code') || className.includes('language-'))
+                                                        if (isCodeElement) return el
+                                                        return React.cloneElement(el, { key: el.key || `${keyPrefix}-${depth}` }, React.Children.map(el.props.children, (child, idx) => processNodeForCitations(child, `${keyPrefix}-${idx}`, depth + 1, isInCode || isCodeElement)))
                                                     }
-
-                                                    if (Array.isArray(node)) {
-                                                        return node.map((item, idx) => processNodeForCitations(item, `${keyPrefix}-${idx}`, depth, isInCode))
-                                                    }
-
+                                                    if (Array.isArray(node)) return node.map((item, idx) => processNodeForCitations(item, `${keyPrefix}-${idx}`, depth, isInCode))
                                                     return node
                                                 }
 
-                                                // Custom components for ReactMarkdown - process all text nodes
+                                                const processCitations = (children: React.ReactNode, prefix: string) =>
+                                                    React.Children.map(children, (child) => processNodeForCitations(child, `${prefix}-${i}`, 0))
+
                                                 const markdownComponents: Record<string, React.ElementType> = {
-                                                    text: ({ children }) => {
-                                                        if (typeof children === 'string') {
-                                                            const processed = processTextWithCitations(children, `text-${i}`)
-                                                            return <>{processed}</>
-                                                        }
-                                                        return <>{children}</>
-                                                    },
-                                                    // Skip code blocks - don't process citations in code
-                                                    code: ({ children, ...props }) => {
-                                                        return <code {...props}>{children}</code>
-                                                    },
-                                                    pre: ({ children, ...props }) => {
-                                                        return <pre {...props}>{children}</pre>
-                                                    },
-                                                    p: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `p-${i}`, 0)
-                                                        )
-                                                        return <p className="my-3 leading-7" {...props}>{processed}</p>
-                                                    },
-                                                    ul: ({ children, ...props }) => {
-                                                        return <ul className="list-disc pl-6 my-3 space-y-2" {...props}>{children}</ul>
-                                                    },
-                                                    ol: ({ children, ...props }) => {
-                                                        return <ol className="list-decimal pl-6 my-3 space-y-2" {...props}>{children}</ol>
-                                                    },
-                                                    li: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `li-${i}`, 0)
-                                                        )
-                                                        return React.createElement('li', { className: "my-0 leading-7", ...props }, processed)
-                                                    },
-                                                    // Handle other text-containing elements
-                                                    strong: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `strong-${i}`, 0)
-                                                        )
-                                                        return <strong {...props}>{processed}</strong>
-                                                    },
-                                                    em: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `em-${i}`, 0)
-                                                        )
-                                                        return <em {...props}>{processed}</em>
-                                                    },
-                                                    // Process blockquote content
-                                                    blockquote: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `blockquote-${i}`, 0)
-                                                        )
-                                                        return <blockquote {...props}>{processed}</blockquote>
-                                                    },
-                                                    // Process heading content
-                                                    h1: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `h1-${i}`, 0)
-                                                        )
-                                                        return <h1 {...props}>{processed}</h1>
-                                                    },
-                                                    h2: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `h2-${i}`, 0)
-                                                        )
-                                                        return <h2 {...props}>{processed}</h2>
-                                                    },
-                                                    h3: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `h3-${i}`, 0)
-                                                        )
-                                                        return <h3 {...props}>{processed}</h3>
-                                                    },
-                                                    // Enterprise-grade table styling
-                                                    table: ({ children, ...props }) => (
-                                                        <div className="my-4 w-full overflow-x-auto rounded-lg border border-border">
-                                                            <table className="w-full text-sm text-left relative" {...props}>
-                                                                {children}
-                                                            </table>
-                                                        </div>
-                                                    ),
-                                                    thead: ({ children, ...props }) => (
-                                                        <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground border-b border-border" {...props}>
-                                                            {children}
-                                                        </thead>
-                                                    ),
-                                                    tbody: ({ children, ...props }) => (
-                                                        <tbody className="divide-y divide-border/50 bg-background" {...props}>
-                                                            {children}
-                                                        </tbody>
-                                                    ),
-                                                    tr: ({ children, ...props }) => (
-                                                        <tr className="hover:bg-muted/20 transition-colors" {...props}>
-                                                            {children}
-                                                        </tr>
-                                                    ),
-                                                    th: ({ children, ...props }) => (
-                                                        <th className="px-4 py-3 font-medium whitespace-nowrap" {...props}>
-                                                            {children}
-                                                        </th>
-                                                    ),
-                                                    td: ({ children, ...props }) => {
-                                                        const processed = React.Children.map(children, (child) =>
-                                                            processNodeForCitations(child, `td-${i}`, 0)
-                                                        )
-                                                        return <td className="px-4 py-3 align-top leading-relaxed" {...props}>{processed}</td>
-                                                    },
+                                                    text: ({ children }) => typeof children === 'string' ? <>{processTextWithCitations(children, `text-${i}`)}</> : <>{children}</>,
+                                                    code: ({ children, ...props }) => <code {...props}>{children}</code>,
+                                                    pre: ({ children, ...props }) => <pre {...props}>{children}</pre>,
+                                                    p: ({ children, ...props }) => <p className="my-3 leading-7" {...props}>{processCitations(children, 'p')}</p>,
+                                                    ul: ({ children, ...props }) => <ul className="list-disc pl-6 my-3 space-y-2" {...props}>{children}</ul>,
+                                                    ol: ({ children, ...props }) => <ol className="list-decimal pl-6 my-3 space-y-2" {...props}>{children}</ol>,
+                                                    li: ({ children, ...props }) => React.createElement('li', { className: "my-0 leading-7", ...props }, processCitations(children, 'li')),
+                                                    strong: ({ children, ...props }) => <strong {...props}>{processCitations(children, 'strong')}</strong>,
+                                                    em: ({ children, ...props }) => <em {...props}>{processCitations(children, 'em')}</em>,
+                                                    blockquote: ({ children, ...props }) => <blockquote {...props}>{processCitations(children, 'blockquote')}</blockquote>,
+                                                    h1: ({ children, ...props }) => <h1 {...props}>{processCitations(children, 'h1')}</h1>,
+                                                    h2: ({ children, ...props }) => <h2 {...props}>{processCitations(children, 'h2')}</h2>,
+                                                    h3: ({ children, ...props }) => <h3 {...props}>{processCitations(children, 'h3')}</h3>,
+                                                    table: ({ children, ...props }) => (<div className="my-4 w-full overflow-x-auto rounded-lg border border-border"><table className="w-full text-sm text-left relative" {...props}>{children}</table></div>),
+                                                    thead: ({ children, ...props }) => <thead className="bg-muted/50 text-xs uppercase font-semibold text-muted-foreground border-b border-border" {...props}>{children}</thead>,
+                                                    tbody: ({ children, ...props }) => <tbody className="divide-y divide-border/50 bg-background" {...props}>{children}</tbody>,
+                                                    tr: ({ children, ...props }) => <tr className="hover:bg-muted/20 transition-colors" {...props}>{children}</tr>,
+                                                    th: ({ children, ...props }) => <th className="px-4 py-3 font-medium whitespace-nowrap" {...props}>{children}</th>,
+                                                    td: ({ children, ...props }) => <td className="px-4 py-3 align-top leading-relaxed" {...props}>{processCitations(children, 'td')}</td>,
                                                 }
 
                                                 return (
@@ -1184,65 +935,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                         </div>
                                                         {msg.content && (
                                                             <div className="flex items-center gap-1 mt-3 -ml-1 relative">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        // Get the rendered HTML from the DOM
-                                                                        const proseEl = document.querySelector(`[data-msg-index="${i}"]`)
-                                                                        const htmlContent = proseEl ? proseEl.innerHTML : displayContent
-
-                                                                        // Convert markdown to clean plain text with formatting
-                                                                        const plainText = displayContent
-                                                                            .replace(/^### (.+)$/gm, '\n$1\n')
-                                                                            .replace(/^## (.+)$/gm, '\n$1\n' + '─'.repeat(30))
-                                                                            .replace(/^# (.+)$/gm, '\n$1\n' + '═'.repeat(30))
-                                                                            .replace(/^\* (.+)$/gm, '  • $1')
-                                                                            .replace(/^- (.+)$/gm, '  • $1')
-                                                                            .replace(/^\d+\. (.+)$/gm, (match: string, p1: string, offset: number, str: string) => {
-                                                                                const lines = str.substring(0, offset).split('\n')
-                                                                                let num = 1
-                                                                                for (let j = lines.length - 1; j >= 0; j--) {
-                                                                                    if (/^\d+\. /.test(lines[j])) num++
-                                                                                    else break
-                                                                                }
-                                                                                return `  ${num}. ${p1}`
-                                                                            })
-                                                                            .replace(/\*\*(.+?)\*\*/g, '$1')
-                                                                            .replace(/\*(.+?)\*/g, '$1')
-                                                                            .replace(/`(.+?)`/g, '$1')
-                                                                            .replace(/^> (.+)$/gm, '  │ $1')
-                                                                            .replace(/\n{3,}/g, '\n\n')
-                                                                            .trim()
-
-                                                                        try {
-                                                                            const htmlBlob = new Blob([htmlContent], { type: 'text/html' })
-                                                                            const textBlob = new Blob([plainText], { type: 'text/plain' })
-                                                                            navigator.clipboard.write([
-                                                                                new ClipboardItem({
-                                                                                    'text/html': htmlBlob,
-                                                                                    'text/plain': textBlob
-                                                                                })
-                                                                            ]).then(() => {
-                                                                                setCopiedIndex(i)
-                                                                                setTimeout(() => setCopiedIndex(null), 2000)
-                                                                                toast.success('Copied to clipboard')
-                                                                            }).catch(() => {
-                                                                                navigator.clipboard.writeText(plainText)
-                                                                                setCopiedIndex(i)
-                                                                                setTimeout(() => setCopiedIndex(null), 2000)
-                                                                                toast.success('Copied to clipboard')
-                                                                            })
-                                                                        } catch {
-                                                                            navigator.clipboard.writeText(plainText)
-                                                                            setCopiedIndex(i)
-                                                                            setTimeout(() => setCopiedIndex(null), 2000)
-                                                                            toast.success('Copied to clipboard')
-                                                                        }
-                                                                    }}
-                                                                    className="cursor-pointer flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/50"
-                                                                >
-                                                                    {copiedIndex === i ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                                                                    {copiedIndex === i ? 'Copied' : 'Copy'}
-                                                                </button>
+                                                                <CopyButton displayContent={displayContent} msgSelector={`[data-msg-index="${i}"]`} />
                                                                 {sources.length > 0 && (
                                                                     <button
                                                                         type="button"
@@ -1304,55 +997,9 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         <div className="relative rounded-[2rem] border border-border/60 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-border overflow-hidden">
 
 
-                            {/* Mode Badges (In Flow for Project Mode) */}
-                            {mode === "project" && (isThinking || isWebSearch || isDeepResearch) && (
-                                <div className="px-4 pt-3 flex items-center">
-                                    <div className="flex items-center gap-2">
-                                        {isThinking && (
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                <Brain className="h-3 w-3" />
-                                                <span>Reasoning Model</span>
-                                            </div>
-                                        )}
-                                        {isWebSearch && (
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                <Globe className="h-3 w-3" />
-                                                <span>Web Search</span>
-                                            </div>
-                                        )}
-                                        {isDeepResearch && (
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                                <Sparkles className="h-3 w-3" />
-                                                <span>Deep Research</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Mode Badges (Absolute for Default Mode) */}
-                            {(isThinking || isWebSearch || isDeepResearch) && mode !== "project" && (
-                                <div className="absolute top-3 left-4 flex items-center gap-2 z-10 pointer-events-none">
-                                    {isThinking && (
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                            <Brain className="h-3 w-3" />
-                                            <span>Reasoning Model</span>
-                                        </div>
-                                    )}
-                                    {isWebSearch && (
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                            <Globe className="h-3 w-3" />
-                                            <span>Web Search</span>
-                                        </div>
-                                    )}
-                                    {isDeepResearch && (
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[10px] font-medium animate-in fade-in zoom-in-95 duration-200">
-                                            <Sparkles className="h-3 w-3" />
-                                            <span>Deep Research</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            {/* Mode Badges */}
+                            {mode === "project" && <ModeBadges isThinking={isThinking} isWebSearch={isWebSearch} isDeepResearch={isDeepResearch} position="inline" />}
+                            {mode !== "project" && <ModeBadges isThinking={isThinking} isWebSearch={isWebSearch} isDeepResearch={isDeepResearch} position="absolute" />}
 
                             {uploadedFiles.length > 0 && (
                                 <div className="flex flex-wrap gap-2 px-4 py-2 border-b bg-muted/5">
@@ -1540,98 +1187,11 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 </div>
             </div>
             {/* Citations Sidebar */}
-            {isCitationsSidebarOpen && openCitationsIndex !== null && (() => {
-                const msg = messages[openCitationsIndex]
-                if (!msg) return null
-
-                const sourcesMatch = msg.content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
-                const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
-                    const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/)
-                    if (!match) return null
-
-                    let url = (match[3] || '').trim()
-                    if (url && !url.startsWith('http') && !url.includes('.')) url = ''
-
-                    return {
-                        num: match[1],
-                        title: match[2].trim(),
-                        url: url || 'https://legal-source.internal',
-                        snippet: (match[4] || '').trim()
-                    } as ChatCitationSource
-                }).filter((x): x is ChatCitationSource => x !== null) : []
-
-                return (
-                    <div className="w-[350px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0">
-                        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-                            <h2 className="font-semibold text-base">Citations</h2>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={closeCitationsSidebar}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                            {sources.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center mt-10">No citations found for this message.</p>
-                            ) : (
-                                sources.map((src, idx) => {
-                                    const isDocument = isDocumentSource(src.url)
-                                    const route = isDocument ? getDocumentRoute(src.url) : null
-
-                                    const inner = (
-                                        <>
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-5 w-5 rounded-sm overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                                                    {isDocument ? (
-                                                        <FileText className="h-3.5 w-3.5 text-primary/70" />
-                                                    ) : (
-                                                        <SourceFavicon url={src.url} size={20} className="h-5 w-5 object-contain" />
-                                                    )}
-                                                </div>
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
-                                                    {isDocument ? 'Project Document' : getCitationSourceDisplayName(src.url, src.title)}
-                                                </span>
-                                                {!isDocument && (
-                                                    <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover:text-primary transition-colors ml-auto" />
-                                                )}
-                                            </div>
-                                            <h3 className="text-sm font-bold leading-tight group-hover:text-primary transition-colors line-clamp-3">
-                                                {src.title}
-                                            </h3>
-                                            <p className="text-[12px] text-muted-foreground/70 line-clamp-3 leading-snug">
-                                                {src.snippet || (isDocument ? 'Document' : src.url)}
-                                            </p>
-                                        </>
-                                    )
-
-                                    if (isDocument && route) {
-                                        return (
-                                            <div
-                                                key={idx}
-                                                className="group block space-y-2 border-b border-border/40 pb-5 last:border-0 cursor-pointer"
-                                                onClick={() => { closeCitationsSidebar(); window.location.href = route }}
-                                            >
-                                                {inner}
-                                            </div>
-                                        )
-                                    }
-
-                                    return (
-                                        <a
-                                            key={idx}
-                                            href={src.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group block space-y-2 border-b border-border/40 pb-5 last:border-0"
-                                        >
-                                            {inner}
-                                        </a>
-                                    )
-                                })
-                            )}
-                        </div>
-                    </div>
-                )
-            })()
-            }
+            <CitationsSidebar
+                isOpen={isCitationsSidebarOpen && openCitationsIndex !== null}
+                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? parseSources(messages[openCitationsIndex].content) : []}
+                onClose={closeCitationsSidebar}
+            />
             {/* Duplicate File Warning */}
             <DuplicateFileModal
                 isOpen={isDuplicateModalOpen}

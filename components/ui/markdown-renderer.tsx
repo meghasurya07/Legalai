@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChatCitationSource, CitationPill, SourceFavicon } from '@/components/chat-interface';
+import { CitationPill, SourceFavicon } from '@/components/chat-interface';
+import {
+    parseSources,
+    stripSourcesBlock,
+    escapeCitationMarkers,
+} from '@/lib/citations';
 
 interface MarkdownRendererProps {
     content: string;
@@ -16,32 +21,8 @@ export function MarkdownRenderer({ content, onSourceClick }: MarkdownRendererPro
         if (onSourceClick) onSourceClick(id);
     };
 
-    const sourcesMatch = content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i);
-    const rawDisplayContent = content
-        .replace(/<!--SOURCES:?[\s\S]*?-->/gi, '')
-        .replace(/<!--S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')
-        .replace(/<!--\s*$/i, '')
-        .trim();
-
-    const displayContent = rawDisplayContent.replace(/\[\s*(\d+)\s*\]/g, '⟦CITE_$1⟧');
-
-    const sources: ChatCitationSource[] = sourcesMatch ? sourcesMatch[1].trim().split('\n').map((line: string) => {
-        const match = line.match(/\[(\d+)\]\s*([^|]+)(?:\s*\|\s*([^|]*?))?(?:\s*\|\s*(.*))?$/);
-        if (!match) return null;
-
-        let url = (match[3] || '').trim();
-        if (url && !url.startsWith('http') && !url.includes('.')) {
-            url = '';
-        }
-
-        return {
-            num: match[1],
-            title: match[2].trim(),
-            url: url || 'https://legal-source.internal',
-            snippet: (match[4] || '').trim()
-        } as ChatCitationSource;
-    }).filter((x): x is ChatCitationSource => x !== null) : [];
-
+    const sources = parseSources(content);
+    const displayContent = escapeCitationMarkers(stripSourcesBlock(content));
     const sourcesMap = new Map(sources.map((src) => [src.num, src]));
 
     const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {

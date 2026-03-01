@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Upload, FileText, ArrowLeft, Loader2, CheckCircle2, XCircle, Send } from "lucide-react"
+import { FileText, Loader2, XCircle, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
+import { ToolPageLayout } from "@/components/ui/tool-page-layout"
+import { FileUploadZone } from "@/components/ui/file-upload-zone"
 
 interface ComparisonResult {
     summary: string
@@ -25,7 +26,6 @@ interface ComparisonResult {
 }
 
 export default function RedlineAnalysis() {
-    const router = useRouter()
     const [originalFile, setOriginalFile] = React.useState<File | null>(null)
     const [revisedFile, setRevisedFile] = React.useState<File | null>(null)
     const [isProcessing, setIsProcessing] = React.useState(false)
@@ -126,268 +126,205 @@ export default function RedlineAnalysis() {
     }
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 bg-background">
-            <div className="flex-1 overflow-auto">
-                <div className="max-w-7xl mx-auto p-6 md:p-8 lg:p-12 pb-32">
-                    {/* Header */}
-                    <div className="flex items-center gap-4 mb-8">
-                        <Button variant="ghost" size="icon" onClick={() => router.push('/templates')}>
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                        <div className="flex-1">
-                            <h1 className="text-3xl font-bold tracking-tight mb-2">Redline Analysis</h1>
-                            <p className="text-muted-foreground">Compare document versions and analyze changes with AI</p>
-                        </div>
+        <ToolPageLayout title="Redline Analysis" description="Compare document versions and analyze changes with AI">
+
+            {!result ? (
+                /* Upload Section */
+                <div className="grid md:grid-cols-2 gap-6">
+                    {/* Original Document */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Original Document</CardTitle>
+                            <CardDescription>Upload the original version</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <FileUploadZone id="original-file" file={originalFile} onFileSelect={(f) => handleFileSelect('original', f)} />
+                        </CardContent>
+                    </Card>
+
+                    {/* Revised Document */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Revised Document</CardTitle>
+                            <CardDescription>Upload the revised version</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <FileUploadZone id="revised-file" file={revisedFile} onFileSelect={(f) => handleFileSelect('revised', f)} />
+                        </CardContent>
+                    </Card>
+                </div>
+            ) : (
+                /* Results Section */
+                <div className="space-y-6">
+                    {/* Statistics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-2xl font-bold">{result.statistics.totalChanges}</div>
+                                <p className="text-xs text-muted-foreground">Total Changes</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-2xl font-bold text-green-600">{result.statistics.addedLines}</div>
+                                <p className="text-xs text-muted-foreground">Additions</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-2xl font-bold text-red-600">{result.statistics.deletedLines}</div>
+                                <p className="text-xs text-muted-foreground">Deletions</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="text-2xl font-bold text-blue-600">{result.statistics.modifiedLines}</div>
+                                <p className="text-xs text-muted-foreground">Modifications</p>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    {!result ? (
-                        /* Upload Section */
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {/* Original Document */}
+                    {/* Summary */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm leading-relaxed">{result.summary}</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Changes Details */}
+                    <div className="grid md:grid-cols-3 gap-4">
+                        {result.changes.additions.length > 0 && (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-lg">Original Document</CardTitle>
-                                    <CardDescription>Upload the original version</CardDescription>
+                                    <CardTitle className="text-base text-green-600">Additions</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                                        <input
-                                            type="file"
-                                            id="original-file"
-                                            className="hidden"
-                                            onChange={(e) => e.target.files?.[0] && handleFileSelect('original', e.target.files[0])}
-                                        />
-                                        <label htmlFor="original-file" className="cursor-pointer">
-                                            {originalFile ? (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <CheckCircle2 className="h-12 w-12 text-green-500" />
-                                                    <p className="font-medium">{originalFile.name}</p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {(originalFile.size / 1024 / 1024).toFixed(2)} MB
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <Upload className="h-12 w-12 text-muted-foreground" />
-                                                    <p className="font-medium">Click to upload</p>
-                                                    <p className="text-sm text-muted-foreground">Any file type supported</p>
-                                                </div>
-                                            )}
-                                        </label>
-                                    </div>
+                                    <ul className="space-y-2 text-sm">
+                                        {result.changes.additions.map((change, i) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-green-600 mt-0.5">+</span>
+                                                <span className="flex-1">{change}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </CardContent>
                             </Card>
+                        )}
 
-                            {/* Revised Document */}
+                        {result.changes.deletions.length > 0 && (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-lg">Revised Document</CardTitle>
-                                    <CardDescription>Upload the revised version</CardDescription>
+                                    <CardTitle className="text-base text-red-600">Deletions</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                                        <input
-                                            type="file"
-                                            id="revised-file"
-                                            className="hidden"
-                                            onChange={(e) => e.target.files?.[0] && handleFileSelect('revised', e.target.files[0])}
-                                        />
-                                        <label htmlFor="revised-file" className="cursor-pointer">
-                                            {revisedFile ? (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <CheckCircle2 className="h-12 w-12 text-green-500" />
-                                                    <p className="font-medium">{revisedFile.name}</p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {(revisedFile.size / 1024 / 1024).toFixed(2)} MB
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <Upload className="h-12 w-12 text-muted-foreground" />
-                                                    <p className="font-medium">Click to upload</p>
-                                                    <p className="text-sm text-muted-foreground">Any file type supported</p>
-                                                </div>
-                                            )}
-                                        </label>
-                                    </div>
+                                    <ul className="space-y-2 text-sm">
+                                        {result.changes.deletions.map((change, i) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-red-600 mt-0.5">-</span>
+                                                <span className="flex-1">{change}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </CardContent>
                             </Card>
-                        </div>
-                    ) : (
-                        /* Results Section */
-                        <div className="space-y-6">
-                            {/* Statistics */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <Card>
-                                    <CardContent className="pt-6">
-                                        <div className="text-2xl font-bold">{result.statistics.totalChanges}</div>
-                                        <p className="text-xs text-muted-foreground">Total Changes</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardContent className="pt-6">
-                                        <div className="text-2xl font-bold text-green-600">{result.statistics.addedLines}</div>
-                                        <p className="text-xs text-muted-foreground">Additions</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardContent className="pt-6">
-                                        <div className="text-2xl font-bold text-red-600">{result.statistics.deletedLines}</div>
-                                        <p className="text-xs text-muted-foreground">Deletions</p>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardContent className="pt-6">
-                                        <div className="text-2xl font-bold text-blue-600">{result.statistics.modifiedLines}</div>
-                                        <p className="text-xs text-muted-foreground">Modifications</p>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                        )}
 
-                            {/* Summary */}
+                        {result.changes.modifications.length > 0 && (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Summary</CardTitle>
+                                    <CardTitle className="text-base text-blue-600">Modifications</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm leading-relaxed">{result.summary}</p>
+                                    <ul className="space-y-2 text-sm">
+                                        {result.changes.modifications.map((change, i) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-blue-600 mt-0.5">~</span>
+                                                <span className="flex-1">{change}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </CardContent>
                             </Card>
-
-                            {/* Changes Details */}
-                            <div className="grid md:grid-cols-3 gap-4">
-                                {result.changes.additions.length > 0 && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-base text-green-600">Additions</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <ul className="space-y-2 text-sm">
-                                                {result.changes.additions.map((change, i) => (
-                                                    <li key={i} className="flex items-start gap-2">
-                                                        <span className="text-green-600 mt-0.5">+</span>
-                                                        <span className="flex-1">{change}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {result.changes.deletions.length > 0 && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-base text-red-600">Deletions</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <ul className="space-y-2 text-sm">
-                                                {result.changes.deletions.map((change, i) => (
-                                                    <li key={i} className="flex items-start gap-2">
-                                                        <span className="text-red-600 mt-0.5">-</span>
-                                                        <span className="flex-1">{change}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {result.changes.modifications.length > 0 && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-base text-blue-600">Modifications</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <ul className="space-y-2 text-sm">
-                                                {result.changes.modifications.map((change, i) => (
-                                                    <li key={i} className="flex items-start gap-2">
-                                                        <span className="text-blue-600 mt-0.5">~</span>
-                                                        <span className="flex-1">{change}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-
-                            {/* Q&A Section */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Ask Questions</CardTitle>
-                                    <CardDescription>Ask questions about the changes in the document</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {conversation.length > 0 && (
-                                        <div className="space-y-3 max-h-64 overflow-auto mb-4">
-                                            {conversation.map((msg, i) => (
-                                                <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                    <div className={`rounded-lg px-4 py-2 max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                                        <p className="text-sm">{msg.content}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <div className="flex gap-2">
-                                        <Textarea
-                                            placeholder="Ask about the changes..."
-                                            value={question}
-                                            onChange={(e) => setQuestion(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault()
-                                                    handleAskQuestion()
-                                                }
-                                            }}
-                                            className="min-h-[60px]"
-                                        />
-                                        <Button onClick={handleAskQuestion} disabled={isAsking || !question.trim()}>
-                                            {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-4 mt-8">
-                        {!result ? (
-                            <Button
-                                onClick={handleCompare}
-                                disabled={!originalFile || !revisedFile || isProcessing}
-                                size="lg"
-                                className="gap-2"
-                            >
-                                {isProcessing ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Processing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FileText className="h-4 w-4" />
-                                        Compare Documents
-                                    </>
-                                )}
-                            </Button>
-                        ) : (
-                            <>
-                                <Button onClick={resetAnalysis} variant="outline" className="gap-2">
-                                    <XCircle className="h-4 w-4" />
-                                    New Analysis
-                                </Button>
-                            </>
                         )}
                     </div>
+
+                    {/* Q&A Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Ask Questions</CardTitle>
+                            <CardDescription>Ask questions about the changes in the document</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {conversation.length > 0 && (
+                                <div className="space-y-3 max-h-64 overflow-auto mb-4">
+                                    {conversation.map((msg, i) => (
+                                        <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`rounded-lg px-4 py-2 max-w-[80%] ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                                <p className="text-sm">{msg.content}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex gap-2">
+                                <Textarea
+                                    placeholder="Ask about the changes..."
+                                    value={question}
+                                    onChange={(e) => setQuestion(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault()
+                                            handleAskQuestion()
+                                        }
+                                    }}
+                                    className="min-h-[60px]"
+                                />
+                                <Button onClick={handleAskQuestion} disabled={isAsking || !question.trim()}>
+                                    {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 mt-8">
+                {!result ? (
+                    <Button
+                        onClick={handleCompare}
+                        disabled={!originalFile || !revisedFile || isProcessing}
+                        size="lg"
+                        className="gap-2"
+                    >
+                        {isProcessing ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Processing...
+                            </>
+                        ) : (
+                            <>
+                                <FileText className="h-4 w-4" />
+                                Compare Documents
+                            </>
+                        )}
+                    </Button>
+                ) : (
+                    <>
+                        <Button onClick={resetAnalysis} variant="outline" className="gap-2">
+                            <XCircle className="h-4 w-4" />
+                            New Analysis
+                        </Button>
+                    </>
+                )}
             </div>
-            {/* Duplicate File Warning */}
             <DuplicateFileModal
                 isOpen={isDuplicateModalOpen}
                 onOpenChange={setIsDuplicateModalOpen}
             />
-        </div>
+        </ToolPageLayout>
     )
 }
