@@ -40,6 +40,13 @@ export function TabularReviewChat({
     const inputRef = useRef<HTMLInputElement>(null)
     const latestMessagesRef = useRef<ChatMessage[]>(messages)
 
+    // Sync initialMessages when they load asynchronously from the DB
+    useEffect(() => {
+        if (initialMessages && initialMessages.length > 0) {
+            setMessages(initialMessages)
+        }
+    }, [initialMessages])
+
     useEffect(() => {
         latestMessagesRef.current = messages
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
