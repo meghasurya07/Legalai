@@ -88,24 +88,87 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     const [chatOpen, setChatOpen] = useState(true)
     const [runProgress, setRunProgress] = useState({ total: 0, completed: 0 })
     const [isGeneratingColumns, setIsGeneratingColumns] = useState(true)
+    const [isLoadingCached, setIsLoadingCached] = useState(true)
 
     const hasInitialized = useRef(false)
     const autoRunTriggered = useRef(false)
+    const savedFileIds = useRef<Set<string>>(new Set())
+    const pendingNewDocs = useRef<DocumentFile[]>([])
 
     const documents = useMemo(() => project.files || [], [project.files])
     const docsWithText = useMemo(() => documents.filter(d => d.extracted_text), [documents])
 
     // ──────────────────────────────────────────────────
-    // 1. AI Column Generation on mount
+    // Helper: Save columns + cells to the database
+    // ──────────────────────────────────────────────────
+    const saveToDatabase = useCallback(async (cols: ReviewColumn[], cellMap: Map<string, ReviewCell>) => {
+        try {
+            const cellArray = Array.from(cellMap.values())
+            await fetch('/api/tabular-review/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, columns: cols, cells: cellArray })
+            })
+            console.log('[Tabular Review] Auto-saved to database')
+        } catch (err) {
+            console.error('[Tabular Review] Auto-save failed:', err)
+        }
+    }, [projectId])
+
+    // ──────────────────────────────────────────────────
+    // 1. Load cached data OR AI Column Generation on mount
     // ──────────────────────────────────────────────────
     useEffect(() => {
         if (hasInitialized.current) return
         hasInitialized.current = true
 
-        const generateColumns = async () => {
+        const initialize = async () => {
             setIsGeneratingColumns(true)
+            setIsLoadingCached(true)
 
-            // Need documents with extracted text to analyze
+            // STEP 1: Try loading from database first
+            try {
+                const loadRes = await fetch(`/api/tabular-review/load?projectId=${projectId}`)
+                if (loadRes.ok) {
+                    const cached = await loadRes.json()
+
+                    if (cached.columns && cached.columns.length > 0) {
+                        setColumns(cached.columns)
+
+                        const restoredCells = new Map<string, ReviewCell>()
+                        for (const cell of cached.cells || []) {
+                            restoredCells.set(getCellKey(cell.documentId, cell.columnId), cell)
+                        }
+                        setCells(restoredCells)
+
+                        // Track which file IDs we already have data for
+                        const cachedFileIds = new Set<string>((cached.cells || []).map((c: { documentId: string }) => c.documentId))
+                        savedFileIds.current = cachedFileIds
+
+                        // Detect new documents not in cached data
+                        const newDocs = docsWithText.filter(d => !cachedFileIds.has(d.id))
+
+                        setIsGeneratingColumns(false)
+                        setIsLoadingCached(false)
+
+                        if (newDocs.length > 0) {
+                            toast.success(`Loaded from cache. ${newDocs.length} new document(s) to extract.`)
+                            pendingNewDocs.current = newDocs
+                            // autoRunTriggered stays false so the auto-run effect picks up new docs
+                        } else {
+                            toast.success(`Loaded ${cached.columns.length} columns from cache`)
+                            autoRunTriggered.current = true
+                        }
+                        return
+                    }
+                }
+            } catch (err) {
+                console.error('[Tabular Review] Cache load failed, falling back to AI:', err)
+            }
+
+            setIsLoadingCached(false)
+
+            // STEP 2: No cached data — generate columns with AI
             if (docsWithText.length === 0) {
                 console.log('[Tabular Review] No documents with text, using fallback columns')
                 setColumns(FALLBACK_COLUMNS)
@@ -153,7 +216,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
             }
         }
 
-        generateColumns()
+        initialize()
     }, [docsWithText, projectId])
 
     // ──────────────────────────────────────────────────
@@ -314,7 +377,13 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         }
 
         setIsRunning(false)
-    }, [isRunning, docsWithText, cells, runDocumentBatch])
+
+        // Auto-save after extraction completes
+        setCells(currentCells => {
+            saveToDatabase(targetColumns.length > 0 ? columns : targetColumns, currentCells)
+            return currentCells
+        })
+    }, [isRunning, docsWithText, cells, runDocumentBatch, columns, saveToDatabase])
 
     // ──────────────────────────────────────────────────
     // 5. Run ALL cells (force re-run, used by Run all button)
@@ -343,23 +412,37 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
         setIsRunning(false)
         toast.success("Tabular review completed!")
-    }, [isRunning, docsWithText, columns, runDocumentBatch])
+
+        // Auto-save after full run
+        setCells(currentCells => {
+            saveToDatabase(columns, currentCells)
+            return currentCells
+        })
+    }, [isRunning, docsWithText, columns, runDocumentBatch, saveToDatabase])
 
     // ──────────────────────────────────────────────────
     // 5. Auto-run extraction after columns are set
     // ──────────────────────────────────────────────────
     useEffect(() => {
         if (isGeneratingColumns) return
+        if (isLoadingCached) return
         if (autoRunTriggered.current) return
         if (columns.length === 0 || docsWithText.length === 0) return
 
         autoRunTriggered.current = true
-        // Small delay to ensure state is settled
+
+        // If we have pending new docs from cached load, only run those
+        const newDocs = pendingNewDocs.current
         const timer = setTimeout(() => {
-            runColumns(columns)
+            if (newDocs.length > 0) {
+                pendingNewDocs.current = []
+                runColumns(columns, newDocs)
+            } else {
+                runColumns(columns)
+            }
         }, 300)
         return () => clearTimeout(timer)
-    }, [isGeneratingColumns, columns, docsWithText, runColumns])
+    }, [isGeneratingColumns, isLoadingCached, columns, docsWithText, runColumns])
 
     // ──────────────────────────────────────────────────
     // Add a new column (auto-triggers extraction)
@@ -387,15 +470,20 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
     // Remove a column
     const removeColumn = useCallback((columnId: string) => {
-        setColumns(prev => prev.filter(c => c.id !== columnId))
-        setCells(prev => {
-            const next = new Map(prev)
-            for (const key of next.keys()) {
-                if (key.endsWith(`__${columnId}`)) next.delete(key)
-            }
-            return next
+        setColumns(prev => {
+            const updated = prev.filter(c => c.id !== columnId)
+            // Auto-save after column removal
+            setCells(currentCells => {
+                const next = new Map(currentCells)
+                for (const key of next.keys()) {
+                    if (key.endsWith(`__${columnId}`)) next.delete(key)
+                }
+                saveToDatabase(updated, next)
+                return next
+            })
+            return updated
         })
-    }, [])
+    }, [saveToDatabase])
 
     // Apply a template (auto-triggers extraction via the columns useEffect won't re-trigger since autoRunTriggered is true — so we trigger manually)
     const applyTemplate = useCallback((templateId: string) => {

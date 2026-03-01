@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase/server'
+import { apiError } from '@/lib/api-utils'
+
+export async function GET(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const projectId = searchParams.get('projectId')
+
+        if (!projectId) {
+            return apiError('Missing projectId', 400)
+        }
+
+        // Load columns
+        const { data: columnRows, error: colError } = await supabase
+            .from('tabular_review_columns')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('order', { ascending: true })
+
+        if (colError) {
+            console.error('[Tabular Review Load] Column load error:', colError)
+            return apiError('Failed to load columns', 500, colError)
+        }
+
+        // Load cells
+        const { data: cellRows, error: cellError } = await supabase
+            .from('tabular_review_cells')
+            .select('*')
+            .eq('project_id', projectId)
+
+        if (cellError) {
+            console.error('[Tabular Review Load] Cell load error:', cellError)
+            return apiError('Failed to load cells', 500, cellError)
+        }
+
+        // Transform to frontend format
+        const columns = (columnRows || []).map(row => ({
+            id: row.column_id,
+            name: row.name,
+            prompt: row.prompt,
+            width: row.width || 220,
+            order: row.order || 0,
+        }))
+
+        const cells = (cellRows || []).map(row => ({
+            documentId: row.file_id,
+            columnId: row.column_id,
+            content: row.content,
+            status: row.status,
+        }))
+
+        console.log(`[Tabular Review] Loaded ${columns.length} columns and ${cells.length} cells for project ${projectId}`)
+
+        return NextResponse.json({ columns, cells })
+    } catch (error) {
+        console.error('[Tabular Review Load] Error:', error)
+        return apiError('Load failed', 500, error)
+    }
+}
