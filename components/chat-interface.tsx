@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
-type ChatCitationSource = {
+export type ChatCitationSource = {
     num: string
     title: string
     url: string
@@ -30,7 +30,7 @@ type ChatCitationSource = {
 
 
 
-function getCitationSourceDisplayName(url: string, title: string): string {
+export function getCitationSourceDisplayName(url: string, title: string): string {
     try {
         const urlObj = new URL(url)
         const hostname = urlObj.hostname.replace('www.', '')
@@ -53,7 +53,7 @@ function getCitationSourceDisplayName(url: string, title: string): string {
     }
 }
 
-function isDocumentSource(url: string): boolean {
+export function isDocumentSource(url: string): boolean {
     try {
         const hostname = new URL(url).hostname.replace('www.', '')
         return hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local'
@@ -63,7 +63,7 @@ function isDocumentSource(url: string): boolean {
 }
 
 /** Extract in-app route from vault.app URL: /documents/document/{fileId}?ci={chunkIndex} */
-function getDocumentRoute(url: string): string | null {
+export function getDocumentRoute(url: string): string | null {
     try {
         const urlObj = new URL(url)
         if (urlObj.hostname !== 'vault.app') return null
@@ -87,7 +87,7 @@ function getHostname(url: string): string | null {
     }
 }
 
-function getFaviconUrl(url: string, size: number = 64): string | null {
+export function getFaviconUrl(url: string, size: number = 64): string | null {
     try {
         const host = getHostname(url)
         if (!host) {
@@ -100,7 +100,7 @@ function getFaviconUrl(url: string, size: number = 64): string | null {
     }
 }
 
-function SourceFavicon({
+export function SourceFavicon({
     url,
     size,
     className,
@@ -144,7 +144,7 @@ function SourceFavicon({
     )
 }
 
-function CitationPill({
+export function CitationPill({
     citationNum,
     source,
 }: {
