@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { X, Send, Loader2, Sparkles, FileText, ExternalLink } from "lucide-react"
 import { DocumentFile } from "@/types"
@@ -319,43 +319,61 @@ export function TabularReviewChat({
                         </div>
                     </div>
                 )}
-                {messages.map((msg, i) => (
-                    <div key={i} className={msg.role === "user" ? "flex justify-end" : ""}>
-                        <div
-                            className={
-                                msg.role === "user"
-                                    ? "bg-foreground text-background px-3 py-1.5 rounded-2xl rounded-br-sm text-[12px] max-w-[85%]"
-                                    : "text-[12px] leading-relaxed"
-                            }
-                        >
-                            {msg.role === "assistant" ? (
-                                <>
-                                    <MarkdownRenderer
-                                        content={msg.content}
-                                        onSourceClick={() => openCitationsSidebar(i)}
-                                    />
-                                    {isStreaming && i === messages.length - 1 && (
-                                        <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
-                                    )}
-                                </>
-                            ) : (
-                                msg.content
-                            )}
-                        </div>
-                    </div>
-                ))}
+                {messages.map((msg, i) => {
+                    const isLastMessage = i === messages.length - 1;
+                    const isCurrentlyStreamingAssistant = isLastMessage && msg.role === "assistant" && activityPhase;
 
-                {/* AI Activity Timeline */}
-                {activityPhase && activityExpanded && (
-                    <div className="mb-4">
-                        <TaskActivityTimeline
-                            phase={activityPhase}
-                            entries={activityEntries}
-                            completedPhases={completedPhases}
-                            onClose={() => setActivityExpanded(false)}
-                        />
-                    </div>
-                )}
+                    return (
+                        <React.Fragment key={i}>
+                            {isCurrentlyStreamingAssistant && activityExpanded && (
+                                <div className="mb-4">
+                                    <TaskActivityTimeline
+                                        phase={activityPhase}
+                                        entries={activityEntries}
+                                        completedPhases={completedPhases}
+                                        onClose={() => setActivityExpanded(false)}
+                                    />
+                                </div>
+                            )}
+                            <div className={msg.role === "user" ? "flex justify-end" : ""}>
+                                <div
+                                    className={
+                                        msg.role === "user"
+                                            ? "bg-foreground text-background px-3 py-1.5 rounded-2xl rounded-br-sm text-[12px] max-w-[85%]"
+                                            : "text-[12px] leading-relaxed"
+                                    }
+                                >
+                                    {msg.role === "assistant" ? (
+                                        <>
+                                            <MarkdownRenderer
+                                                content={msg.content}
+                                                onSourceClick={() => openCitationsSidebar(i)}
+                                            />
+                                            {isStreaming && i === messages.length - 1 && (
+                                                <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
+                                            )}
+                                        </>
+                                    ) : (
+                                        msg.content
+                                    )}
+                                </div>
+                            </div>
+                            {/* If the last message is from the user and we are waiting for the assistant, show timeline here */}
+                            {isLastMessage && msg.role === "user" && activityPhase && activityExpanded && (
+                                <div className="mt-4 mb-4">
+                                    <TaskActivityTimeline
+                                        phase={activityPhase}
+                                        entries={activityEntries}
+                                        completedPhases={completedPhases}
+                                        onClose={() => setActivityExpanded(false)}
+                                    />
+                                </div>
+                            )}
+                        </React.Fragment>
+                    );
+                })}
+
+                {/* AI Activity Timeline moved inside messages loop */}
 
                 <div ref={messagesEndRef} />
             </div>

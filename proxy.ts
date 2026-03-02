@@ -1,8 +1,24 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { auth0 } from "./lib/auth0";
 
+const protectedRoutes = ['/documents', '/templates', '/recent-chats', '/settings', '/help'];
+
 export async function proxy(request: NextRequest) {
-    return await auth0.middleware(request);
+    const response = await auth0.middleware(request);
+
+    const pathname = request.nextUrl.pathname;
+    const isProtected = protectedRoutes.some(route => pathname.startsWith(route));
+
+    if (isProtected) {
+        const session = await auth0.getSession();
+        if (!session) {
+            const loginUrl = new URL('/auth/login', request.url);
+            loginUrl.searchParams.set('returnTo', pathname);
+            return NextResponse.redirect(loginUrl);
+        }
+    }
+
+    return response;
 }
 
 export const config = {
