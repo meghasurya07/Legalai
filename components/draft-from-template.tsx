@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, FileText, Download, Plus, X } from "lucide-react"
+import { Loader2, FileText, Download, Plus, X, PenTool, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { ToolPageLayout } from "@/components/ui/tool-page-layout"
@@ -42,18 +43,11 @@ export default function DraftFromTemplate() {
 
     const handleTemplateChange = (templateId: string) => {
         setSelectedTemplate(templateId)
-        // Reset fields when template changes
         setFields([{ name: '', value: '' }])
     }
 
-    const addField = () => {
-        setFields([...fields, { name: '', value: '' }])
-    }
-
-    const removeField = (index: number) => {
-        setFields(fields.filter((_, i) => i !== index))
-    }
-
+    const addField = () => setFields([...fields, { name: '', value: '' }])
+    const removeField = (index: number) => setFields(fields.filter((_, i) => i !== index))
     const updateField = (index: number, key: 'name' | 'value', value: string) => {
         const newFields = [...fields]
         newFields[index][key] = value
@@ -61,35 +55,21 @@ export default function DraftFromTemplate() {
     }
 
     const handleGenerate = async () => {
-        if (!selectedTemplate) {
-            toast.error("Please select a template")
-            return
-        }
-
+        if (!selectedTemplate) { toast.error("Please select a template"); return }
         const validFields = fields.filter(f => f.name && f.value)
-        if (validFields.length === 0) {
-            toast.error("Please add at least one field")
-            return
-        }
+        if (validFields.length === 0) { toast.error("Please add at least one field"); return }
 
         setIsGenerating(true)
-
         try {
             const response = await fetch('/api/templates/draft-from-template', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    template: selectedTemplate,
-                    fields: validFields,
-                    additionalInstructions
-                })
+                body: JSON.stringify({ template: selectedTemplate, fields: validFields, additionalInstructions })
             })
-
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.error || 'Failed to generate document')
             }
-
             const data = await response.json()
             setResult(data)
             toast.success("Document generated successfully!")
@@ -115,15 +95,18 @@ export default function DraftFromTemplate() {
     }
 
     return (
-        <ToolPageLayout title="Draft from Template" description="Generate legal documents from predefined templates">
+        <ToolPageLayout
+            title="Draft from Template"
+            description="Generate legal documents from predefined templates"
+            icon={<PenTool className="h-4 w-4" />}
+            accentColor="bg-lime-500/10 text-lime-600 dark:text-lime-400"
+        >
 
             {!result ? (
-                /* Configuration Section */
-                <div className="space-y-6 max-w-3xl mx-auto">
-                    {/* Template Selection */}
+                <div className="space-y-5 max-w-3xl mx-auto">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Select Template</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Select Template</CardTitle>
                             <CardDescription>Choose a legal document template</CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -145,116 +128,90 @@ export default function DraftFromTemplate() {
                         </CardContent>
                     </Card>
 
-                    {/* Template Fields */}
                     {selectedTemplate && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Template Variables</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Template Variables</CardTitle>
                                 <CardDescription>Fill in the details for your document</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-3">
                                 {fields.map((field, index) => (
-                                    <div key={index} className="flex gap-2">
-                                        <div className="flex-1 space-y-2">
-                                            <Input
-                                                placeholder="Field name (e.g., 'Company Name', 'Effective Date')"
-                                                value={field.name}
-                                                onChange={(e) => updateField(index, 'name', e.target.value)}
-                                            />
-                                            <Input
-                                                placeholder="Field value"
-                                                value={field.value}
-                                                onChange={(e) => updateField(index, 'value', e.target.value)}
-                                            />
+                                    <div key={index} className="flex gap-2 items-start">
+                                        <div className="flex-1 grid grid-cols-2 gap-2">
+                                            <Input placeholder="Field name (e.g., 'Company Name')" value={field.name} onChange={(e) => updateField(index, 'name', e.target.value)} />
+                                            <Input placeholder="Field value" value={field.value} onChange={(e) => updateField(index, 'value', e.target.value)} />
                                         </div>
                                         {fields.length > 1 && (
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                onClick={() => removeField(index)}
-                                            >
-                                                <X className="h-4 w-4" />
+                                            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => removeField(index)}>
+                                                <X className="h-3.5 w-3.5" />
                                             </Button>
                                         )}
                                     </div>
                                 ))}
-                                <Button onClick={addField} variant="outline" className="w-full gap-2">
-                                    <Plus className="h-4 w-4" />
+                                <Button onClick={addField} variant="outline" size="sm" className="w-full gap-2">
+                                    <Plus className="h-3.5 w-3.5" />
                                     Add Field
                                 </Button>
                             </CardContent>
                         </Card>
                     )}
 
-                    {/* Additional Instructions */}
                     {selectedTemplate && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Additional Instructions (Optional)</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Additional Instructions (Optional)</CardTitle>
                                 <CardDescription>Specify any custom requirements or modifications</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Textarea
-                                    placeholder="e.g., 'Include a non-compete clause', 'Add termination provisions for breach'"
-                                    value={additionalInstructions}
-                                    onChange={(e) => setAdditionalInstructions(e.target.value)}
-                                    className="min-h-[100px]"
-                                />
+                                <Textarea placeholder="e.g., 'Include a non-compete clause', 'Add termination provisions for breach'" value={additionalInstructions} onChange={(e) => setAdditionalInstructions(e.target.value)} className="min-h-[100px]" />
                             </CardContent>
                         </Card>
                     )}
 
                     {selectedTemplate && (
-                        <Button
-                            onClick={handleGenerate}
-                            disabled={isGenerating}
-                            size="lg"
-                            className="w-full gap-2"
-                        >
+                        <Button onClick={handleGenerate} disabled={isGenerating} size="lg" className="w-full gap-2">
                             {isGenerating ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Generating Document...
-                                </>
+                                <><Loader2 className="h-4 w-4 animate-spin" /> Generating Document...</>
                             ) : (
-                                <>
-                                    <FileText className="h-4 w-4" />
-                                    Generate Document
-                                </>
+                                <><PenTool className="h-4 w-4" /> Generate Document</>
                             )}
                         </Button>
                     )}
                 </div>
             ) : (
-                /* Generated Document */
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Document Info */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5" />
-                                Document Generated
-                            </CardTitle>
-                            <CardDescription>
-                                Template: {TEMPLATES.find(t => t.id === result.templateUsed)?.name} • {result.fieldsPopulated} fields populated
-                            </CardDescription>
-                        </CardHeader>
+                    <Card className="overflow-hidden">
+                        <div className="bg-lime-500/5 px-6 py-4 border-b">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-5 w-5 text-lime-600 dark:text-lime-400" />
+                                <span className="text-sm font-semibold">Document Generated</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="secondary" className="text-xs">{TEMPLATES.find(t => t.id === result.templateUsed)?.name}</Badge>
+                                <Badge variant="outline" className="text-xs">{result.fieldsPopulated} fields populated</Badge>
+                            </div>
+                        </div>
                     </Card>
 
                     {/* Generated Text */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Generated Document</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-lime-500/10 flex items-center justify-center">
+                                    <FileText className="h-3.5 w-3.5 text-lime-600 dark:text-lime-400" />
+                                </div>
+                                Generated Document
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="bg-muted rounded-lg p-6 max-h-[600px] overflow-auto">
+                            <div className="bg-muted/30 rounded-lg p-6 max-h-[600px] overflow-auto border">
                                 <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{result.documentText}</pre>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Actions */}
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                         <Button onClick={handleDownload} className="gap-2">
                             <Download className="h-4 w-4" />
                             Download Document

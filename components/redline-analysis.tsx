@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { FileText, Loader2, XCircle, Send } from "lucide-react"
+import { FileText, Loader2, XCircle, Send, Plus, Minus, RefreshCw, FileEdit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
@@ -126,87 +127,119 @@ export default function RedlineAnalysis() {
     }
 
     return (
-        <ToolPageLayout title="Redline Analysis" description="Compare document versions and analyze changes with AI">
+        <ToolPageLayout
+            title="Redline Analysis"
+            description="Compare document versions and analyze changes with AI"
+            icon={<FileEdit className="h-4 w-4" />}
+            accentColor="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+        >
 
             {!result ? (
                 /* Upload Section */
-                <div className="grid md:grid-cols-2 gap-6">
-                    {/* Original Document */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Original Document</CardTitle>
-                            <CardDescription>Upload the original version</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <FileUploadZone id="original-file" file={originalFile} onFileSelect={(f) => handleFileSelect('original', f)} />
-                        </CardContent>
-                    </Card>
+                <div className="space-y-5 max-w-4xl mx-auto">
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <Card className="border-dashed">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">Original</Badge>
+                                    <CardTitle className="text-base">Original Document</CardTitle>
+                                </div>
+                                <CardDescription>Upload the original version</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <FileUploadZone id="original-file" file={originalFile} onFileSelect={(f) => handleFileSelect('original', f)} />
+                            </CardContent>
+                        </Card>
 
-                    {/* Revised Document */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Revised Document</CardTitle>
-                            <CardDescription>Upload the revised version</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <FileUploadZone id="revised-file" file={revisedFile} onFileSelect={(f) => handleFileSelect('revised', f)} />
-                        </CardContent>
-                    </Card>
+                        <Card className="border-dashed">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">Revised</Badge>
+                                    <CardTitle className="text-base">Revised Document</CardTitle>
+                                </div>
+                                <CardDescription>Upload the revised version</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <FileUploadZone id="revised-file" file={revisedFile} onFileSelect={(f) => handleFileSelect('revised', f)} />
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Button
+                        onClick={handleCompare}
+                        disabled={!originalFile || !revisedFile || isProcessing}
+                        size="lg"
+                        className="w-full gap-2"
+                    >
+                        {isProcessing ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                        ) : (
+                            <><FileEdit className="h-4 w-4" /> Compare Documents</>
+                        )}
+                    </Button>
                 </div>
             ) : (
                 /* Results Section */
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Statistics */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="text-2xl font-bold">{result.statistics.totalChanges}</div>
-                                <p className="text-xs text-muted-foreground">Total Changes</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <Card className="bg-muted/30">
+                            <CardContent className="pt-5 pb-4 text-center">
+                                <div className="text-2xl font-bold font-mono">{result.statistics.totalChanges}</div>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5">Total Changes</p>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="text-2xl font-bold text-green-600">{result.statistics.addedLines}</div>
-                                <p className="text-xs text-muted-foreground">Additions</p>
+                        <Card className="bg-emerald-500/5 border-emerald-500/20">
+                            <CardContent className="pt-5 pb-4 text-center">
+                                <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{result.statistics.addedLines}</div>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5">Additions</p>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="text-2xl font-bold text-red-600">{result.statistics.deletedLines}</div>
-                                <p className="text-xs text-muted-foreground">Deletions</p>
+                        <Card className="bg-red-500/5 border-red-500/20">
+                            <CardContent className="pt-5 pb-4 text-center">
+                                <div className="text-2xl font-bold font-mono text-red-600 dark:text-red-400">{result.statistics.deletedLines}</div>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5">Deletions</p>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="text-2xl font-bold text-blue-600">{result.statistics.modifiedLines}</div>
-                                <p className="text-xs text-muted-foreground">Modifications</p>
+                        <Card className="bg-blue-500/5 border-blue-500/20">
+                            <CardContent className="pt-5 pb-4 text-center">
+                                <div className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">{result.statistics.modifiedLines}</div>
+                                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5">Modifications</p>
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Summary */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Summary</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-indigo-500/10 flex items-center justify-center">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                Summary
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed">{result.summary}</p>
+                            <p className="text-sm leading-relaxed text-foreground/90">{result.summary}</p>
                         </CardContent>
                     </Card>
 
                     {/* Changes Details */}
                     <div className="grid md:grid-cols-3 gap-4">
                         {result.changes.additions.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base text-green-600">Additions</CardTitle>
+                            <Card className="border-emerald-500/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                        <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                        <span className="text-emerald-700 dark:text-emerald-300">Additions</span>
+                                        <Badge variant="secondary" className="ml-auto text-[10px]">{result.changes.additions.length}</Badge>
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <ul className="space-y-2 text-sm">
                                         {result.changes.additions.map((change, i) => (
-                                            <li key={i} className="flex items-start gap-2">
-                                                <span className="text-green-600 mt-0.5">+</span>
-                                                <span className="flex-1">{change}</span>
+                                            <li key={i} className="flex items-start gap-2 border-l-2 border-emerald-500/40 pl-3 py-0.5">
+                                                <span className="text-foreground/90">{change}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -215,16 +248,19 @@ export default function RedlineAnalysis() {
                         )}
 
                         {result.changes.deletions.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base text-red-600">Deletions</CardTitle>
+                            <Card className="border-red-500/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                        <Minus className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                        <span className="text-red-700 dark:text-red-300">Deletions</span>
+                                        <Badge variant="secondary" className="ml-auto text-[10px]">{result.changes.deletions.length}</Badge>
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <ul className="space-y-2 text-sm">
                                         {result.changes.deletions.map((change, i) => (
-                                            <li key={i} className="flex items-start gap-2">
-                                                <span className="text-red-600 mt-0.5">-</span>
-                                                <span className="flex-1">{change}</span>
+                                            <li key={i} className="flex items-start gap-2 border-l-2 border-red-500/40 pl-3 py-0.5 line-through text-muted-foreground">
+                                                <span>{change}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -233,16 +269,19 @@ export default function RedlineAnalysis() {
                         )}
 
                         {result.changes.modifications.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base text-blue-600">Modifications</CardTitle>
+                            <Card className="border-blue-500/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                        <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        <span className="text-blue-700 dark:text-blue-300">Modifications</span>
+                                        <Badge variant="secondary" className="ml-auto text-[10px]">{result.changes.modifications.length}</Badge>
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <ul className="space-y-2 text-sm">
                                         {result.changes.modifications.map((change, i) => (
-                                            <li key={i} className="flex items-start gap-2">
-                                                <span className="text-blue-600 mt-0.5">~</span>
-                                                <span className="flex-1">{change}</span>
+                                            <li key={i} className="flex items-start gap-2 border-l-2 border-blue-500/40 pl-3 py-0.5">
+                                                <span className="text-foreground/90">{change}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -253,8 +292,8 @@ export default function RedlineAnalysis() {
 
                     {/* Q&A Section */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Ask Questions</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Ask Questions</CardTitle>
                             <CardDescription>Ask questions about the changes in the document</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -288,39 +327,13 @@ export default function RedlineAnalysis() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Button onClick={resetAnalysis} variant="outline" className="gap-2">
+                        <XCircle className="h-4 w-4" />
+                        New Analysis
+                    </Button>
                 </div>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-4 mt-8">
-                {!result ? (
-                    <Button
-                        onClick={handleCompare}
-                        disabled={!originalFile || !revisedFile || isProcessing}
-                        size="lg"
-                        className="gap-2"
-                    >
-                        {isProcessing ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Processing...
-                            </>
-                        ) : (
-                            <>
-                                <FileText className="h-4 w-4" />
-                                Compare Documents
-                            </>
-                        )}
-                    </Button>
-                ) : (
-                    <>
-                        <Button onClick={resetAnalysis} variant="outline" className="gap-2">
-                            <XCircle className="h-4 w-4" />
-                            New Analysis
-                        </Button>
-                    </>
-                )}
-            </div>
             <DuplicateFileModal
                 isOpen={isDuplicateModalOpen}
                 onOpenChange={setIsDuplicateModalOpen}

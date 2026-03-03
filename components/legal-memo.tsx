@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, FileText, Download, BookOpen } from "lucide-react"
+import { Loader2, FileText, Download, BookOpen, Gavel } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -119,20 +119,24 @@ ${result.authorities.join('\n')}
     }
 
     return (
-        <ToolPageLayout title="Draft Memo from Legal Research" description="Generate comprehensive legal research memos">
+        <ToolPageLayout
+            title="Draft Memo from Legal Research"
+            description="Generate comprehensive legal research memos"
+            icon={<Gavel className="h-4 w-4" />}
+            accentColor="bg-purple-500/10 text-purple-600 dark:text-purple-400"
+        >
 
             {!result ? (
                 /* Configuration Section */
-                <div className="space-y-6 max-w-3xl mx-auto">
-                    {/* Legal Question */}
+                <div className="space-y-5 max-w-3xl mx-auto">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Legal Question</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Legal Question</CardTitle>
                             <CardDescription>The legal issue to be analyzed</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Textarea
-                                placeholder="e.g., 'Can our client terminate the contract for material breach without liability?' or 'Is the non-compete clause enforceable under state law?'"
+                                placeholder="e.g., 'Can our client terminate the contract for material breach without liability?'"
                                 value={legalQuestion}
                                 onChange={(e) => setLegalQuestion(e.target.value)}
                                 className="min-h-[80px]"
@@ -140,10 +144,9 @@ ${result.authorities.join('\n')}
                         </CardContent>
                     </Card>
 
-                    {/* Facts */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Facts</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Facts</CardTitle>
                             <CardDescription>Relevant factual background</CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -156,10 +159,9 @@ ${result.authorities.join('\n')}
                         </CardContent>
                     </Card>
 
-                    {/* Jurisdiction */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Jurisdiction (Optional)</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Jurisdiction (Optional)</CardTitle>
                             <CardDescription>Applicable jurisdiction</CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -171,146 +173,116 @@ ${result.authorities.join('\n')}
                         </CardContent>
                     </Card>
 
-                    {/* Memo Header Info */}
                     <div className="grid md:grid-cols-2 gap-4">
                         <Card>
-                            <CardHeader>
-                                <CardTitle>To</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">To</CardTitle>
                                 <CardDescription>Recipient</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Input
-                                    placeholder="e.g., 'Partner Name' or 'File'"
-                                    value={to}
-                                    onChange={(e) => setTo(e.target.value)}
-                                />
+                                <Input placeholder="e.g., 'Partner Name'" value={to} onChange={(e) => setTo(e.target.value)} />
                             </CardContent>
                         </Card>
-
                         <Card>
-                            <CardHeader>
-                                <CardTitle>From</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">From</CardTitle>
                                 <CardDescription>Author</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Input
-                                    placeholder="e.g., 'Associate Name'"
-                                    value={from}
-                                    onChange={(e) => setFrom(e.target.value)}
-                                />
+                                <Input placeholder="e.g., 'Associate Name'" value={from} onChange={(e) => setFrom(e.target.value)} />
                             </CardContent>
                         </Card>
                     </div>
 
-                    <Button
-                        onClick={handleGenerate}
-                        disabled={isGenerating}
-                        size="lg"
-                        className="w-full gap-2"
-                    >
+                    <Button onClick={handleGenerate} disabled={isGenerating} size="lg" className="w-full gap-2">
                         {isGenerating ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Generating Memo...
-                            </>
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating Memo...</>
                         ) : (
-                            <>
-                                <BookOpen className="h-4 w-4" />
-                                Generate Legal Memo
-                            </>
+                            <><BookOpen className="h-4 w-4" /> Generate Legal Memo</>
                         )}
                     </Button>
                 </div>
             ) : (
-                /* Generated Memo */
-                <div className="space-y-6">
+                /* Generated Memo — Formal Document Style */
+                <div className="space-y-5 max-w-4xl mx-auto">
                     {/* Memo Heading */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-center mb-4">MEMORANDUM</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            <div className="grid grid-cols-[100px_1fr] gap-2">
-                                <span className="font-semibold">TO:</span>
-                                <span>{result.heading.to}</span>
-                                <span className="font-semibold">FROM:</span>
-                                <span>{result.heading.from}</span>
-                                <span className="font-semibold">DATE:</span>
-                                <span>{result.heading.date}</span>
-                                <span className="font-semibold">RE:</span>
-                                <span>{result.heading.re}</span>
+                    <Card className="overflow-hidden">
+                        <div className="bg-muted/50 px-6 py-4 border-b">
+                            <h2 className="text-center text-lg font-bold tracking-widest uppercase">Memorandum</h2>
+                        </div>
+                        <CardContent className="p-6 space-y-1.5">
+                            <div className="grid grid-cols-[80px_1fr] gap-y-1.5 gap-x-3 text-sm">
+                                <span className="font-semibold text-muted-foreground uppercase text-xs tracking-wide pt-0.5">To:</span>
+                                <span className="font-medium">{result.heading.to}</span>
+                                <span className="font-semibold text-muted-foreground uppercase text-xs tracking-wide pt-0.5">From:</span>
+                                <span className="font-medium">{result.heading.from}</span>
+                                <span className="font-semibold text-muted-foreground uppercase text-xs tracking-wide pt-0.5">Date:</span>
+                                <span className="font-medium">{result.heading.date}</span>
+                                <span className="font-semibold text-muted-foreground uppercase text-xs tracking-wide pt-0.5">Re:</span>
+                                <span className="font-medium">{result.heading.re}</span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Question Presented */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>QUESTION PRESENTED</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Question Presented</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed">{result.question}</p>
+                            <p className="text-sm leading-relaxed text-foreground/90">{result.question}</p>
                         </CardContent>
                     </Card>
 
-                    {/* Brief Answer */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>BRIEF ANSWER</CardTitle>
+                    <Card className="border-primary/20">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Brief Answer</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed">{result.briefAnswer}</p>
+                            <p className="text-sm leading-relaxed text-foreground/90 font-medium">{result.briefAnswer}</p>
                         </CardContent>
                     </Card>
 
-                    {/* Statement of Facts */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>STATEMENT OF FACTS</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Statement of Facts</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap">{result.facts}</div>
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">{result.facts}</div>
                         </CardContent>
                     </Card>
 
-                    {/* Analysis */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>ANALYSIS</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Analysis</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="prose prose-sm max-w-none">
-                                <div className="text-sm leading-relaxed whitespace-pre-wrap">{result.analysis}</div>
-                            </div>
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">{result.analysis}</div>
                         </CardContent>
                     </Card>
 
-                    {/* Conclusion */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>CONCLUSION</CardTitle>
+                    <Card className="border-primary/20">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Conclusion</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{result.conclusion}</p>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90 font-medium">{result.conclusion}</p>
                         </CardContent>
                     </Card>
 
-                    {/* Authorities Cited */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>AUTHORITIES CITED</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Authorities Cited</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <ul className="space-y-1.5">
                                 {result.authorities.map((authority, i) => (
-                                    <li key={i} className="text-sm font-mono">{authority}</li>
+                                    <li key={i} className="text-sm italic text-foreground/80 pl-4 border-l-2 border-muted-foreground/20">{authority}</li>
                                 ))}
                             </ul>
                         </CardContent>
                     </Card>
 
-                    {/* Actions */}
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                         <Button onClick={handleDownload} className="gap-2">
                             <Download className="h-4 w-4" />
                             Download Memo

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, LayoutTemplate, MessageSquare, Loader2, Columns3, Sparkles, RotateCcw } from "lucide-react"
+import { Plus, MessageSquare, Loader2, Columns3, Sparkles, RotateCcw } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import type { ReviewColumn } from "./tabular-review-view"
@@ -10,32 +10,27 @@ import type { ReviewColumn } from "./tabular-review-view"
 interface TabularReviewToolbarProps {
     columns: ReviewColumn[]
     onAddColumn: (name: string, prompt?: string) => void
-    onApplyTemplate: (templateId: string) => void
     onRunAll: () => void
     isRunning: boolean
     isGeneratingColumns?: boolean
     runProgress: { total: number; completed: number }
     chatOpen: boolean
     onToggleChat: () => void
-    templates: Record<string, { name: string; columns: Omit<ReviewColumn, "order">[] }>
     documentCount: number
 }
 
 export function TabularReviewToolbar({
     columns,
     onAddColumn,
-    onApplyTemplate,
     onRunAll,
     isRunning,
     isGeneratingColumns,
     runProgress,
     chatOpen,
     onToggleChat,
-    templates,
     documentCount,
 }: TabularReviewToolbarProps) {
     const [addColumnOpen, setAddColumnOpen] = useState(false)
-    const [templateOpen, setTemplateOpen] = useState(false)
     const [newColumnName, setNewColumnName] = useState("")
     const [newColumnPrompt, setNewColumnPrompt] = useState("")
 
@@ -129,38 +124,7 @@ export function TabularReviewToolbar({
                 </PopoverContent>
             </Popover>
 
-            {/* Templates */}
-            <Popover open={templateOpen} onOpenChange={setTemplateOpen}>
-                <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
-                        <LayoutTemplate className="h-3.5 w-3.5" />
-                        Templates
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-0" align="start">
-                    <div className="px-3 py-2 border-b">
-                        <h4 className="text-sm font-semibold">Column Templates</h4>
-                        <p className="text-[11px] text-muted-foreground">Replace columns with a preset</p>
-                    </div>
-                    <div className="py-1">
-                        {Object.entries(templates).map(([id, template]) => (
-                            <button
-                                key={id}
-                                className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
-                                onClick={() => {
-                                    onApplyTemplate(id)
-                                    setTemplateOpen(false)
-                                }}
-                            >
-                                <p className="text-sm font-medium">{template.name}</p>
-                                <p className="text-[11px] text-muted-foreground">
-                                    {template.columns.length} columns · {template.columns.map(c => c.name).join(", ")}
-                                </p>
-                            </button>
-                        ))}
-                    </div>
-                </PopoverContent>
-            </Popover>
+
 
             <div className="flex-1" />
 

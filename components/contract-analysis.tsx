@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, FileText, CheckCircle2, AlertTriangle, DollarSign, Calendar, Shield } from "lucide-react"
+import { Loader2, FileText, CheckCircle2, AlertTriangle, DollarSign, Calendar, Shield, ScanSearch } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -131,15 +131,35 @@ export default function ContractAnalysis() {
     }
 
 
+    const severityBorder: Record<string, string> = {
+        high: 'border-l-red-500',
+        medium: 'border-l-amber-500',
+        low: 'border-l-emerald-500',
+    }
+
+    const severityBadge: Record<string, 'destructive' | 'default' | 'secondary'> = {
+        high: 'destructive',
+        medium: 'default',
+        low: 'secondary',
+    }
+
     return (
-        <ToolPageLayout title="Contract Analysis" description="Comprehensive contract review and risk assessment">
+        <ToolPageLayout
+            title="Contract Analysis"
+            description="Comprehensive contract review and risk assessment"
+            icon={<ScanSearch className="h-4 w-4" />}
+            accentColor="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+        >
 
             {!analysis ? (
                 /* Upload Section */
-                <Card className="max-w-2xl mx-auto">
+                <Card className="max-w-2xl mx-auto border-dashed">
                     <CardHeader>
-                        <CardTitle>Upload Contract</CardTitle>
-                        <CardDescription>Upload a contract for comprehensive analysis</CardDescription>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-blue-500" />
+                            Upload Contract
+                        </CardTitle>
+                        <CardDescription>Upload a contract document for AI-powered comprehensive analysis</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <FileUploadZone id="contract" file={contractFile} onFileSelect={handleFileSelect} />
@@ -156,7 +176,7 @@ export default function ContractAnalysis() {
                                 </>
                             ) : (
                                 <>
-                                    <FileText className="h-4 w-4" />
+                                    <ScanSearch className="h-4 w-4" />
                                     Analyze Contract
                                 </>
                             )}
@@ -165,31 +185,33 @@ export default function ContractAnalysis() {
                 </Card>
             ) : (
                 /* Analysis Results */
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Summary */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5" />
-                                Contract Summary
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                    <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                Executive Summary
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed">{analysis.summary}</p>
+                            <p className="text-sm leading-relaxed text-foreground/90">{analysis.summary}</p>
                         </CardContent>
                     </Card>
 
                     {/* Parties */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Parties</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Parties</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid md:grid-cols-2 gap-4">
+                            <div className="grid sm:grid-cols-2 gap-3">
                                 {analysis.parties.map((party, i) => (
-                                    <div key={i} className="border rounded-lg p-4">
-                                        <p className="font-semibold">{party.name}</p>
-                                        <p className="text-sm text-muted-foreground">{party.role}</p>
+                                    <div key={i} className="rounded-lg border bg-muted/30 p-4">
+                                        <p className="font-semibold text-sm">{party.name}</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{party.role}</p>
                                     </div>
                                 ))}
                             </div>
@@ -198,16 +220,16 @@ export default function ContractAnalysis() {
 
                     {/* Key Terms */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Key Terms</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Key Terms</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
                                 {analysis.keyTerms.map((term, i) => (
-                                    <div key={i} className="border-l-2 border-primary pl-4">
-                                        <div className="flex items-center gap-2 mb-1">
+                                    <div key={i} className={`border-l-2 ${term.importance === 'high' ? 'border-l-primary' : 'border-l-muted-foreground/30'} pl-4 py-0.5`}>
+                                        <div className="flex items-center gap-2 mb-0.5">
                                             <h3 className="font-semibold text-sm">{term.term}</h3>
-                                            <Badge variant={term.importance === 'high' ? 'default' : 'secondary'}>
+                                            <Badge variant={term.importance === 'high' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
                                                 {term.importance}
                                             </Badge>
                                         </div>
@@ -220,21 +242,25 @@ export default function ContractAnalysis() {
 
                     {/* Obligations */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <CheckCircle2 className="h-5 w-5" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
                                 Obligations
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                                 {analysis.obligations.map((obligation, i) => (
-                                    <div key={i} className="flex items-start gap-2 text-sm">
-                                        <span className="font-semibold text-primary min-w-[120px]">{obligation.party}:</span>
+                                    <div key={i} className="flex items-start gap-3 text-sm">
+                                        <Badge variant="outline" className="shrink-0 mt-0.5 text-[11px] font-medium">
+                                            {obligation.party}
+                                        </Badge>
                                         <div className="flex-1">
-                                            <span>{obligation.obligation}</span>
+                                            <span className="text-foreground/90">{obligation.obligation}</span>
                                             {obligation.deadline && (
-                                                <span className="text-muted-foreground ml-2">({obligation.deadline})</span>
+                                                <span className="text-muted-foreground ml-1.5 text-xs">— {obligation.deadline}</span>
                                             )}
                                         </div>
                                     </div>
@@ -246,21 +272,23 @@ export default function ContractAnalysis() {
                     {/* Financial Terms */}
                     {analysis.financialTerms.length > 0 && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <DollarSign className="h-5 w-5" />
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-green-500/10 flex items-center justify-center">
+                                        <DollarSign className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                    </div>
                                     Financial Terms
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3">
+                                <div className="grid sm:grid-cols-2 gap-3">
                                     {analysis.financialTerms.map((term, i) => (
-                                        <div key={i} className="border rounded-lg p-3">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="font-semibold text-sm">{term.type}</span>
-                                                <span className="font-bold text-green-600">{term.amount}</span>
+                                        <div key={i} className="rounded-lg border bg-green-500/5 p-3.5">
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <span className="font-medium text-sm">{term.type}</span>
+                                                <span className="font-bold text-sm font-mono text-green-700 dark:text-green-400">{term.amount}</span>
                                             </div>
-                                            <p className="text-xs text-muted-foreground">{term.conditions}</p>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">{term.conditions}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -270,19 +298,21 @@ export default function ContractAnalysis() {
 
                     {/* Risks */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-amber-500/10 flex items-center justify-center">
+                                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                </div>
                                 Risk Assessment
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
                                 {analysis.risks.map((risk, i) => (
-                                    <div key={i} className="border-l-2 border-amber-500 pl-4">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Badge variant={risk.severity === 'high' ? 'destructive' : 'secondary'}>
-                                                {risk.severity} risk
+                                    <div key={i} className={`border-l-2 ${severityBorder[risk.severity] || 'border-l-muted'} pl-4 py-0.5`}>
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <Badge variant={severityBadge[risk.severity] || 'secondary'} className="text-[10px] px-1.5 py-0">
+                                                {risk.severity}
                                             </Badge>
                                             <span className="text-sm font-medium">{risk.category}</span>
                                         </div>
@@ -296,18 +326,20 @@ export default function ContractAnalysis() {
                     {/* Termination Provisions */}
                     {analysis.terminationProvisions.length > 0 && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Calendar className="h-5 w-5" />
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-orange-500/10 flex items-center justify-center">
+                                        <Calendar className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                                    </div>
                                     Termination Provisions
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <ul className="space-y-2">
                                     {analysis.terminationProvisions.map((provision, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <span className="text-primary mt-0.5">•</span>
-                                            <span>{provision}</span>
+                                        <li key={i} className="flex items-start gap-2.5 text-sm">
+                                            <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0 mt-0.5">{i + 1}</span>
+                                            <span className="text-foreground/90">{provision}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -317,19 +349,21 @@ export default function ContractAnalysis() {
 
                     {/* Unusual Clauses */}
                     {analysis.unusualClauses.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Shield className="h-5 w-5" />
+                        <Card className="border-amber-500/30">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-amber-500/10 flex items-center justify-center">
+                                        <Shield className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                    </div>
                                     Unusual or Notable Clauses
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <ul className="space-y-2">
+                                <ul className="space-y-2.5">
                                     {analysis.unusualClauses.map((clause, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                        <li key={i} className="flex items-start gap-2.5 text-sm rounded-md bg-amber-500/5 p-3">
                                             <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                                            <span>{clause}</span>
+                                            <span className="text-foreground/90">{clause}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -339,15 +373,22 @@ export default function ContractAnalysis() {
 
                     {/* Recommendations */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Recommendations</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                Recommendations
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <ul className="space-y-2">
                                 {analysis.recommendations.map((rec, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-sm">
-                                        <span className="text-green-600 mt-0.5">→</span>
-                                        <span>{rec}</span>
+                                    <li key={i} className="flex items-start gap-2.5 text-sm">
+                                        <span className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                            <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                        </span>
+                                        <span className="text-foreground/90">{rec}</span>
                                     </li>
                                 ))}
                             </ul>

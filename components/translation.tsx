@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, FileText, Download, Languages } from "lucide-react"
+import { Loader2, FileText, Download, Languages, ArrowRight, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
@@ -52,15 +53,8 @@ export default function Translation() {
     }
 
     const handleTranslate = async () => {
-        if (!documentFile) {
-            toast.error("Please upload a document")
-            return
-        }
-
-        if (!targetLanguage) {
-            toast.error("Please select a target language")
-            return
-        }
+        if (!documentFile) { toast.error("Please upload a document"); return }
+        if (!targetLanguage) { toast.error("Please select a target language"); return }
 
         setIsTranslating(true)
         const formData = new FormData()
@@ -68,16 +62,11 @@ export default function Translation() {
         formData.append('targetLanguage', targetLanguage)
 
         try {
-            const response = await fetch('/api/templates/translation', {
-                method: 'POST',
-                body: formData
-            })
-
+            const response = await fetch('/api/templates/translation', { method: 'POST', body: formData })
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.error || 'Failed to translate document')
             }
-
             const data = await response.json()
             setResult(data)
             toast.success("Document translated successfully!")
@@ -102,14 +91,18 @@ export default function Translation() {
     }
 
     return (
-        <ToolPageLayout title="Translation" description="Translate legal documents while preserving legal terminology">
+        <ToolPageLayout
+            title="Translation"
+            description="Translate legal documents while preserving legal terminology"
+            icon={<Languages className="h-4 w-4" />}
+            accentColor="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+        >
 
             {!result ? (
-                /* Upload & Configure Section */
-                <div className="space-y-6 max-w-2xl mx-auto">
+                <div className="space-y-5 max-w-2xl mx-auto">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Upload Document</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Upload Document</CardTitle>
                             <CardDescription>Upload the document you want to translate</CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -118,8 +111,8 @@ export default function Translation() {
                     </Card>
 
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Target Language</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base">Target Language</CardTitle>
                             <CardDescription>Select the language to translate to</CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -129,58 +122,51 @@ export default function Translation() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {LANGUAGES.map((lang) => (
-                                        <SelectItem key={lang.code} value={lang.code}>
-                                            {lang.name}
-                                        </SelectItem>
+                                        <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </CardContent>
                     </Card>
 
-                    <Button
-                        onClick={handleTranslate}
-                        disabled={!documentFile || !targetLanguage || isTranslating}
-                        size="lg"
-                        className="w-full gap-2"
-                    >
+                    <Button onClick={handleTranslate} disabled={!documentFile || !targetLanguage || isTranslating} size="lg" className="w-full gap-2">
                         {isTranslating ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Translating...
-                            </>
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Translating...</>
                         ) : (
-                            <>
-                                <Languages className="h-4 w-4" />
-                                Translate Document
-                            </>
+                            <><Languages className="h-4 w-4" /> Translate Document</>
                         )}
                     </Button>
                 </div>
             ) : (
-                /* Translation Results */
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Translation Info */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Languages className="h-5 w-5" />
-                                Translation Complete
-                            </CardTitle>
-                            <CardDescription>
-                                Translated from {LANGUAGES.find(l => l.code === result.originalLanguage)?.name || result.originalLanguage} to {LANGUAGES.find(l => l.code === result.targetLanguage)?.name || result.targetLanguage}
-                            </CardDescription>
-                        </CardHeader>
+                    <Card className="overflow-hidden">
+                        <div className="bg-rose-500/5 px-6 py-4 border-b">
+                            <div className="flex items-center gap-3">
+                                <Languages className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                                <span className="text-sm font-semibold">Translation Complete</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">{LANGUAGES.find(l => l.code === result.originalLanguage)?.name || result.originalLanguage}</Badge>
+                                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                <Badge variant="secondary" className="text-xs">{LANGUAGES.find(l => l.code === result.targetLanguage)?.name || result.targetLanguage}</Badge>
+                            </div>
+                        </div>
                     </Card>
 
                     {/* Translated Text */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Translated Document</CardTitle>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-rose-500/10 flex items-center justify-center">
+                                    <FileText className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                                </div>
+                                Translated Document
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="bg-muted rounded-lg p-4 max-h-96 overflow-auto">
-                                <pre className="text-sm whitespace-pre-wrap font-sans">{result.translatedText}</pre>
+                            <div className="bg-muted/30 rounded-lg p-5 max-h-96 overflow-auto border">
+                                <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{result.translatedText}</pre>
                             </div>
                         </CardContent>
                     </Card>
@@ -188,16 +174,14 @@ export default function Translation() {
                     {/* Preserved Legal Terms */}
                     {result.preservedTerms.length > 0 && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Preserved Legal Terms</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Preserved Legal Terms</CardTitle>
                                 <CardDescription>Technical legal terms kept in original language</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="flex flex-wrap gap-2">
                                     {result.preservedTerms.map((term, i) => (
-                                        <span key={i} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-mono">
-                                            {term}
-                                        </span>
+                                        <Badge key={i} variant="outline" className="text-xs font-mono px-2.5 py-1">{term}</Badge>
                                     ))}
                                 </div>
                             </CardContent>
@@ -207,24 +191,25 @@ export default function Translation() {
                     {/* Translation Notes */}
                     {result.notes.length > 0 && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Translation Notes</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                        <Info className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    Translation Notes
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <ul className="space-y-2">
                                     {result.notes.map((note, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <span className="text-primary mt-0.5">•</span>
-                                            <span>{note}</span>
-                                        </li>
+                                        <li key={i} className="flex items-start gap-2.5 text-sm border-l-2 border-blue-500/30 pl-3 py-0.5 text-foreground/90">{note}</li>
                                     ))}
                                 </ul>
                             </CardContent>
                         </Card>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                         <Button onClick={handleDownload} className="gap-2">
                             <Download className="h-4 w-4" />
                             Download Translation
@@ -236,11 +221,7 @@ export default function Translation() {
                     </div>
                 </div>
             )}
-            {/* Duplicate File Warning */}
-            <DuplicateFileModal
-                isOpen={isDuplicateModalOpen}
-                onOpenChange={setIsDuplicateModalOpen}
-            />
+            <DuplicateFileModal isOpen={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen} />
         </ToolPageLayout>
     )
 }

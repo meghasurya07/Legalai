@@ -36,41 +36,7 @@ const FALLBACK_COLUMNS: ReviewColumn[] = [
     { id: "key_obligations", name: "Key Obligations", prompt: "What are the main obligations of each party? Be concise.", width: 220, order: 4 },
 ]
 
-const COLUMN_TEMPLATES: Record<string, { name: string; columns: Omit<ReviewColumn, "order">[] }> = {
-    "license_review": {
-        name: "License Agreement Review",
-        columns: [
-            { id: "parties", name: "Parties", prompt: "List all parties involved with their roles.", width: 220 },
-            { id: "license_scope", name: "License Scope", prompt: "Describe the scope of the license granted (exclusive/non-exclusive, territory, field of use).", width: 220 },
-            { id: "royalty_rates", name: "Royalty Rates", prompt: "What are the royalty rates and payment terms?", width: 220 },
-            { id: "term_duration", name: "Term & Duration", prompt: "What is the term/duration of the agreement and renewal conditions?", width: 220 },
-            { id: "ip_ownership", name: "IP Ownership", prompt: "Who owns the intellectual property? Describe IP ownership provisions.", width: 220 },
-            { id: "termination", name: "Termination", prompt: "What are the termination conditions and notice requirements?", width: 220 },
-        ]
-    },
-    "ma_due_diligence": {
-        name: "M&A Due Diligence",
-        columns: [
-            { id: "parties", name: "Parties", prompt: "List all parties involved with their roles.", width: 220 },
-            { id: "financial_obligations", name: "Financial Obligations", prompt: "What are the financial obligations and payment amounts?", width: 220 },
-            { id: "representations", name: "Representations & Warranties", prompt: "Summarize key representations and warranties.", width: 220 },
-            { id: "indemnification", name: "Indemnification", prompt: "Describe indemnification provisions and caps.", width: 220 },
-            { id: "change_of_control", name: "Change of Control", prompt: "Are there change of control provisions? Describe them.", width: 220 },
-            { id: "confidentiality", name: "Confidentiality", prompt: "Summarize confidentiality and non-disclosure obligations.", width: 220 },
-        ]
-    },
-    "contract_comparison": {
-        name: "Contract Comparison",
-        columns: [
-            { id: "parties", name: "Parties", prompt: "List all parties involved.", width: 220 },
-            { id: "effective_date", name: "Date", prompt: "What is the effective date?", width: 220 },
-            { id: "payment_terms", name: "Payment Terms", prompt: "Describe payment terms, amounts, and schedule.", width: 220 },
-            { id: "liability", name: "Liability", prompt: "Describe liability limitations and caps.", width: 220 },
-            { id: "governing_law", name: "Governing Law", prompt: "What is the governing law and jurisdiction?", width: 220 },
-            { id: "dispute_resolution", name: "Dispute Resolution", prompt: "Describe dispute resolution mechanisms.", width: 220 },
-        ]
-    }
-}
+
 
 function getCellKey(documentId: string, columnId: string) {
     return `${documentId}__${columnId}`
@@ -229,7 +195,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         }
 
         initialize()
-    }, [docsWithText, projectId])
+    }, [docsWithText, projectId, saveToDatabase])
 
     // ──────────────────────────────────────────────────
     // 2. Run AI extraction for a single cell
@@ -392,10 +358,16 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
         // Auto-save after extraction completes
         setCells(currentCells => {
-            saveToDatabase(targetColumns.length > 0 ? columns : targetColumns, currentCells)
+            setColumns(currentCols => {
+                setChatMessages(currentMsgs => {
+                    saveToDatabase(currentCols, currentCells, currentMsgs)
+                    return currentMsgs
+                })
+                return currentCols
+            })
             return currentCells
         })
-    }, [isRunning, docsWithText, cells, runDocumentBatch, columns, saveToDatabase])
+    }, [isRunning, docsWithText, cells, runDocumentBatch, saveToDatabase])
 
     // ──────────────────────────────────────────────────
     // 5. Run ALL cells (force re-run, used by Run all button)
@@ -427,7 +399,13 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
         // Auto-save after full run
         setCells(currentCells => {
-            saveToDatabase(columns, currentCells)
+            setColumns(currentCols => {
+                setChatMessages(currentMsgs => {
+                    saveToDatabase(currentCols, currentCells, currentMsgs)
+                    return currentMsgs
+                })
+                return currentCols
+            })
             return currentCells
         })
     }, [isRunning, docsWithText, columns, runDocumentBatch, saveToDatabase])
@@ -468,7 +446,18 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
             width: 220,
             order: columns.length
         }
-        setColumns(prev => [...prev, newCol])
+        setColumns(prev => {
+            const nextCols = [...prev, newCol]
+            // Immediately auto-save
+            setCells(currentCells => {
+                setChatMessages(currentMsgs => {
+                    saveToDatabase(nextCols, currentCells, currentMsgs)
+                    return currentMsgs
+                })
+                return currentCells
+            })
+            return nextCols
+        })
 
         // Auto-extract for this new column
         if (docsWithText.length > 0) {
@@ -478,7 +467,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         }
 
         toast.success(`Column "${name}" added`)
-    }, [columns.length, docsWithText, runColumns])
+    }, [columns.length, docsWithText, runColumns, saveToDatabase])
 
     // Remove a column
     const removeColumn = useCallback((columnId: string) => {
@@ -490,33 +479,17 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                 for (const key of next.keys()) {
                     if (key.endsWith(`__${columnId}`)) next.delete(key)
                 }
-                saveToDatabase(updated, next)
+                setChatMessages(currentMsgs => {
+                    saveToDatabase(updated, next, currentMsgs)
+                    return currentMsgs
+                })
                 return next
             })
             return updated
         })
     }, [saveToDatabase])
 
-    // Apply a template (auto-triggers extraction via the columns useEffect won't re-trigger since autoRunTriggered is true — so we trigger manually)
-    const applyTemplate = useCallback((templateId: string) => {
-        const template = COLUMN_TEMPLATES[templateId]
-        if (!template) return
-        const newColumns = template.columns.map((col, i) => ({
-            ...col,
-            order: i,
-        }))
-        setColumns(newColumns)
-        setCells(new Map())
 
-        // Auto-run for template columns
-        if (docsWithText.length > 0) {
-            setTimeout(() => {
-                runColumns(newColumns)
-            }, 100)
-        }
-
-        toast.success(`Template "${template.name}" applied`)
-    }, [docsWithText, runColumns])
 
     // Get cell data
     const getCell = useCallback((docId: string, colId: string): ReviewCell | undefined => {
@@ -526,8 +499,14 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     // Handle saving messages from chat
     const handleSaveMessages = useCallback((newMessages: { role: "user" | "assistant"; content: string }[]) => {
         setChatMessages(newMessages)
-        saveToDatabase(columns, cells, newMessages)
-    }, [columns, cells, saveToDatabase])
+        setCells(currentCells => {
+            setColumns(currentCols => {
+                saveToDatabase(currentCols, currentCells, newMessages)
+                return currentCols
+            })
+            return currentCells
+        })
+    }, [saveToDatabase])
 
     // Handle chat resizing
     const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
@@ -588,14 +567,12 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                 <TabularReviewToolbar
                     columns={columns}
                     onAddColumn={addColumn}
-                    onApplyTemplate={applyTemplate}
                     onRunAll={runAll}
                     isRunning={isRunning}
                     isGeneratingColumns={isGeneratingColumns}
                     runProgress={runProgress}
                     chatOpen={chatOpen}
                     onToggleChat={() => setChatOpen(prev => !prev)}
-                    templates={COLUMN_TEMPLATES}
                     documentCount={documents.length}
                 />
 

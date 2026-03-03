@@ -55,22 +55,15 @@ export default function Transcripts() {
             toast.error("Please upload a transcript file")
             return
         }
-
         setIsAnalyzing(true)
         const formData = new FormData()
         formData.append('transcript', transcriptFile)
-
         try {
-            const response = await fetch('/api/templates/transcripts', {
-                method: 'POST',
-                body: formData
-            })
-
+            const response = await fetch('/api/templates/transcripts', { method: 'POST', body: formData })
             if (!response.ok) {
                 const error = await response.json()
                 throw new Error(error.error || 'Failed to analyze transcript')
             }
-
             const data = await response.json()
             setAnalysis(data)
             toast.success("Transcript analyzed successfully!")
@@ -85,26 +78,17 @@ export default function Transcripts() {
 
     const handleAskQuestion = async () => {
         if (!question.trim() || !analysis) return
-
         setIsAsking(true)
         const userMessage = question
         setConversation(prev => [...prev, { role: 'user', content: userMessage }])
         setQuestion("")
-
         try {
             const response = await fetch('/api/templates/transcripts/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    question: userMessage,
-                    context: analysis
-                })
+                body: JSON.stringify({ question: userMessage, context: analysis })
             })
-
-            if (!response.ok) {
-                throw new Error('Failed to get answer')
-            }
-
+            if (!response.ok) throw new Error('Failed to get answer')
             const data = await response.json()
             setConversation(prev => [...prev, { role: 'assistant', content: data.answer }])
         } catch (error) {
@@ -122,71 +106,81 @@ export default function Transcripts() {
         setQuestion("")
     }
 
+    const importanceBorderColor = (importance: string) => {
+        switch (importance) {
+            case 'high': return 'border-red-500/40'
+            case 'medium': return 'border-amber-500/40'
+            default: return 'border-blue-500/30'
+        }
+    }
+
+    const importanceBadgeVariant = (importance: string): 'destructive' | 'default' | 'secondary' => {
+        switch (importance) {
+            case 'high': return 'destructive'
+            case 'medium': return 'default'
+            default: return 'secondary'
+        }
+    }
+
     return (
-        <ToolPageLayout title="Transcripts" description="Analyze deposition and trial transcripts for key insights">
+        <ToolPageLayout
+            title="Transcripts"
+            description="Analyze deposition and trial transcripts for key insights"
+            icon={<BookOpen className="h-4 w-4" />}
+            accentColor="bg-orange-500/10 text-orange-600 dark:text-orange-400"
+        >
 
             {!analysis ? (
-                /* Upload Section */
                 <Card className="max-w-2xl mx-auto">
-                    <CardHeader>
-                        <CardTitle>Upload Transcript</CardTitle>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Upload Transcript</CardTitle>
                         <CardDescription>Upload a deposition, trial, or hearing transcript</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <FileUploadZone id="transcript" file={transcriptFile} onFileSelect={handleFileSelect} />
-                        <Button
-                            onClick={handleAnalyze}
-                            disabled={!transcriptFile || isAnalyzing}
-                            size="lg"
-                            className="w-full gap-2"
-                        >
+                        <Button onClick={handleAnalyze} disabled={!transcriptFile || isAnalyzing} size="lg" className="w-full gap-2">
                             {isAnalyzing ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Analyzing Transcript...
-                                </>
+                                <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing Transcript...</>
                             ) : (
-                                <>
-                                    <FileText className="h-4 w-4" />
-                                    Analyze Transcript
-                                </>
+                                <><BookOpen className="h-4 w-4" /> Analyze Transcript</>
                             )}
                         </Button>
                     </CardContent>
                 </Card>
             ) : (
-                /* Analysis Results */
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Summary */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <BookOpen className="h-5 w-5" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-orange-500/10 flex items-center justify-center">
+                                    <BookOpen className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+                                </div>
                                 Executive Summary
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm leading-relaxed">{analysis.summary}</p>
+                            <p className="text-sm leading-relaxed text-foreground/90">{analysis.summary}</p>
                         </CardContent>
                     </Card>
 
                     {/* Key Themes */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-indigo-500/10 flex items-center justify-center">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                </div>
                                 Key Themes
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {analysis.keyThemes.map((theme, i) => (
-                                    <div key={i} className="border-l-2 border-primary pl-4">
-                                        <div className="flex items-center gap-2 mb-1">
+                                    <div key={i} className={`border-l-2 ${importanceBorderColor(theme.importance)} pl-4 py-1`}>
+                                        <div className="flex items-center gap-2 mb-0.5">
                                             <h3 className="font-semibold text-sm">{theme.theme}</h3>
-                                            <Badge variant={theme.importance === 'high' ? 'default' : 'secondary'}>
-                                                {theme.importance}
-                                            </Badge>
+                                            <Badge variant={importanceBadgeVariant(theme.importance)} className="text-[10px]">{theme.importance}</Badge>
                                         </div>
                                         <p className="text-sm text-muted-foreground">{theme.description}</p>
                                     </div>
@@ -197,35 +191,34 @@ export default function Transcripts() {
 
                     {/* Witnesses */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <div className="h-7 w-7 rounded-md bg-purple-500/10 flex items-center justify-center">
+                                    <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                                </div>
                                 Witness Analysis
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
                                 {analysis.witnesses.map((witness, i) => (
-                                    <div key={i} className="border rounded-lg p-4">
+                                    <div key={i} className="border rounded-lg p-4 bg-muted/10">
                                         <div className="mb-2">
-                                            <h3 className="font-semibold">{witness.name}</h3>
-                                            <p className="text-sm text-muted-foreground">{witness.role}</p>
+                                            <h3 className="font-semibold text-sm">{witness.name}</h3>
+                                            <p className="text-xs text-muted-foreground">{witness.role}</p>
                                         </div>
                                         <div className="space-y-2">
                                             <div>
-                                                <p className="text-sm font-medium mb-1">Key Testimony:</p>
+                                                <p className="text-[10px] font-bold tracking-wide uppercase text-muted-foreground mb-1">Key Testimony</p>
                                                 <ul className="space-y-1">
                                                     {witness.keyTestimony.map((testimony, j) => (
-                                                        <li key={j} className="text-sm flex items-start gap-2">
-                                                            <span className="text-primary mt-0.5">•</span>
-                                                            <span>{testimony}</span>
-                                                        </li>
+                                                        <li key={j} className="text-sm flex items-start gap-2 border-l-2 border-primary/20 pl-2.5 py-0.5 text-foreground/90">{testimony}</li>
                                                     ))}
                                                 </ul>
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium mb-1">Credibility Assessment:</p>
-                                                <p className="text-sm text-muted-foreground">{witness.credibilityNotes}</p>
+                                                <p className="text-[10px] font-bold tracking-wide uppercase text-muted-foreground mb-1">Credibility Assessment</p>
+                                                <p className="text-sm text-foreground/80 italic">{witness.credibilityNotes}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -236,19 +229,22 @@ export default function Transcripts() {
 
                     {/* Contradictions */}
                     {analysis.contradictions.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        <Card className="border-amber-500/30">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-amber-500/10 flex items-center justify-center">
+                                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                    </div>
                                     Contradictions & Inconsistencies
+                                    <Badge variant="destructive" className="ml-auto text-[10px]">{analysis.contradictions.length}</Badge>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <ul className="space-y-2">
                                     {analysis.contradictions.map((contradiction, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                                            <span>{contradiction}</span>
+                                        <li key={i} className="flex items-start gap-2 text-sm rounded-md bg-amber-500/5 p-3">
+                                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                                            <span className="text-foreground/90">{contradiction}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -259,18 +255,22 @@ export default function Transcripts() {
                     {/* Important Admissions */}
                     {analysis.importantAdmissions.length > 0 && (
                         <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <div className="h-7 w-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    </div>
                                     Important Admissions
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <ul className="space-y-2">
                                     {analysis.importantAdmissions.map((admission, i) => (
-                                        <li key={i} className="flex items-start gap-2 text-sm">
-                                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                                            <span>{admission}</span>
+                                        <li key={i} className="flex items-start gap-2.5 text-sm">
+                                            <span className="h-5 w-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                            </span>
+                                            <span className="text-foreground/90">{admission}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -280,9 +280,9 @@ export default function Transcripts() {
 
                     {/* Q&A */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <MessageSquare className="h-5 w-5" />
+                        <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <MessageSquare className="h-4 w-4" />
                                 Ask Questions
                             </CardTitle>
                             <CardDescription>Query the transcript for specific information</CardDescription>
@@ -304,12 +304,7 @@ export default function Transcripts() {
                                     placeholder="Ask about the transcript..."
                                     value={question}
                                     onChange={(e) => setQuestion(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault()
-                                            handleAskQuestion()
-                                        }
-                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAskQuestion() } }}
                                     className="min-h-[60px]"
                                 />
                                 <Button onClick={handleAskQuestion} disabled={isAsking || !question.trim()}>
@@ -325,10 +320,7 @@ export default function Transcripts() {
                     </Button>
                 </div>
             )}
-            <DuplicateFileModal
-                isOpen={isDuplicateModalOpen}
-                onOpenChange={setIsDuplicateModalOpen}
-            />
+            <DuplicateFileModal isOpen={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen} />
         </ToolPageLayout>
     )
 }
