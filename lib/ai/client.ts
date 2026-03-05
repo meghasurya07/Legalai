@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { getPrompts, type UseCase } from './prompts'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from './config'
 
 // Singleton OpenAI client
 let openaiClient: OpenAI | null = null
@@ -142,10 +143,10 @@ export async function callAI(
     const startTime = Date.now()
 
     const completion = await client.chat.completions.create({
-        model: options?.model || 'gpt-4o-mini',
+        model: options?.model || AI_MODELS.chat,
         messages,
-        max_tokens: options?.maxTokens || 700,
-        temperature: 0.4,
+        max_tokens: options?.maxTokens || AI_TOKENS.default,
+        temperature: AI_TEMPERATURES.default,
         ...(options?.jsonMode ? { response_format: { type: 'json_object' as const } } : {})
     })
 
@@ -158,7 +159,7 @@ export async function callAI(
     import('@/lib/logger').then(({ logEvent }) => {
         logEvent('AI_CALL', {
             useCase,
-            model: options?.model || 'gpt-4o-mini',
+            model: options?.model || AI_MODELS.chat,
             tokensIn: completion.usage?.prompt_tokens || 0,
             tokensOut: completion.usage?.completion_tokens || 0,
             tokensTotal: tokensUsed,
@@ -190,7 +191,11 @@ export async function callAISafe(
     try {
         return await callAI(useCase, input, options)
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
+        let message = error instanceof Error ? error.message : 'Unknown error'
+
+        // Mask specific provider names in logs and error displays
+        message = message.replace(/openai/gi, 'LegalIntelligenceEngine')
+
         console.error(`[AI ERROR] use_case=${useCase} | error=${message}`)
 
         import('@/lib/logger').then(({ logEvent }) => {
@@ -201,16 +206,16 @@ export async function callAISafe(
             }, options?.projectId)
         }).catch(() => { })
 
-        if (message.includes('API key')) {
-            return { result: '', tokensUsed: 0, error: 'AI service is not configured. Please contact support.' }
+        if (message.includes('API key') || message.includes('api_key') || message.includes('apiKey')) {
+            return { result: '', tokensUsed: 0, error: 'AI processing engine is not configured. Please set the required configuration or contact support.' }
         }
         if (message.includes('rate_limit') || message.includes('429')) {
-            return { result: '', tokensUsed: 0, error: 'AI service is temporarily busy. Please try again in a moment.' }
+            return { result: '', tokensUsed: 0, error: 'AI processing engine is temporarily busy. Please try again in a moment.' }
         }
         if (message.includes('insufficient_quota')) {
-            return { result: '', tokensUsed: 0, error: 'AI service quota exceeded. Please try again later.' }
+            return { result: '', tokensUsed: 0, error: 'AI processing engine quota exceeded. Please try again later.' }
         }
 
-        return { result: '', tokensUsed: 0, error: 'AI processing failed. Please try again.' }
+        return { result: '', tokensUsed: 0, error: 'AI processing engine failed. Please try again.' }
     }
 }

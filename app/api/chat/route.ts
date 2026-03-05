@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
 import OpenAI from 'openai'
 import { getPrompts } from '@/lib/ai/prompts'
-import { searchMultiple, formatSearchResultsAsContext, buildSourcesBlock } from '@/lib/ai/search'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { AI_TEMPERATURES, getChatConfig, type ChatMode } from '@/lib/ai/config'
 import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, RAG_GROUNDING_INSTRUCTION } from '@/lib/rag'
+import { auth0 } from '@/lib/auth0'
 
 // Helper to emit SSE phase events
 function phaseEvent(phase: string, status: string, detail?: string, meta?: Record<string, unknown>) {
@@ -17,9 +18,120 @@ interface AttachedFile {
     [key: string]: unknown
 }
 
+/**
+ * Extract url_citation annotations from a completed Responses API response.
+ * Returns processedText (with [N] markers replacing OpenAI citation markers)
+ * and a <!--SOURCES: block with [N] title | url | snippet.
+ */
+function extractCitationsFromResponse(response: OpenAI.Responses.Response): { processedText: string; sourcesBlock: string } {
+    const urlToNum = new Map<string, number>()
+    const citations: { num: number; title: string; url: string; snippet: string }[] = []
+    let num = 1
+
+    interface AnnotationInfo { startIndex: number; endIndex: number; url: string; title: string }
+    const allAnnotations: AnnotationInfo[] = []
+    let outputText = ''
+
+    for (const item of response.output) {
+        if (item.type === 'message' && item.content) {
+            for (const block of item.content) {
+                if (block.type === 'output_text') {
+                    outputText = block.text || ''
+                    if (block.annotations) {
+                        for (const ann of block.annotations) {
+                            if (ann.type === 'url_citation') {
+                                allAnnotations.push({
+                                    startIndex: ann.start_index,
+                                    endIndex: ann.end_index,
+                                    url: ann.url,
+                                    title: ann.title || ann.url
+                                })
+                                if (!urlToNum.has(ann.url)) {
+                                    const snippetStart = Math.max(0, ann.start_index - 150)
+                                    const contextBefore = outputText.slice(snippetStart, ann.start_index).trim()
+                                    const sentenceBreak = contextBefore.search(/[.!?]\s+[A-Z]/)
+                                    const snippet = sentenceBreak !== -1
+                                        ? contextBefore.slice(sentenceBreak + 2).trim()
+                                        : contextBefore
+
+                                    urlToNum.set(ann.url, num)
+                                    citations.push({
+                                        num,
+                                        title: ann.title || ann.url,
+                                        url: ann.url,
+                                        snippet: snippet.replace(/\n/g, ' ').slice(0, 120)
+                                    })
+                                    num++
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (citations.length === 0 || !outputText) {
+        return { processedText: outputText, sourcesBlock: '' }
+    }
+
+    // Replace OpenAI's inline citation text with [N] markers (process from end to preserve indices)
+    allAnnotations.sort((a, b) => b.startIndex - a.startIndex)
+    let processedText = outputText
+    for (const ann of allAnnotations) {
+        const citNum = urlToNum.get(ann.url)!
+        processedText = processedText.slice(0, ann.startIndex) + ` [${citNum}]` + processedText.slice(ann.endIndex)
+    }
+
+    const lines = citations.map(c => `[${c.num}] ${c.title} | ${c.url} | ${c.snippet}`)
+    const sourcesBlock = `\n\n<!--SOURCES:\n${lines.join('\n')}\n-->`
+
+    return { processedText, sourcesBlock }
+}
+
 export async function POST(request: NextRequest) {
     try {
         const { message, customization, files, queryMode, webSearch, thinking, deepResearch, projectId, conversationId } = await request.json()
+
+        // Rate limit for deep research: 5 per month per user
+        let userId: string | undefined
+        if (deepResearch) {
+            const session = await auth0.getSession()
+            userId = session?.user?.sub
+
+            if (!userId) {
+                return apiError('Authentication required for Deep Research', 401)
+            }
+
+            const { data: userSettings } = await supabase
+                .from('user_settings')
+                .select('deep_research_count, deep_research_reset_date')
+                .eq('user_id', userId)
+                .single()
+
+            const now = new Date()
+            let count = userSettings?.deep_research_count || 0
+            let resetDate = userSettings?.deep_research_reset_date ? new Date(userSettings.deep_research_reset_date) : now
+
+            // If 30 days have passed, reset our rolling window
+            if (now.getTime() - resetDate.getTime() > 30 * 24 * 60 * 60 * 1000) {
+                count = 0
+                resetDate = now
+            }
+
+            if (count >= 5) {
+                return apiError('Deep Research monthly limit reached (5/5). Please try again next month.', 429)
+            }
+
+            // Increment usage limit immediately before streaming starts
+            await supabase
+                .from('user_settings')
+                .upsert({
+                    user_id: userId,
+                    deep_research_count: count + 1,
+                    deep_research_reset_date: resetDate.toISOString()
+                })
+        }
 
         let userContent = message || ''
         let ragContext = ''
@@ -53,7 +165,6 @@ export async function POST(request: NextRequest) {
                 }
             } catch (ragError) {
                 console.error('[RAG] Retrieval error, falling back to legacy:', ragError)
-                // Fallback to legacy approach on error
                 const { data: projectFiles } = await supabase
                     .from('files')
                     .select('name, extracted_text')
@@ -75,7 +186,6 @@ export async function POST(request: NextRequest) {
             const fileNames = files.map((f: AttachedFile) => typeof f === 'string' ? f : f.name).join(', ')
             userContent += `\n\n[User uploaded files in this message: ${fileNames}]`
 
-            // Iterate through files and inject content if available
             files.forEach((f: AttachedFile) => {
                 if (typeof f === 'object' && f.content) {
                     userContent += `\n--- FILE: ${f.name} ---\n${f.content.slice(0, 20000)}\n----------------\n`
@@ -87,188 +197,24 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Determine model and token limits based on mode
-        const model = 'gpt-4o-mini' // Default & requested cost-safe standard
-        let maxTokens = 1500
-
-        if (deepResearch) {
-            maxTokens = 4000
-        } else if (thinking) {
-            maxTokens = 2000
-        } else if (webSearch) {
-            maxTokens = 1500
-        }
+        // Determine chat mode
+        const chatMode: ChatMode = deepResearch ? 'deepResearch' : thinking ? 'thinking' : webSearch ? 'webSearch' : 'standard'
+        const { model } = getChatConfig(chatMode)
 
         const apiKey = process.env.OPENAI_API_KEY
         if (!apiKey) {
             return apiError('AI service is not configured', 503)
         }
 
-        const client = new OpenAI({ apiKey })
+        const client = new OpenAI({ apiKey, timeout: deepResearch ? 3600 * 1000 : undefined })
         const encoder = new TextEncoder()
 
         const readable = new ReadableStream({
             async start(controller) {
                 try {
-                    let searchContext = ''
                     let sourcesBlock = ragSourcesBlock
-                    let thinkingPlan = ''
 
-                    // ═══════════════════════════════════════════════
-                    // DEEP RESEARCH — Real Pipeline V1
-                    // ═══════════════════════════════════════════════
-                    if (deepResearch) {
-                        // Stage 1: Research Planning (Multi-Query Generation)
-                        controller.enqueue(encoder.encode(phaseEvent('research_planning', 'start', 'Defining comprehensive research strategy')))
-
-                        const queryGenResponse = await client.chat.completions.create({
-                            model: 'gpt-4o-mini',
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: 'You are a legal research strategist. Generate 4 complementary, high-intent search queries to investigate this issue from multiple angles (statutory, case law, jurisdictional, and practical). Return ONLY a JSON array of strings.'
-                                },
-                                { role: 'user', content: userContent }
-                            ],
-                            max_tokens: 300,
-                            temperature: 0.3
-                        })
-
-                        let searchQueries: string[] = [userContent]
-                        try {
-                            const raw = queryGenResponse.choices[0]?.message?.content || ''
-                            const parsed = JSON.parse(raw)
-                            if (Array.isArray(parsed)) searchQueries = parsed.slice(0, 4)
-                        } catch { /* fallback to original */ }
-
-                        controller.enqueue(encoder.encode(phaseEvent('research_planning', 'update', `Planned ${searchQueries.length} research vectors`, { queries: searchQueries })))
-
-                        // Stage 2: Source Collection (Tavily Multi-Query)
-                        controller.enqueue(encoder.encode(phaseEvent('source_collection', 'start', 'Retrieving authoritative legal sources using Tavily')))
-
-                        const searchResponses = await searchMultiple(searchQueries, 5, 'advanced')
-                        const totalResults = searchResponses.reduce((sum, r) => sum + r.results.length, 0)
-
-                        const allDomains: string[] = []
-                        for (const resp of searchResponses) {
-                            for (const r of resp.results) {
-                                try {
-                                    const domain = new URL(r.url).hostname.replace('www.', '')
-                                    if (!allDomains.includes(domain)) allDomains.push(domain)
-                                } catch { /* skip */ }
-                            }
-                        }
-
-                        controller.enqueue(encoder.encode(phaseEvent('source_collection', 'update', `Captured ${totalResults} sources from ${allDomains.length} domains`, { domains: allDomains, count: totalResults })))
-
-                        // Stage 3: Reading & Extraction
-                        controller.enqueue(encoder.encode(phaseEvent('reading_extraction', 'start', 'Extracting relevant passages and legal citations')))
-
-                        searchContext = formatSearchResultsAsContext(searchResponses)
-                        sourcesBlock = buildSourcesBlock(searchResponses)
-
-                        controller.enqueue(encoder.encode(phaseEvent('reading_extraction', 'update', `Processed all found sources`)))
-
-                        // Stage 4: Synthesis
-                        controller.enqueue(encoder.encode(phaseEvent('synthesis', 'start', 'Synthesizing research into a coherent legal analysis')))
-
-                        // Internal synthesis planning to ensure quality
-                        const synthesisPlanResponse = await client.chat.completions.create({
-                            model: 'gpt-4o-mini',
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: 'Analyze the following research and create a structured synthesis of the key findings. Resolve any conflicting information. Outline the core legal conclusions.'
-                                },
-                                { role: 'user', content: `Original Query: ${userContent}\n\nSearch context:\n${searchContext}` }
-                            ],
-                            max_tokens: 600,
-                            temperature: 0.3
-                        })
-
-                        thinkingPlan = `SYNTHESIS PLAN:\n${synthesisPlanResponse.choices[0]?.message?.content || ''}`
-                        controller.enqueue(encoder.encode(phaseEvent('synthesis', 'update', 'Organized research into key themes and precedents')))
-
-                        // Stage 5: Drafting
-                        controller.enqueue(encoder.encode(phaseEvent('drafting', 'start', 'Drafting final integrated legal answer')))
-
-                        // ═══════════════════════════════════════════════
-                        // WEB SEARCH — Real Pipeline V1
-                        // ═══════════════════════════════════════════════
-                    } else if (webSearch) {
-                        controller.enqueue(encoder.encode(phaseEvent('research_planning', 'start', 'Optimizing search queries')))
-
-                        const queryGenResponse = await client.chat.completions.create({
-                            model: 'gpt-4o-mini',
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: 'Generate 2 complementary search queries for this topic. Return ONLY a JSON array of strings.'
-                                },
-                                { role: 'user', content: userContent }
-                            ],
-                            max_tokens: 200,
-                            temperature: 0.3
-                        })
-
-                        let searchQueries: string[] = [userContent]
-                        try {
-                            const raw = queryGenResponse.choices[0]?.message?.content || ''
-                            const parsed = JSON.parse(raw)
-                            if (Array.isArray(parsed)) searchQueries = parsed.slice(0, 2)
-                        } catch { /* fallback */ }
-
-                        controller.enqueue(encoder.encode(phaseEvent('searching_web', 'start', 'Searching via Tavily')))
-
-                        const searchResponses = await searchMultiple(searchQueries, 4, 'basic')
-                        const totalResults = searchResponses.reduce((sum, r) => sum + r.results.length, 0)
-
-                        const domains = [...new Set(searchResponses.flatMap(resp => resp.results.map(r => {
-                            try { return new URL(r.url).hostname.replace('www.', '') } catch { return '' }
-                        }).filter(Boolean)))]
-
-                        controller.enqueue(encoder.encode(phaseEvent('searching_web', 'update', `Found ${totalResults} relevant sites`, { domains, count: totalResults })))
-
-                        controller.enqueue(encoder.encode(phaseEvent('reading_sources', 'start', 'Reading source snippets')))
-                        searchContext = formatSearchResultsAsContext(searchResponses)
-                        sourcesBlock = buildSourcesBlock(searchResponses)
-                        controller.enqueue(encoder.encode(phaseEvent('reading_sources', 'update', 'Extracted key information')))
-
-                        controller.enqueue(encoder.encode(phaseEvent('drafting', 'start', 'Formulating answer')))
-
-                        // ═══════════════════════════════════════════════
-                        // THINKING — Real Pipeline V1
-                        // ═══════════════════════════════════════════════
-                    } else if (thinking) {
-                        controller.enqueue(encoder.encode(phaseEvent('thinking', 'start', 'Analyzing complex reasoning paths')))
-
-                        const planResponse = await client.chat.completions.create({
-                            model: 'gpt-4o-mini',
-                            messages: [
-                                {
-                                    role: 'system',
-                                    content: `You are a legal reasoning agent. Break down this question into a logical reasoning chain. Consider conflicting views and jurisdictional nuances. Output a detailed internal plan (max 300 words).`
-                                },
-                                { role: 'user', content: userContent }
-                            ],
-                            max_tokens: 500,
-                            temperature: 0.3
-                        })
-
-                        thinkingPlan = planResponse.choices[0]?.message?.content || ''
-
-                        controller.enqueue(encoder.encode(phaseEvent('thinking', 'update', 'Constructed internal logic chain')))
-                        controller.enqueue(encoder.encode(phaseEvent('drafting', 'start', 'Applying reasoning to final response')))
-
-                    } else {
-                        // Default
-                        controller.enqueue(encoder.encode(phaseEvent('thinking', 'start', 'Analyzing query')))
-                        controller.enqueue(encoder.encode(phaseEvent('drafting', 'start', 'Preparing response')))
-                    }
-
-                    // ═══════════════════════════════════════════════
-                    // BUILD THE FINAL PROMPT & STREAM RESPONSE
-                    // ═══════════════════════════════════════════════
+                    // Build the system prompt and user prompt
                     const { systemPrompt, userPrompt } = getPrompts('assistant_chat', {
                         message: userContent,
                         customization,
@@ -278,135 +224,311 @@ export async function POST(request: NextRequest) {
                         deepResearch
                     })
 
-                    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-                        {
-                            role: 'system',
-                            content: ragSystemMessage ? `${systemPrompt}\n\n${ragSystemMessage}` : systemPrompt
+                    const fullSystemPrompt = [
+                        systemPrompt,
+                        ragSystemMessage ? ragSystemMessage : '',
+                        ragContext ? `\nPROJECT DOCUMENTS:\n---\n${ragContext}\n---` : ''
+                    ].filter(Boolean).join('\n\n')
+
+                    // ═══════════════════════════════════════════════
+                    // WEB SEARCH / THINKING / DEEP RESEARCH
+                    // → Use OpenAI Responses API with native tools
+                    // ═══════════════════════════════════════════════
+                    if (webSearch || thinking || deepResearch) {
+                        // Single phase event per mode for clean timeline UI
+                        if (deepResearch) {
+                            controller.enqueue(encoder.encode(phaseEvent('searching_web', 'start', 'Performing deep research across the web')))
+                        } else if (webSearch) {
+                            controller.enqueue(encoder.encode(phaseEvent('searching_web', 'start', 'Searching the web')))
+                        } else if (thinking) {
+                            controller.enqueue(encoder.encode(phaseEvent('thinking', 'start', 'Reasoning through the problem')))
                         }
-                    ]
 
-                    // Inject RAG document context if available
-                    if (ragContext) {
-                        messages.push({
-                            role: 'system',
-                            content: `PROJECT DOCUMENTS:\n---\n${ragContext}\n---`
-                        })
-                    }
+                        // Build Responses API input
+                        const input: OpenAI.Responses.ResponseInput = [
+                            { role: 'system', content: fullSystemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ]
 
-                    if (searchContext) {
-                        messages.push({
-                            role: 'system',
-                            content: `Here are real web search results to base your answer on. Use these as your primary source of information and cite them using inline numbered citations [1], [2], etc.:\n\n${searchContext}`
-                        })
-                    }
+                        // Build Responses API options per mode (official OpenAI docs)
+                        const responsesOptions = {
+                            model,
+                            input,
+                            stream: true as const,
+                            // Thinking: reasoning only, no tools
+                            ...(thinking ? {
+                                reasoning: { effort: 'medium' as const, summary: 'auto' as const },
+                            } : {}),
+                            // Web Search & Deep Research: web_search_preview tool
+                            ...((webSearch || deepResearch) ? {
+                                tools: [{ type: 'web_search_preview' as const }],
+                            } : {}),
+                        } as OpenAI.Responses.ResponseCreateParamsStreaming
 
-                    if (thinkingPlan) {
-                        messages.push({
-                            role: 'system',
-                            content: `Here is your internal analysis plan. Follow this structure to create a thorough response, but do NOT show this plan to the user:\n\n${thinkingPlan}`
-                        })
-                    }
+                        // Stream text immediately for ALL modes (no buffering)
+                        let streamedContent = ''
+                        let controllerClosed = false
+                        let webSearchCount = 0
 
-                    messages.push({ role: 'user', content: userPrompt })
-
-                    const stream = await client.chat.completions.create({
-                        model,
-                        messages,
-                        max_tokens: maxTokens,
-                        temperature: 0.4,
-                        stream: true
-                    })
-
-                    let streamedContent = ''
-                    let controllerClosed = false
-
-                    const safeEnqueue = (data: Uint8Array) => {
-                        if (controllerClosed) return false
-                        try {
-                            controller.enqueue(data)
-                            return true
-                        } catch {
-                            controllerClosed = true
-                            return false
-                        }
-                    }
-
-                    for await (const chunk of stream) {
-                        if (controllerClosed) break
-                        const content = chunk.choices[0]?.delta?.content || ''
-                        if (content) {
-                            streamedContent += content
-                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
-                        }
-                    }
-
-                    // If we have a backend-generated sources block (from Tavily or RAG),
-                    // strip any AI-generated <!--SOURCES: block to prevent conflicts,
-                    // then always append the real one.
-                    if (sourcesBlock && !controllerClosed) {
-                        // Strip AI-hallucinated sources from the streamed text - case insensitive and flexible whitespace
-                        const aiSourcesRegex = /\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi
-                        if (aiSourcesRegex.test(streamedContent)) {
-                            streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
-                        }
-                        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
-                    } else if (!sourcesBlock && !controllerClosed) {
-                        // Normal mode: AI may have generated its own <!--SOURCES: block.
-                        // Extract it from streamed content so we can send it cleanly.
-                        const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
-                        if (aiSourcesMatch) {
-                            const extractedSources = aiSourcesMatch[1]
-                            // Strip the sources from the display and re-send clean content
-                            const cleanContent = streamedContent.replace(/\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi, '').trim()
-                            streamedContent = cleanContent
-                            // Send the full clean content (overwrite what was streamed) + sources as a final chunk
-                            // The frontend accumulates content, so we send a special marker to replace
-                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: '\n\n' + extractedSources })}\n\n`))
-                        }
-                    }
-
-                    // Save assistant message to database if we have a conversationId
-                    // This runs regardless of whether the stream was interrupted,
-                    // so partial responses are preserved on refresh
-                    if (conversationId && streamedContent) {
-                        try {
-                            // Build final content: clean text + real sources (if any)
-                            const finalContent = sourcesBlock
-                                ? `${streamedContent.replace(/\n*<!--SOURCES:\n[\s\S]*?-->/g, '').trim()}\n\n${sourcesBlock}`
-                                : streamedContent
-
-                            const { error: saveError } = await supabase
-                                .from('messages')
-                                .insert({
-                                    conversation_id: conversationId,
-                                    role: 'assistant',
-                                    content: finalContent
-                                })
-
-                            if (saveError) {
-                                console.error('Failed to save assistant message:', saveError)
-                            } else if (projectId && streamedContent) {
-                                // ═══════════════════════════════════════════════
-                                // MEMORY EXTRACTION (via job queue)
-                                // ═══════════════════════════════════════════════
-                                import('@/lib/jobs').then(j => {
-                                    j.enqueueJob('MEMORY_EXTRACTION', {
-                                        projectId,
-                                        text: streamedContent,
-                                        source: 'chat',
-                                        sourceId: conversationId
-                                    }, projectId)
-                                }).catch(e => console.error('[Memory] Job enqueue failed:', e))
+                        const safeEnqueue = (data: Uint8Array) => {
+                            if (controllerClosed) return false
+                            try {
+                                controller.enqueue(data)
+                                return true
+                            } catch {
+                                controllerClosed = true
+                                return false
                             }
-                        } catch (e) {
-                            console.error('Error saving assistant message:', e)
                         }
-                    }
 
-                    if (!controllerClosed) {
-                        safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))
-                        safeEnqueue(encoder.encode('data: [DONE]\n\n'))
-                        try { controller.close() } catch { /* already closed */ }
+                        const stream = await client.responses.create(responsesOptions)
+                        let completedResponse: OpenAI.Responses.Response | null = null
+
+                        // Partial buffer for cleaning mid-token citation markers
+                        let pendingDelta = ''
+
+                        try {
+                            for await (const event of stream) {
+                                if (controllerClosed) break
+
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const evt = event as any
+
+                                // Stream text deltas — clean raw citation markers in real-time
+                                if (event.type === 'response.output_text.delta') {
+                                    const rawDelta = event.delta || ''
+                                    if (!rawDelta) continue
+
+                                    // Combine with any pending partial marker
+                                    pendingDelta += rawDelta
+
+                                    // Check if we're in the middle of a 【...】 marker
+                                    const openIdx = pendingDelta.lastIndexOf('【')
+                                    if (openIdx !== -1 && !pendingDelta.includes('】', openIdx)) {
+                                        const safe = pendingDelta.slice(0, openIdx)
+                                        if (safe) {
+                                            streamedContent += safe
+                                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: safe })}\n\n`))
+                                        }
+                                        pendingDelta = pendingDelta.slice(openIdx)
+                                        continue
+                                    }
+
+                                    // Clean any complete 【...】 markers
+                                    const cleaned = pendingDelta.replace(/【[^】]*】/g, '')
+                                    pendingDelta = ''
+
+                                    if (cleaned) {
+                                        streamedContent += cleaned
+                                        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleaned })}\n\n`))
+                                    }
+                                }
+
+                                // Capture reasoning summary deltas → send as activity entries
+                                if (evt.type === 'response.reasoning_summary_text.delta') {
+                                    const delta = evt.delta as string
+                                    if (delta && thinking) {
+                                        safeEnqueue(encoder.encode(phaseEvent('thinking', 'update', delta.trim())))
+                                    }
+                                }
+
+                                // Track web search calls — consolidate into a single count
+                                if (evt.type === 'response.web_search_call.in_progress') {
+                                    webSearchCount++
+                                    if (webSearchCount === 1) {
+                                        // Only send one "searching" event
+                                        safeEnqueue(encoder.encode(phaseEvent('searching_web', 'start', 'Searching the web')))
+                                    }
+                                }
+
+                                // Capture completed response for citation extraction
+                                if (event.type === 'response.completed' && event.response) {
+                                    completedResponse = event.response
+                                }
+
+                                // Also capture incomplete responses — they still have citations
+                                if (evt.type === 'response.incomplete' && evt.response) {
+                                    completedResponse = evt.response
+                                }
+                            }
+                        } catch (streamErr) {
+                            console.error('[Chat API] Stream error:', streamErr)
+                            if (!controllerClosed && !streamedContent) {
+                                const errMsg = streamErr instanceof Error ? streamErr.message : 'Stream failed'
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: `\n\n⚠️ Error: ${errMsg}` })}\n\n`))
+                            }
+                        }
+
+                        // Send consolidated web search completion
+                        if (webSearchCount > 0 && !controllerClosed) {
+                            safeEnqueue(encoder.encode(phaseEvent('searching_web', 'complete', `Searched ${webSearchCount} site${webSearchCount > 1 ? 's' : ''}`)))
+                        }
+
+                        // Flush any remaining pending delta
+                        if (pendingDelta && !controllerClosed) {
+                            const cleaned = pendingDelta.replace(/【[^】]*】/g, '')
+                            if (cleaned) {
+                                streamedContent += cleaned
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleaned })}\n\n`))
+                            }
+                        }
+
+                        // For web search / deep research: extract citations and append sources
+                        if ((webSearch || deepResearch) && completedResponse && !controllerClosed) {
+                            const { processedText, sourcesBlock: citationSourcesBlock } = extractCitationsFromResponse(completedResponse)
+
+                            if (citationSourcesBlock && processedText) {
+                                // We have proper citations — send a replace with [N] markers + sources
+                                const cleanProcessed = processedText.replace(/【[^】]*】/g, '')
+                                streamedContent = cleanProcessed
+                                sourcesBlock = citationSourcesBlock
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanProcessed + citationSourcesBlock, replace: true })}\n\n`))
+                            } else {
+                                // No citation annotations — clean up any orphan [N] markers
+                                const cleanedFinal = streamedContent.replace(/\s*\[\d+\]/g, '')
+                                if (cleanedFinal !== streamedContent) {
+                                    streamedContent = cleanedFinal
+                                    safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanedFinal, replace: true })}\n\n`))
+                                }
+                            }
+                        } else if (sourcesBlock && !controllerClosed) {
+                            // RAG sources for non-search modes
+                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                        }
+
+                        // Save assistant message
+                        if (conversationId && streamedContent) {
+                            try {
+                                const finalContent = sourcesBlock
+                                    ? `${streamedContent.trim()}\n\n${sourcesBlock}`
+                                    : streamedContent
+
+                                const { error: saveError } = await supabase
+                                    .from('messages')
+                                    .insert({
+                                        conversation_id: conversationId,
+                                        role: 'assistant',
+                                        content: finalContent
+                                    })
+
+                                if (saveError) {
+                                    console.error('Failed to save assistant message:', saveError)
+                                } else if (projectId && streamedContent) {
+                                    import('@/lib/jobs').then(j => {
+                                        j.enqueueJob('MEMORY_EXTRACTION', {
+                                            projectId,
+                                            text: streamedContent,
+                                            source: 'chat',
+                                            sourceId: conversationId
+                                        }, projectId)
+                                    }).catch(e => console.error('[Memory] Job enqueue failed:', e))
+                                }
+                            } catch (e) {
+                                console.error('Error saving assistant message:', e)
+                            }
+                        }
+
+                        if (!controllerClosed) {
+                            safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))
+                            safeEnqueue(encoder.encode('data: [DONE]\n\n'))
+                            try { controller.close() } catch { /* already closed */ }
+                        }
+
+                    } else {
+                        // ═══════════════════════════════════════════════
+                        // STANDARD CHAT — Chat Completions API
+                        // ═══════════════════════════════════════════════
+
+
+                        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+                            { role: 'system', content: fullSystemPrompt }
+                        ]
+
+                        messages.push({ role: 'user', content: userPrompt })
+
+                        const stream = await client.chat.completions.create({
+                            model,
+                            messages,
+                            temperature: AI_TEMPERATURES.default,
+                            stream: true
+                        })
+
+                        let streamedContent = ''
+                        let controllerClosed = false
+
+                        const safeEnqueue = (data: Uint8Array) => {
+                            if (controllerClosed) return false
+                            try {
+                                controller.enqueue(data)
+                                return true
+                            } catch {
+                                controllerClosed = true
+                                return false
+                            }
+                        }
+
+                        for await (const chunk of stream) {
+                            if (controllerClosed) break
+                            const content = chunk.choices[0]?.delta?.content || ''
+                            if (content) {
+                                streamedContent += content
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+                            }
+                        }
+
+                        // Handle sources for standard mode (RAG sources or AI-generated)
+                        if (sourcesBlock && !controllerClosed) {
+                            const aiSourcesRegex = /\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi
+                            if (aiSourcesRegex.test(streamedContent)) {
+                                streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
+                            }
+                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                        } else if (!sourcesBlock && !controllerClosed) {
+                            const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
+                            if (aiSourcesMatch) {
+                                const extractedSources = aiSourcesMatch[1]
+                                streamedContent = streamedContent.replace(/\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi, '').trim()
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: '\n\n' + extractedSources })}\n\n`))
+                            }
+                        }
+
+                        // Save assistant message
+                        if (conversationId && streamedContent) {
+                            try {
+                                const finalContent = sourcesBlock
+                                    ? `${streamedContent.replace(/\n*<!--SOURCES:\n[\s\S]*?-->/g, '').trim()}\n\n${sourcesBlock}`
+                                    : streamedContent
+
+                                const { error: saveError } = await supabase
+                                    .from('messages')
+                                    .insert({
+                                        conversation_id: conversationId,
+                                        role: 'assistant',
+                                        content: finalContent
+                                    })
+
+                                if (saveError) {
+                                    console.error('Failed to save assistant message:', saveError)
+                                } else if (projectId && streamedContent) {
+                                    import('@/lib/jobs').then(j => {
+                                        j.enqueueJob('MEMORY_EXTRACTION', {
+                                            projectId,
+                                            text: streamedContent,
+                                            source: 'chat',
+                                            sourceId: conversationId
+                                        }, projectId)
+                                    }).catch(e => console.error('[Memory] Job enqueue failed:', e))
+                                }
+                            } catch (e) {
+                                console.error('Error saving assistant message:', e)
+                            }
+                        }
+
+                        if (!controllerClosed) {
+
+                            safeEnqueue(encoder.encode('data: [DONE]\n\n'))
+                            try { controller.close() } catch { /* already closed */ }
+                        }
                     }
                 } catch (err) {
                     console.error('Stream error:', err)

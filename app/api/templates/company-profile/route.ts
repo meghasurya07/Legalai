@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchWeb, formatSearchResultsAsContext } from '@/lib/ai/search'
+import OpenAI from 'openai'
 import { callAISafe } from '@/lib/ai/client'
 import { apiError, parseAIJSON } from '@/lib/api-utils'
 import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
+import { AI_MODELS } from '@/lib/ai/config'
 
 export async function POST(request: NextRequest) {
     try {
@@ -16,11 +17,25 @@ export async function POST(request: NextRequest) {
             return apiError('Company name is required', 400)
         }
 
-        // 1. Search for company information
-        console.log(`[CompanyResearchProfile] Searching for: ${company}`)
-        const query = `${company} company research profile legal risks recent news sec filings`
-        const searchResponse = await searchWeb(query, 5, 'advanced')
-        const searchContext = formatSearchResultsAsContext([searchResponse])
+        // 1. Use OpenAI's native web search to research the company
+        console.log(`[CompanyResearchProfile] Researching: ${company}`)
+
+        const apiKey = process.env.OPENAI_API_KEY
+        if (!apiKey) {
+            return apiError('AI service is not configured', 503)
+        }
+
+        const client = new OpenAI({ apiKey })
+
+        const searchQuery = `${company} company research profile legal risks recent news sec filings`
+
+        const searchResponse = await client.responses.create({
+            model: AI_MODELS.companyResearch,
+            tools: [{ type: 'web_search' as const }],
+            input: searchQuery,
+        })
+
+        const searchContext = searchResponse.output_text || ''
 
         // 2. Call AI with search context
         const { result, error } = await callAISafe('company_profile', {

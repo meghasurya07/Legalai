@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 export async function POST(request: NextRequest) {
     try {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
             .join('\n\n---\n\n')
 
         const response = await client.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: AI_MODELS.tabularReview,
             messages: [
                 {
                     role: 'system',
@@ -54,8 +55,8 @@ Respond in this exact JSON format:
                     content: `Analyze these ${documentSamples.length} documents and suggest the best columns for a tabular review:\n\n${sampleText}`
                 }
             ],
-            max_tokens: 800,
-            temperature: 0.3,
+            max_tokens: AI_TOKENS.tabularReview.suggestColumns,
+            temperature: AI_TEMPERATURES.balanced,
             response_format: { type: "json_object" }
         })
 

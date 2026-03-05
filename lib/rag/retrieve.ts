@@ -7,6 +7,7 @@
 
 import { embedText } from './embeddings'
 import { supabase } from '@/lib/supabase/server'
+import { RAG_CONFIG } from '@/lib/ai/config'
 
 export interface RetrievedChunk {
     id: string
@@ -34,9 +35,9 @@ interface RetrievalOptions {
 }
 
 const DEFAULTS: Required<RetrievalOptions> = {
-    topK: 6,
-    maxTokens: 3000,
-    maxChunksPerFile: 3,
+    topK: RAG_CONFIG.retrieval.topK,
+    maxTokens: RAG_CONFIG.retrieval.maxTokens,
+    maxChunksPerFile: RAG_CONFIG.retrieval.maxChunksPerFile,
 }
 
 /**

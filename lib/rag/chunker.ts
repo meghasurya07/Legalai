@@ -5,6 +5,8 @@
  * Preserves sentence boundaries with configurable overlap.
  */
 
+import { RAG_CONFIG } from '@/lib/ai/config'
+
 export interface Chunk {
     content: string
     tokenCount: number
@@ -20,9 +22,9 @@ interface ChunkOptions {
 }
 
 const DEFAULTS: Required<ChunkOptions> = {
-    minTokens: 20, // ~80 chars minimum (lowered from 50 to support short files)
-    maxTokens: 700,
-    overlapPercent: 0.12, // 12% overlap
+    minTokens: RAG_CONFIG.chunking.minTokens,
+    maxTokens: RAG_CONFIG.chunking.maxTokens,
+    overlapPercent: RAG_CONFIG.chunking.overlapPercent,
 }
 
 // Approximate token count (~4 chars per token for English, OpenAI compatible)

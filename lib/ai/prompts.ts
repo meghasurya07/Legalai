@@ -355,10 +355,23 @@ function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
        - **Grounding:** Prioritize these established project facts over general knowledge. If a governing law or a specific decision was previously identified, always reference it.
        - **Continuity:** Treat the conversation as part of an ongoing project. Use phrases like "As previously identified..." or "Building on the prior analysis of..." when relevant.`
 
-  // For default (non-search) mode: instruct AI to generate its own sources block
-  // For web search/deep research: backend generates real sources from Tavily, so AI should NOT include its own
+  // For standard chat mode: instruct AI to generate its own sources block
+  // For web search/deep research: citations are handled server-side via url_citation annotation post-processing
+  // For thinking mode: reasoning models don't have web access, so skip citation instructions
   const isSearchMode = input.webSearch || input.deepResearch
-  if (!isSearchMode) {
+  const isThinking = input.thinking
+
+  // For thinking mode: reasoning happens internally via the API, just guide output format
+  if (isThinking) {
+    prompt += `\n\n**THINKING MODE INSTRUCTIONS:**
+- You are in deep reasoning mode. Take time to think through problems carefully.
+- Provide your answer directly — clearly structured with headings and paragraphs.
+- Focus on deep analysis, thorough explanation, and well-reasoned conclusions.
+- Break complex problems into components and address each systematically.
+- When applicable, consider multiple perspectives before arriving at a conclusion.`
+  }
+
+  if (!isSearchMode && !isThinking) {
     prompt += `\n\n**MANDATORY CITATION RULE:** For EVERY response where you reference external legal sources (statutes, cases, regulations, legal principles, authoritative guidelines, government publications, or any factual claim that originates from an external source), you MUST:
 1. Use inline numbered citations [1], [2], [3] etc. throughout your response, placed IMMEDIATELY after the relevant claim or reference.
 2. Include a hidden sources block at the VERY END of your response in this EXACT format:

@@ -6,6 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
+import { AI_MODELS, AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { buildSummaryPrompt } from './prompts'
 import { extractMetadata } from './metadata'
@@ -60,8 +61,8 @@ export async function analyzeDocument(
                 text
             }, {
                 jsonMode: true,
-                maxTokens: 800,
-                model: 'gpt-4o-mini'
+                maxTokens: AI_TOKENS.docIntel.summary,
+                model: AI_MODELS.docIntel
             })
 
             const parsed = JSON.parse(result)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 /**
  * Batch extraction: extracts ALL columns for a single document in ONE API call.
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
             .join('\n')
 
         const response = await client.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: AI_MODELS.tabularReview,
             messages: [
                 {
                     role: 'system',
@@ -63,8 +64,8 @@ ${documentText.slice(0, 15000)}
 Respond with JSON containing results for each column ID.`
                 }
             ],
-            max_tokens: 1500,
-            temperature: 0.2,
+            max_tokens: AI_TOKENS.tabularReview.extractBatch,
+            temperature: AI_TEMPERATURES.precise,
             response_format: { type: "json_object" }
         })
 

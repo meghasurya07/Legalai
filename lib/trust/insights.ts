@@ -6,6 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
+import { AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
@@ -52,7 +53,7 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
         // 3. AI insight generation
         const { result } = await callAI('vault_insights', { text: context }, {
             jsonMode: true,
-            maxTokens: 1500
+            maxTokens: AI_TOKENS.trust
         })
 
         const parsed = parseAIJSON(result, undefined)

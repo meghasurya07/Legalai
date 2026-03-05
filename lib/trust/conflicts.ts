@@ -6,6 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
+import { AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveClauses } from '@/lib/document-intelligence'
@@ -71,7 +72,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
             text: conflictClauses.join('\n\n')
         }, {
             jsonMode: true,
-            maxTokens: 1500
+            maxTokens: AI_TOKENS.trust
         })
 
         const parsed = parseAIJSON(result, undefined)

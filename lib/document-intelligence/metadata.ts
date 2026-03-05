@@ -6,6 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
+import { AI_MODELS, AI_TOKENS } from '@/lib/ai/config'
 import { buildMetadataPrompt } from './prompts'
 import type { Party, Obligation, Risk } from './types'
 
@@ -41,8 +42,8 @@ export async function extractMetadata(text: string): Promise<ExtractedMetadata> 
             text
         }, {
             jsonMode: true,
-            maxTokens: 1500,
-            model: 'gpt-4o-mini'
+            maxTokens: AI_TOKENS.docIntel.metadata,
+            model: AI_MODELS.docIntel
         })
 
         const parsed = JSON.parse(result)

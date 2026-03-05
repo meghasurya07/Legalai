@@ -6,6 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
+import { AI_MODELS, AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { buildClausePrompt } from './prompts'
 import type { DocumentClause, ClauseType } from './types'
@@ -46,8 +47,8 @@ export async function extractClauses(
             text
         }, {
             jsonMode: true,
-            maxTokens: 2000,
-            model: 'gpt-4o-mini'
+            maxTokens: AI_TOKENS.docIntel.clauses,
+            model: AI_MODELS.docIntel
         })
 
         const parsed = JSON.parse(result)

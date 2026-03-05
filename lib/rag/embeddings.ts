@@ -6,6 +6,7 @@
  */
 
 import OpenAI from 'openai'
+import { EMBEDDING_CONFIG } from '@/lib/ai/config'
 
 export interface EmbeddingResult {
     content: string
@@ -26,16 +27,16 @@ interface ChunkInput {
     sectionHeading?: string
 }
 
-const EMBEDDING_MODEL = 'text-embedding-3-small'
-const BATCH_SIZE = 100 // Max chunks per API call
-const EMBEDDING_DIMENSIONS = 1536
+const EMBEDDING_MODEL = EMBEDDING_CONFIG.model
+const BATCH_SIZE = EMBEDDING_CONFIG.batchSize
+const EMBEDDING_DIMENSIONS = EMBEDDING_CONFIG.dimensions
 
 let openaiClient: OpenAI | null = null
 
 function getClient(): OpenAI {
     if (!openaiClient) {
         const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) throw new Error('OPENAI_API_KEY is not configured')
+        if (!apiKey) throw new Error('Legal Intelligence Engine requires configuration')
         openaiClient = new OpenAI({ apiKey })
     }
     return openaiClient

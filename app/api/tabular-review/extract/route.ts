@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
         const client = new OpenAI({ apiKey })
 
         const response = await client.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: AI_MODELS.tabularReview,
             messages: [
                 {
                     role: 'system',
@@ -45,8 +46,8 @@ ${documentText}
 Provide ONLY the extracted information, nothing else.`
                 }
             ],
-            max_tokens: 300,
-            temperature: 0.2,
+            max_tokens: AI_TOKENS.tabularReview.extract,
+            temperature: AI_TEMPERATURES.precise,
         })
 
         const content = response.choices[0]?.message?.content?.trim() || 'No content extracted'
