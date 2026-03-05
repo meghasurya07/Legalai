@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description: "A professional enterprise-style foundation.",
 };
 
+import { Suspense } from "react"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
@@ -45,7 +46,9 @@ export default function RootLayout({
                 <RecentChatsProvider>
                   <AppSidebar />
                   <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
-                    <AppHeader />
+                    <Suspense fallback={<div className="h-14" />}>
+                      <AppHeader />
+                    </Suspense>
                     {children}
                   </SidebarInset>
                   <Toaster />
