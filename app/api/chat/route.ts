@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
                             } : {}),
                             // Web Search & Deep Research: web_search_preview tool
                             ...((webSearch || deepResearch) ? {
-                                tools: [{ type: 'web_search_preview' as const }],
+                                tools: [{ type: 'web_search' as const }],
                             } : {}),
                         } as OpenAI.Responses.ResponseCreateParamsStreaming
 

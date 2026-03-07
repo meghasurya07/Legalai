@@ -32,10 +32,21 @@ export async function POST(request: NextRequest) {
         const searchResponse = await client.responses.create({
             model: AI_MODELS.companyResearch,
             tools: [{ type: 'web_search' as const }],
-            input: searchQuery,
+            input: [{ role: 'user', content: searchQuery }],
         })
 
-        const searchContext = searchResponse.output_text || ''
+        let searchContext = ''
+        if (searchResponse.output) {
+            for (const item of searchResponse.output) {
+                if (item.type === 'message' && item.content) {
+                    for (const block of item.content) {
+                        if (block.type === 'output_text' && block.text) {
+                            searchContext += block.text + '\n'
+                        }
+                    }
+                }
+            }
+        }
 
         // 2. Call AI with search context
         const { result, error } = await callAISafe('company_profile', {
