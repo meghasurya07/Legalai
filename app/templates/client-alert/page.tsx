@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 
 export const metadata: Metadata = {
-    title: 'Client Alert | Legal AI',
+    title: 'Client Alert | Wesley',
     description: 'Draft professional client alerts and legal updates',
 }
 

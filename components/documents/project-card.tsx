@@ -32,7 +32,7 @@ export function ProjectCard({ id, title, organization, fileCount, queryCount, is
                 <div className="absolute top-4 right-4 opacity-0 transition-opacity group-hover:opacity-100 pr-8">
                     <Badge variant="secondary" className="gap-1 bg-black text-white hover:bg-black/90 text-[10px] h-6 px-2">
                         <Lock className="h-3 w-3" />
-                        Secured by Legal AI Documents
+                        Secured by Wesley Documents
                     </Badge>
                 </div>
             )}

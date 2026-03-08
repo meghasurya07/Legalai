@@ -194,7 +194,7 @@ export async function callAISafe(
         let message = error instanceof Error ? error.message : 'Unknown error'
 
         // Mask specific provider names in logs and error displays
-        message = message.replace(/openai/gi, 'LegalIntelligenceEngine')
+        message = message.replace(/openai/gi, 'Wesley')
 
         console.error(`[AI ERROR] use_case=${useCase} | error=${message}`)
 

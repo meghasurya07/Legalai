@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
-import { X, Send, Loader2, Sparkles, FileText, ExternalLink } from "lucide-react"
+import { X, Send, Loader2, Sparkles, FileText, ExternalLink, Trash2 } from "lucide-react"
 import { DocumentFile } from "@/types"
 import type { ReviewColumn, ReviewCell } from "./tabular-review-view"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
@@ -51,6 +52,7 @@ export function TabularReviewChat({
     // Citations Sidebar state
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = useState(false)
     const [openCitationsIndex, setOpenCitationsIndex] = useState<number | null>(null)
+    const [showClearConfirm, setShowClearConfirm] = useState(false)
 
     const openCitationsSidebar = (messageIndex: number) => {
         setOpenCitationsIndex(messageIndex)
@@ -60,6 +62,14 @@ export function TabularReviewChat({
     const closeCitationsSidebar = () => {
         setIsCitationsSidebarOpen(false)
         setOpenCitationsIndex(null)
+    }
+
+    const handleClearChat = () => {
+        setMessages([]);
+        if (onSaveMessages) {
+            onSaveMessages([]);
+        }
+        setShowClearConfirm(false);
     }
 
     // Sync initialMessages when they load asynchronously from the DB
@@ -153,7 +163,7 @@ export function TabularReviewChat({
                     message: userMessage,
                     projectId,
                     customization: {
-                        role: "Legal AI Assistant — Tabular Review Mode",
+                        role: "Wesley Assistant — Tabular Review Mode",
                         instructions: `You are analyzing a tabular review of ${documents.length} documents in the project "${projectTitle}". The user has extracted structured data across ${columns.length} columns (${columns.map(c => c.name).join(", ")}). Use the tabular review data below as your primary context to answer questions. Be concise and cite specific documents when relevant.\n\n${tabularContext}`,
                     }
                 })
@@ -182,42 +192,18 @@ export function TabularReviewChat({
                     if (line.startsWith("data: ")) {
                         const data = line.slice(6)
                         if (data === "[DONE]") {
-                            setActivityPhase('complete')
-                            setActivityExpanded(false)
                             break
                         }
 
                         try {
                             const parsed = JSON.parse(data)
 
-                            // Handle SSE Phase Events
-                            if (parsed.phase && parsed.status) {
-                                if (parsed.status === 'start') {
-                                    setActivityPhase(parsed.phase)
-                                    setActivityEntries(prev => [...prev, { phase: parsed.phase, detail: parsed.detail, time: new Date() }])
-                                    // Complete previous phases logically by analyzing entries
-                                    setCompletedPhases(prev => {
-                                        const phases = new Set(prev)
-                                        activityEntries.forEach(e => {
-                                            if (e.phase !== parsed.phase) phases.add(e.phase)
-                                        })
-                                        return Array.from(phases)
-                                    })
-                                } else if (parsed.status === 'update') {
-                                    setActivityEntries(prev => [...prev, { phase: parsed.phase, detail: parsed.detail, time: new Date() }])
-                                }
-                                continue
-                            }
+
 
                             if (parsed.content) {
                                 if (!firstTokenReceived) {
                                     firstTokenReceived = true
                                     // Ensure visual transition to 'writing' state
-                                    setCompletedPhases(prev => {
-                                        const phases = new Set(prev)
-                                        if (activityPhase && activityPhase !== 'writing') phases.add(activityPhase)
-                                        return Array.from(phases)
-                                    })
                                     setActivityPhase('writing')
                                 }
 
@@ -239,7 +225,6 @@ export function TabularReviewChat({
             }
         } catch (err) {
             console.error("Chat error:", err)
-            setActivityPhase('error')
             setMessages(prev => [...prev, {
                 role: "assistant",
                 content: "Sorry, I encountered an error. Please try again.",
@@ -266,9 +251,14 @@ export function TabularReviewChat({
                     <Sparkles className="h-4 w-4 text-amber-500" />
                     <span className="text-sm font-medium">Review Chat</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-                    <X className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setShowClearConfirm(true)} className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors" title="Clear Chat">
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+                        <X className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
             </div>
 
             {/* Context indicator */}
@@ -319,59 +309,75 @@ export function TabularReviewChat({
                         </div>
                     </div>
                 )}
-                {messages.map((msg, i) => {
-                    const isLastMessage = i === messages.length - 1;
-                    const isCurrentlyStreamingAssistant = isLastMessage && msg.role === "assistant" && activityPhase;
+                {(() => {
+                    let userCount = 0;
+                    let startIndex = 0;
+                    for (let i = messages.length - 1; i >= 0; i--) {
+                        if (messages[i].role === "user") {
+                            userCount++;
+                            if (userCount === 20) {
+                                startIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    const visibleMessages = messages.slice(startIndex);
 
-                    return (
-                        <React.Fragment key={i}>
-                            {isCurrentlyStreamingAssistant && activityExpanded && (
-                                <div className="mb-4">
-                                    <TaskActivityTimeline
-                                        phase={activityPhase}
-                                        entries={activityEntries}
-                                        completedPhases={completedPhases}
-                                        onClose={() => setActivityExpanded(false)}
-                                    />
+                    return visibleMessages.map((msg, idx) => {
+                        const actualIndex = startIndex + idx;
+                        const isLastMessage = actualIndex === messages.length - 1;
+                        const isCurrentlyStreamingAssistant = isLastMessage && msg.role === "assistant" && activityPhase;
+
+                        return (
+                            <React.Fragment key={actualIndex}>
+                                {isCurrentlyStreamingAssistant && activityExpanded && (
+                                    <div className="mb-4">
+                                        <TaskActivityTimeline
+                                            phase={activityPhase}
+                                            entries={activityEntries}
+                                            completedPhases={completedPhases}
+                                            onClose={() => setActivityExpanded(false)}
+                                        />
+                                    </div>
+                                )}
+                                <div className={msg.role === "user" ? "flex justify-end" : ""}>
+                                    <div
+                                        className={
+                                            msg.role === "user"
+                                                ? "bg-foreground text-background px-3 py-1.5 rounded-2xl rounded-br-sm text-[12px] max-w-[85%]"
+                                                : "text-[12px] leading-relaxed"
+                                        }
+                                    >
+                                        {msg.role === "assistant" ? (
+                                            <>
+                                                <MarkdownRenderer
+                                                    content={msg.content}
+                                                    onSourceClick={() => openCitationsSidebar(actualIndex)}
+                                                />
+                                                {isStreaming && actualIndex === messages.length - 1 && (
+                                                    <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
+                                                )}
+                                            </>
+                                        ) : (
+                                            msg.content
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                            <div className={msg.role === "user" ? "flex justify-end" : ""}>
-                                <div
-                                    className={
-                                        msg.role === "user"
-                                            ? "bg-foreground text-background px-3 py-1.5 rounded-2xl rounded-br-sm text-[12px] max-w-[85%]"
-                                            : "text-[12px] leading-relaxed"
-                                    }
-                                >
-                                    {msg.role === "assistant" ? (
-                                        <>
-                                            <MarkdownRenderer
-                                                content={msg.content}
-                                                onSourceClick={() => openCitationsSidebar(i)}
-                                            />
-                                            {isStreaming && i === messages.length - 1 && (
-                                                <span className="inline-block w-1.5 h-3.5 bg-foreground/60 ml-0.5 animate-pulse" />
-                                            )}
-                                        </>
-                                    ) : (
-                                        msg.content
-                                    )}
-                                </div>
-                            </div>
-                            {/* If the last message is from the user and we are waiting for the assistant, show timeline here */}
-                            {isLastMessage && msg.role === "user" && activityPhase && activityExpanded && (
-                                <div className="mt-4 mb-4">
-                                    <TaskActivityTimeline
-                                        phase={activityPhase}
-                                        entries={activityEntries}
-                                        completedPhases={completedPhases}
-                                        onClose={() => setActivityExpanded(false)}
-                                    />
-                                </div>
-                            )}
-                        </React.Fragment>
-                    );
-                })}
+                                {/* If the last message is from the user and we are waiting for the assistant, show timeline here */}
+                                {isLastMessage && msg.role === "user" && activityPhase && activityExpanded && (
+                                    <div className="mt-4 mb-4">
+                                        <TaskActivityTimeline
+                                            phase={activityPhase}
+                                            entries={activityEntries}
+                                            completedPhases={completedPhases}
+                                            onClose={() => setActivityExpanded(false)}
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    });
+                })()}
 
                 {/* AI Activity Timeline moved inside messages loop */}
 
@@ -498,6 +504,41 @@ export function TabularReviewChat({
                     </div>
                 )
             })()}
+            {/* Clear Chat Confirmation Dialog */}
+            {showClearConfirm && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
+                        onClick={() => setShowClearConfirm(false)}
+                    />
+                    {/* Dialog */}
+                    <div className="relative z-50 w-full max-w-md mx-4 bg-white dark:bg-zinc-900 rounded-xl border border-border/60 shadow-2xl p-6 animate-in fade-in-0 zoom-in-95 duration-200">
+                        <div className="space-y-2">
+                            <h2 className="text-lg font-semibold text-foreground">Clear chat history?</h2>
+                            <p className="text-sm text-muted-foreground">
+                                This will permanently delete all messages in this review chat. This action cannot be undone.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowClearConfirm(false)}
+                                className="rounded-lg"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleClearChat}
+                                className="rounded-lg bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+                            >
+                                Clear Chat
+                            </Button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     )
 }

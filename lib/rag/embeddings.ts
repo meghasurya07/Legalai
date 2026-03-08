@@ -36,7 +36,7 @@ let openaiClient: OpenAI | null = null
 function getClient(): OpenAI {
     if (!openaiClient) {
         const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) throw new Error('Legal Intelligence Engine requires configuration')
+        if (!apiKey) throw new Error('Wesley requires configuration')
         openaiClient = new OpenAI({ apiKey })
     }
     return openaiClient

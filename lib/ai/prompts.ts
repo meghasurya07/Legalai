@@ -72,7 +72,7 @@ Preserve legal terminology. Accuracy is paramount.`,
   legal_memo: (input) => ({
     systemPrompt: `You are a legal research specialist. Draft a memo in IRAC format. Return JSON:
 {
-  "heading": {"to":"${input.to || 'File'}","from":"${input.from || 'Legal AI'}","date":"${new Date().toLocaleDateString()}","re":"Subject"},
+  "heading": {"to":"${input.to || 'File'}","from":"${input.from || 'Wesley'}","date":"${new Date().toLocaleDateString()}","re":"Subject"},
   "question": "Question presented",
   "briefAnswer": "2-3 sentence answer",
   "facts": "Statement of facts",
@@ -191,7 +191,7 @@ Be thorough and precise. Flag anything legally significant.`,
   }),
 
   workflow_execution: (input) => ({
-    systemPrompt: `You are Legal AI executing a workflow. Provide structured, professional output for the workflow "${input.workflowName || 'Unknown'}". Be concise and actionable.`,
+    systemPrompt: `You are Wesley executing a workflow. Provide structured, professional output for the workflow "${input.workflowName || 'Unknown'}". Be concise and actionable.`,
     userPrompt: `Execute workflow: ${input.workflowName || ''}\n\nInputs: ${JSON.stringify(input.inputData || {})}`
   }),
 
@@ -321,7 +321,7 @@ Rules:
 // ─── Helper ──────────────────────────────────────────────────────────
 
 function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
-  let prompt = `You are Legal AI, an enterprise-grade legal assistant designed for lawyers and professionals.
+  let prompt = `You are Wesley, an enterprise-grade legal assistant designed for lawyers and professionals.
     
     
 **MANDATORY RESPONSE CONTRACT**

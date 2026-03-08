@@ -1088,7 +1088,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                             <Textarea
                                 id="chat-input"
-                                placeholder={isLoading ? "AI is thinking..." : "Ask Legal AI anything..."}
+                                placeholder={isLoading ? "AI is thinking..." : "Ask Wesley anything..."}
                                 className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
@@ -1214,7 +1214,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                             </>
                                         ) : (
                                             <>
-                                                <span className="hidden sm:inline">Ask Legal AI</span>
+                                                <span className="hidden sm:inline">Ask Wesley</span>
                                                 <span className="sm:hidden">Ask</span>
                                             </>
                                         )}

@@ -40,7 +40,7 @@ Rules:
 - Column names should be short (1-3 words)
 - Prompts should be clear extraction instructions
 - Focus on what's actually IN these documents, not generic fields
-- Always include "Parties" as the first column
+- Always include "Summary" as the first column, which should be a 2-3 sentence summary of the document
 - Pick columns that are MOST RELEVANT to the specific document type
 
 Respond in this exact JSON format:

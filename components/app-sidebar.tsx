@@ -67,7 +67,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <Scale className="h-4 w-4" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                                <span className="font-serif tracking-[0.25em] font-medium text-foreground text-[11px] uppercase">Legal AI</span>
+                                <span className="font-serif tracking-[0.25em] font-medium text-foreground text-[11px] uppercase">Wesley</span>
                             </div>
                         </div>
                     </SidebarMenuItem>

@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import DraftFromTemplate from '@/components/draft-from-template'
 
 export const metadata: Metadata = {
-    title: 'Draft from Template | Legal AI',
+    title: 'Draft from Template | Wesley',
     description: 'Generate legal documents from templates',
 }
 

@@ -29,10 +29,10 @@ export interface TabularReviewState {
 }
 
 const FALLBACK_COLUMNS: ReviewColumn[] = [
-    { id: "parties", name: "Parties", prompt: "List all parties involved in this document with their roles. Be concise.", width: 220, order: 0 },
-    { id: "effective_date", name: "Effective Date", prompt: "What is the effective date of this document? If not specified, say '—'.", width: 220, order: 1 },
-    { id: "key_terms", name: "Key Terms", prompt: "What are the top 3-5 key terms in this document? Be concise.", width: 220, order: 2 },
-    { id: "summary", name: "Summary", prompt: "Provide a 2-3 sentence summary of this document.", width: 220, order: 3 },
+    { id: "summary", name: "Summary", prompt: "Provide a 2-3 sentence summary of this document.", width: 220, order: 0 },
+    { id: "parties", name: "Parties", prompt: "List all parties involved in this document with their roles. Be concise.", width: 220, order: 1 },
+    { id: "effective_date", name: "Effective Date", prompt: "What is the effective date of this document? If not specified, say '—'.", width: 220, order: 2 },
+    { id: "key_terms", name: "Key Terms", prompt: "What are the top 3-5 key terms in this document? Be concise.", width: 220, order: 3 },
     { id: "key_obligations", name: "Key Obligations", prompt: "What are the main obligations of each party? Be concise.", width: 220, order: 4 },
 ]
 

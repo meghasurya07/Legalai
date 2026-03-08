@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import RedlineAnalysis from '@/components/redline-analysis'
 
 export const metadata: Metadata = {
-    title: 'Redline Analysis | Legal AI',
+    title: 'Redline Analysis | Wesley',
     description: 'Compare document versions and analyze changes with AI',
 }
 

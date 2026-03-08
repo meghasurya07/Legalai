@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Translation from '@/components/translation'
 
 export const metadata: Metadata = {
-    title: 'Translation | Legal AI',
+    title: 'Translation | Wesley',
     description: 'Translate legal documents with preserved legal terminology',
 }
 

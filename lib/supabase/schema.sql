@@ -1,4 +1,4 @@
--- Legal AI MVP Database Schema
+-- Wesley MVP Database Schema
 -- Simple, extensible schema for single-user local MVP
 -- RLS disabled for initial development
 
@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS projects (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     title TEXT NOT NULL,
-    organization TEXT DEFAULT 'Legal AI',
+    organization TEXT DEFAULT 'Wesley',
     file_count INTEGER DEFAULT 0,
     query_count INTEGER DEFAULT 0,
     is_secured BOOLEAN DEFAULT true,
