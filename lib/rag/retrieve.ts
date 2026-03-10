@@ -214,7 +214,7 @@ export function buildRAGSourcesBlock(chunks: RetrievedChunk[]): string {
  * System instruction for RAG-grounded responses.
  * Uses inline [N] citations that the frontend renders as hoverable cards.
  */
-export const RAG_GROUNDING_INSTRUCTION = `You are a legal AI assistant with access to specific project documents.
+export const RAG_GROUNDING_INSTRUCTION = `You are Wesley, a legal AI assistant with access to specific project documents.
 
 **MANDATORY RULES:**
 1. Answer ONLY using the provided project document context below.

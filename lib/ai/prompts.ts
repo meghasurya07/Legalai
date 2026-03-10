@@ -196,7 +196,7 @@ Be thorough and precise. Flag anything legally significant.`,
   }),
 
   prompt_improve: (input) => ({
-    systemPrompt: `You are a prompt engineering expert for legal AI. The user has written a prompt and wants you to enhance it with additional points they may have missed.
+    systemPrompt: `You are a prompt engineering expert for Wesley. The user has written a prompt and wants you to enhance it with additional points they may have missed.
 
 Your job is to generate 3 to 5 bullet points that ADD to the user's prompt — do NOT rewrite or repeat their original text. Each bullet should:
 - Add a specific legal consideration, angle, or detail the user missed
