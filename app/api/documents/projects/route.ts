@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getOrgContext } from '@/lib/get-org-context'
 import { getUserId } from '@/lib/get-user-id'
 
-// GET /api/documents/projects - List all projects for the current user
+// GET /api/documents/projects - List all projects for the current user/org
 export async function GET() {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('projects')
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
+
+        // Add org_id filter only if org context is available (post-migration)
+        if (ctx?.orgId) {
+            query = query.eq('org_id', ctx.orgId)
+        }
+
+        const { data, error } = await query
 
         if (error) {
             return apiError('Failed to fetch projects', 500, error)
@@ -40,7 +49,8 @@ export async function GET() {
 // POST /api/documents/projects - Create a new project
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
         const body = await request.json()
@@ -50,9 +60,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Title is required' }, { status: 400 })
         }
 
+        const insertData: Record<string, unknown> = { title: title.trim(), user_id: userId }
+        // Only include org_id if org context is available (post-migration)
+        if (ctx?.orgId) {
+            insertData.org_id = ctx.orgId
+        }
+
         const { data, error } = await supabase
             .from('projects')
-            .insert({ title: title.trim(), user_id: userId })
+            .insert(insertData)
             .select()
             .single()
 

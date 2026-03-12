@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
+import { getUserId } from '@/lib/get-user-id'
+import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
+        const { allowed } = checkRateLimit(userId, RATE_LIMIT_HEAVY)
+        if (!allowed) return apiError('Too many requests', 429)
+
         const { projectId, documentId, columnPrompt, columnName, documentText } = await request.json()
 
         if (!projectId || !documentId || !columnPrompt || !documentText) {

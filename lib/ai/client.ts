@@ -33,6 +33,8 @@ export async function callAI(
         maxTokens?: number
         projectId?: string
         useRAG?: boolean
+        userId?: string
+        orgId?: string
     }
 ): Promise<{ result: string; tokensUsed: number }> {
     const client = getClient()
@@ -167,7 +169,7 @@ export async function callAI(
             jsonMode: !!options?.jsonMode,
             ragEnabled: !!options?.useRAG,
             success: true
-        }, options?.projectId)
+        }, options?.projectId, undefined, options?.orgId, options?.userId)
     }).catch(() => { })
 
     const result = completion.choices[0]?.message?.content || ''
@@ -186,6 +188,8 @@ export async function callAISafe(
         maxTokens?: number
         projectId?: string
         useRAG?: boolean
+        userId?: string
+        orgId?: string
     }
 ): Promise<{ result: string; tokensUsed: number; error?: string }> {
     try {
@@ -203,7 +207,7 @@ export async function callAISafe(
                 useCase,
                 error: message,
                 success: false
-            }, options?.projectId)
+            }, options?.projectId, undefined, options?.orgId, options?.userId)
         }).catch(() => { })
 
         if (message.includes('API key') || message.includes('api_key') || message.includes('apiKey')) {

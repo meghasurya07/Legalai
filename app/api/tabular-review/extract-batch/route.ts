@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
+import { getUserId } from '@/lib/get-user-id'
+import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 
 /**
  * Batch extraction: extracts ALL columns for a single document in ONE API call.
@@ -9,6 +11,12 @@ import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
  */
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
+        const { allowed } = checkRateLimit(userId, RATE_LIMIT_HEAVY)
+        if (!allowed) return apiError('Too many requests', 429)
+
         const { projectId, documentId, documentText, columns } = await request.json()
 
         if (!projectId || !documentId || !documentText || !columns || !Array.isArray(columns) || columns.length === 0) {

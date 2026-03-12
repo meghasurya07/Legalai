@@ -1,9 +1,17 @@
 import { NextRequest } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { extractText } from '@/lib/ai/extract-text'
+import { getUserId } from '@/lib/get-user-id'
+import { checkRateLimit, RATE_LIMIT_AI } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
+        const { allowed } = checkRateLimit(userId, RATE_LIMIT_AI)
+        if (!allowed) return apiError('Too many requests', 429)
+
         const formData = await request.formData()
         const file = formData.get('file') as File
 

@@ -6,6 +6,7 @@ import { useUser } from "@auth0/nextjs-auth0/client"
 import { useUserSettings } from "@/context/user-settings-context"
 import {
     BookOpen,
+    Building2,
     History,
     LayoutGrid,
     Library,
@@ -14,7 +15,8 @@ import {
     ChevronDown,
     LogOut,
     MessageSquarePlus,
-    Scale
+    Scale,
+    ShieldAlert
 } from "lucide-react"
 
 import {
@@ -56,6 +58,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         .join("")
         .slice(0, 2)
         .toUpperCase()
+
+    // Check if user is a super admin
+    const [isSuperAdmin, setIsSuperAdmin] = React.useState(false)
+    React.useEffect(() => {
+        fetch("/api/super-admin/stats")
+            .then(r => setIsSuperAdmin(r.ok))
+            .catch(() => setIsSuperAdmin(false))
+    }, [])
 
     return (
         <Sidebar collapsible="icon" className="border-r-0 bg-sidebar/50 backdrop-blur-md" {...props}>
@@ -156,11 +166,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         <Settings className="mr-2 h-4 w-4" />
                                         <span>Settings</span>
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => router.push('/admin')}>
+                                        <Building2 className="mr-2 h-4 w-4" />
+                                        <span>Organization</span>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => router.push('/help')}>
                                         <HelpCircle className="mr-2 h-4 w-4" />
                                         <span>Help</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
+                                {isSuperAdmin && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuGroup>
+                                            <DropdownMenuItem onClick={() => router.push('/super-admin')}>
+                                                <ShieldAlert className="mr-2 h-4 w-4 text-red-500" />
+                                                <span>Super Admin</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuGroup>
+                                    </>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"

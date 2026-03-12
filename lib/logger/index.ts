@@ -33,12 +33,16 @@ export function logEvent(
     eventType: EventType,
     data: Record<string, unknown>,
     projectId?: string,
-    refId?: string
+    refId?: string,
+    orgId?: string,
+    userId?: string
 ): void {
     const logData = {
         event_type: eventType,
         project_id: projectId || (data.projectId as string) || null,
         ref_id: refId || (data.refId as string) || null,
+        org_id: orgId || (data.orgId as string) || null,
+        user_id: userId || (data.userId as string) || null,
         data
     }
 

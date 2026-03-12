@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getOrgContext } from '@/lib/get-org-context'
 import { getUserId } from '@/lib/get-user-id'
 
 interface RouteParams {
@@ -10,17 +11,23 @@ interface RouteParams {
 // GET /api/documents/projects/[id] - Get single project with files
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
 
-        const { data: project, error: projectError } = await supabase
+        let query = supabase
             .from('projects')
             .select('*')
             .eq('id', id)
             .eq('user_id', userId)
-            .single()
+
+        if (ctx?.orgId) {
+            query = query.eq('org_id', ctx.orgId)
+        }
+
+        const { data: project, error: projectError } = await query.single()
 
         if (projectError || !project) {
             return apiError('Project not found', 404, projectError)
@@ -78,7 +85,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/documents/projects/[id] - Update project (rename, increment query count)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
@@ -92,26 +100,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         if (incrementQueryCount) {
-            // First get current count
-            const { data: current } = await supabase
+            let query = supabase
                 .from('projects')
                 .select('query_count')
                 .eq('id', id)
                 .eq('user_id', userId)
-                .single()
+
+            if (ctx?.orgId) query = query.eq('org_id', ctx.orgId)
+
+            const { data: current } = await query.single()
 
             if (current) {
                 updates.query_count = (current.query_count || 0) + 1
             }
         }
 
-        const { data, error } = await supabase
+        let updateQuery = supabase
             .from('projects')
             .update(updates)
             .eq('id', id)
             .eq('user_id', userId)
-            .select()
-            .single()
+
+        if (ctx?.orgId) updateQuery = updateQuery.eq('org_id', ctx.orgId)
+
+        const { data, error } = await updateQuery.select().single()
 
         if (error) {
             return apiError('Failed to update project', 500, error)
@@ -134,16 +146,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/documents/projects/[id] - Delete project
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
 
-        const { error } = await supabase
+        let query = supabase
             .from('projects')
             .delete()
             .eq('id', id)
             .eq('user_id', userId)
+
+        if (ctx?.orgId) query = query.eq('org_id', ctx.orgId)
+
+        const { error } = await query
 
         if (error) {
             return apiError('Failed to delete project', 500, error)

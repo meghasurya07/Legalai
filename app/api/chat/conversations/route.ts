@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
+import { getOrgContext } from '@/lib/get-org-context'
 
 // GET /api/chat/conversations - List conversations for current user
 export async function GET(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const { searchParams } = new URL(request.url)
@@ -84,7 +86,8 @@ export async function GET(request: NextRequest) {
 // POST /api/chat/conversations - Create new conversation
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const ctx = await getOrgContext()
+        const userId = ctx?.userId || await getUserId()
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await request.json()
@@ -97,7 +100,8 @@ export async function POST(request: NextRequest) {
                 type,
                 project_id: projectId || null,
                 workflow_id: workflowId || null,
-                user_id: userId
+                user_id: userId,
+                org_id: ctx?.orgId || null
             })
             .select()
             .single()

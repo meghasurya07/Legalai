@@ -26,6 +26,7 @@ import { DocumentsProvider } from "@/context/vault-context"
 import { RecentChatsProvider } from "@/context/history-context"
 import { UserSettingsProvider } from "@/context/user-settings-context"
 import { Auth0Provider } from "@auth0/nextjs-auth0/client"
+import { OrgProvider } from "@/context/org-context"
 
 import { Toaster } from "@/components/ui/sonner"
 
@@ -40,22 +41,24 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Auth0Provider>
-          <SidebarProvider>
-            <UserSettingsProvider>
-              <DocumentsProvider>
-                <RecentChatsProvider>
-                  <AppSidebar />
-                  <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
-                    <Suspense fallback={<div className="h-14" />}>
-                      <AppHeader />
-                    </Suspense>
-                    {children}
-                  </SidebarInset>
-                  <Toaster />
-                </RecentChatsProvider>
-              </DocumentsProvider>
-            </UserSettingsProvider>
-          </SidebarProvider>
+          <OrgProvider>
+            <SidebarProvider>
+              <UserSettingsProvider>
+                <DocumentsProvider>
+                  <RecentChatsProvider>
+                    <AppSidebar />
+                    <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
+                      <Suspense fallback={<div className="h-14" />}>
+                        <AppHeader />
+                      </Suspense>
+                      {children}
+                    </SidebarInset>
+                    <Toaster />
+                  </RecentChatsProvider>
+                </DocumentsProvider>
+              </UserSettingsProvider>
+            </SidebarProvider>
+          </OrgProvider>
         </Auth0Provider>
       </body>
     </html>

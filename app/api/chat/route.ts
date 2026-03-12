@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
     try {
         const { message, customization, files, queryMode, webSearch, thinking, deepResearch, projectId, conversationId } = await request.json()
 
-        // Rate limit for deep research: 5 per month per user
-        let userId: string | undefined
-        if (deepResearch) {
-            const session = await auth0.getSession()
-            userId = session?.user?.sub
+        // Always resolve user for usage tracking
+        const session = await auth0.getSession()
+        const userId = session?.user?.sub as string | undefined
 
+        // Rate limit for deep research: 5 per month per user
+        if (deepResearch) {
             if (!userId) {
                 return apiError('Authentication required for Deep Research', 401)
             }
@@ -208,6 +208,7 @@ export async function POST(request: NextRequest) {
 
         const client = new OpenAI({ apiKey, timeout: deepResearch ? 3600 * 1000 : undefined })
         const encoder = new TextEncoder()
+        const streamStartTime = Date.now()
 
         const readable = new ReadableStream({
             async start(controller) {
@@ -434,6 +435,21 @@ export async function POST(request: NextRequest) {
                             try { controller.close() } catch { /* already closed */ }
                         }
 
+                        // Log streaming AI call for usage tracking
+                        const responsesUsage = completedResponse?.usage as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined
+                        import('@/lib/logger').then(({ logEvent }) => {
+                            logEvent('AI_CALL', {
+                                useCase: chatMode === 'deepResearch' ? 'deep_research' : chatMode === 'webSearch' ? 'web_search' : 'thinking',
+                                model,
+                                tokensIn: responsesUsage?.input_tokens || 0,
+                                tokensOut: responsesUsage?.output_tokens || 0,
+                                tokensTotal: responsesUsage?.total_tokens || ((responsesUsage?.input_tokens || 0) + (responsesUsage?.output_tokens || 0)),
+                                latencyMs: Date.now() - streamStartTime,
+                                streaming: true,
+                                success: true
+                            }, projectId, undefined, undefined, userId)
+                        }).catch(() => { })
+
                     } else {
                         // ═══════════════════════════════════════════════
                         // STANDARD CHAT — Chat Completions API
@@ -529,6 +545,21 @@ export async function POST(request: NextRequest) {
                             safeEnqueue(encoder.encode('data: [DONE]\n\n'))
                             try { controller.close() } catch { /* already closed */ }
                         }
+
+                        // Log streaming AI call for usage tracking
+                        import('@/lib/logger').then(({ logEvent }) => {
+                            logEvent('AI_CALL', {
+                                useCase: 'assistant_chat',
+                                model,
+                                tokensIn: 0,
+                                tokensOut: 0,
+                                tokensTotal: 0,
+                                latencyMs: Date.now() - streamStartTime,
+                                streaming: true,
+                                success: true,
+                                charCount: streamedContent.length
+                            }, projectId, undefined, undefined, userId)
+                        }).catch(() => { })
                     }
                 } catch (err) {
                     console.error('Stream error:', err)
