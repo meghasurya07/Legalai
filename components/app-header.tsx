@@ -94,7 +94,7 @@ export function AppHeader() {
         } else if (conv.type === 'workflow' && conv.workflowId) {
             router.push(`/templates/${conv.workflowId}?chatId=${conv.id}`)
         } else {
-            router.push(`/?chatId=${conv.id}`)
+            router.push(`/chat/${conv.id}`)
         }
     }
 

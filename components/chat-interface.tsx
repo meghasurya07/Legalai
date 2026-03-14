@@ -530,9 +530,13 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     setConversationId(convData.id)
 
                     // Update URL to include new chatId without reloading
-                    const newSearchParams = new URLSearchParams(searchParams.toString())
-                    newSearchParams.set('chatId', convData.id)
-                    router.replace(`${pathname}?${newSearchParams.toString()}`)
+                    if (conversationType === 'assistant') {
+                        router.replace(`/chat/${convData.id}`)
+                    } else {
+                        const newSearchParams = new URLSearchParams(searchParams.toString())
+                        newSearchParams.set('chatId', convData.id)
+                        router.replace(`${pathname}?${newSearchParams.toString()}`)
+                    }
                 }
             }
 

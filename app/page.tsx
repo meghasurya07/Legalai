@@ -14,6 +14,10 @@ export default async function AppPage({
         redirect("/auth/login");
     }
 
+    if (chatId) {
+        redirect(`/chat/${chatId}`);
+    }
+
     return (
         <div className="flex flex-1 min-h-0 flex-col">
             <ChatInterface
