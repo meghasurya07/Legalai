@@ -14,7 +14,7 @@ export type ChatCitationSource = {
  * Parse the <!--SOURCES:...--> block from AI response content.
  */
 export function parseSources(content: string): ChatCitationSource[] {
-    const sourcesMatch = content.match(/<!--SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
+    const sourcesMatch = content.match(/<!--\s*SOURCES:?\s*([\s\S]*?)(?:-->|$)/i)
     if (!sourcesMatch) return []
 
     return sourcesMatch[1].trim().split('\n').map((line: string) => {
@@ -41,8 +41,8 @@ export function parseSources(content: string): ChatCitationSource[] {
  */
 export function stripSourcesBlock(content: string): string {
     return content
-        .replace(/<!--SOURCES:?[\s\S]*?-->/gi, '')           // complete blocks
-        .replace(/<!--S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')  // partial during streaming
+        .replace(/<!--\s*SOURCES:?[\s\S]*?-->/gi, '')           // complete blocks
+        .replace(/<!--\s*S(?:O(?:U(?:R(?:C(?:E(?:S)?)?)?)?)?)?[\s\S]*$/i, '')  // partial during streaming
         .replace(/<!--\s*$/i, '')                              // just "<!--"
         .trim()
 }

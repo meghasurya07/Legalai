@@ -385,8 +385,8 @@ export async function POST(request: NextRequest) {
                                 sourcesBlock = citationSourcesBlock
                                 safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanProcessed + citationSourcesBlock, replace: true })}\n\n`))
                             } else {
-                                // No citation annotations — clean up any orphan [N] markers
-                                const cleanedFinal = streamedContent.replace(/\s*\[\d+\]/g, '')
+                                // No citation annotations — just clean native 【...】 markers but KEEP any [N] markers the AI wrote
+                                const cleanedFinal = streamedContent.replace(/【[^】]*】/g, '')
                                 if (cleanedFinal !== streamedContent) {
                                     streamedContent = cleanedFinal
                                     safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanedFinal, replace: true })}\n\n`))

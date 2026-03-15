@@ -531,7 +531,9 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                     // Update URL to include new chatId without reloading
                     if (conversationType === 'assistant') {
-                        router.replace(`/chat/${convData.id}`)
+                        // Use silent replaceState to avoid unmounting the component and killing the stream
+                        const nextUrl = `/chat/${convData.id}`
+                        window.history.replaceState(null, '', nextUrl)
                     } else {
                         const newSearchParams = new URLSearchParams(searchParams.toString())
                         newSearchParams.set('chatId', convData.id)
