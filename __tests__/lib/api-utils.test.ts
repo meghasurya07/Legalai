@@ -85,11 +85,13 @@ describe('apiError', () => {
         spy.mockRestore()
     })
 
-    it('includes detail in meta when provided', () => {
+    it('does not leak detail to client response', () => {
         const spy = vi.spyOn(console, 'error').mockImplementation(() => { })
         const response = apiError('Fail', 422, { field: 'email' })
 
-        expect(response.body.meta).toEqual({ detail: { field: 'email' } })
+        // Detail should be logged server-side but NOT sent to client
+        expect(response.body.meta).toBeUndefined()
+        expect(spy).toHaveBeenCalled()
         spy.mockRestore()
     })
 })
