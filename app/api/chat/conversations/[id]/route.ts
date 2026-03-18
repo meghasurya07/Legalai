@@ -67,15 +67,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const { id } = await params
         const body = await request.json()
 
+        const { sanitizeShortText } = await import('@/lib/validation')
+        
         const updateFields: Record<string, unknown> = {
             updated_at: new Date().toISOString()
         }
 
-        if ('title' in body) {
-            updateFields.title = body.title
+        if ('title' in body && body.title !== undefined) {
+            updateFields.title = body.title === null ? null : sanitizeShortText(body.title, 200)
         }
         if ('pinned' in body) {
-            updateFields.pinned = body.pinned
+            updateFields.pinned = !!body.pinned
         }
 
         const { data, error } = await supabase

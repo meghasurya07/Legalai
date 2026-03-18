@@ -91,7 +91,12 @@ export async function POST(request: NextRequest) {
         if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await request.json()
-        const { title, type = 'assistant', projectId, workflowId } = body
+        const { sanitizeShortText, validateUUID, validateEnum } = await import('@/lib/validation')
+        
+        const title = body.title ? sanitizeShortText(body.title, 200) : null
+        const type = validateEnum(body.type || 'assistant', ['assistant', 'vault', 'workflow']) || 'assistant'
+        const projectId = validateUUID(body.projectId)
+        const workflowId = validateUUID(body.workflowId)
 
         const { data, error } = await supabase
             .from('conversations')

@@ -31,7 +31,9 @@ export async function PATCH(request: NextRequest) {
         const userId = session?.user?.sub || 'default-user-id';
         const actor = session?.user?.email || 'system_admin';
 
-        const updates = await request.json();
+        const body = await request.json();
+        const { sanitizeObject } = await import('@/lib/validation');
+        const updates = sanitizeObject(body, 10000);
 
         if (updates.user_id) delete updates.user_id;
 

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
+import { getUserId } from '@/lib/get-user-id'
+import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 
 interface RouteParams {
     params: Promise<{ id: string; fileId: string }>
@@ -9,7 +12,29 @@ interface RouteParams {
 // Body: { action: 'summarize' | 'analyze', text: string }
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { id: projectId, fileId } = await params
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', projectId)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+        }
+
+        // Rate limit AI-heavy operations
+        const { allowed } = checkRateLimit(`analyze:${userId}`, RATE_LIMIT_HEAVY)
+        if (!allowed) {
+            return NextResponse.json({ error: 'Too many analysis requests. Please slow down.' }, { status: 429 })
+        }
+
         const { action, text } = await request.json()
 
         if (!action || !text) {
@@ -36,8 +61,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error }, { status: 503 })
         }
 
-        // Optionally store the analysis result linked to the file
-        // (Using a simple approach — store in file metadata or a new table)
         console.log(`[Vault AI] project=${projectId} file=${fileId} action=${action}`)
 
         return NextResponse.json({

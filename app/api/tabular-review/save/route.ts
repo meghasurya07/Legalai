@@ -8,10 +8,28 @@ export async function POST(request: NextRequest) {
         const userId = await getUserId()
         if (!userId) return apiError('Unauthorized', 401)
 
-        const { projectId, columns, cells, chatMessages } = await request.json()
+        const body = await request.json()
+        const { validateUUID, sanitizeObject } = await import('@/lib/validation')
 
-        if (!projectId || !columns || !Array.isArray(columns)) {
+        const projectId = validateUUID(body.projectId)
+        const columns = Array.isArray(body.columns) ? sanitizeObject(body.columns, 2000) : null
+        const cells = Array.isArray(body.cells) ? sanitizeObject(body.cells, 100000) : undefined
+        const chatMessages = Array.isArray(body.chatMessages) ? sanitizeObject(body.chatMessages, 50000) : undefined
+
+        if (!projectId || !columns) {
             return apiError('Missing required fields', 400)
+        }
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', projectId)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return apiError('Project not found', 404)
         }
 
         // 1. Upsert columns (handles concurrent saves gracefully)

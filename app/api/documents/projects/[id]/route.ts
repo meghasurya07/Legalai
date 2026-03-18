@@ -91,12 +91,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
         const { id } = await params
         const body = await request.json()
-        const { title, incrementQueryCount } = body
+        const { sanitizeShortText } = await import('@/lib/validation')
+        const { incrementQueryCount } = body
+        const title = body.title === undefined ? undefined : (body.title ? sanitizeShortText(body.title, 200) : null)
 
         const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
         if (title !== undefined) {
-            updates.title = title.trim()
+            updates.title = title
         }
 
         if (incrementQueryCount) {

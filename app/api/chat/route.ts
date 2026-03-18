@@ -91,11 +91,30 @@ function extractCitationsFromResponse(response: OpenAI.Responses.Response): { pr
 
 export async function POST(request: NextRequest) {
     try {
-        const { message, customization, files, queryMode, webSearch, thinking, deepResearch, projectId, conversationId } = await request.json()
+        const body = await request.json()
+        const { sanitizeText, validateUUID } = await import('@/lib/validation')
+        const message = sanitizeText(body.message, 100000)
+        const { customization, files, queryMode, webSearch, thinking, deepResearch } = body
+        const projectId = validateUUID(body.projectId)
+        const conversationId = validateUUID(body.conversationId)
 
-        // Always resolve user for usage tracking
+        if (!message) {
+            return apiError('Message is required', 400)
+        }
+
+        // Require authentication
         const session = await auth0.getSession()
         const userId = session?.user?.sub as string | undefined
+        if (!userId) {
+            return apiError('Authentication required', 401)
+        }
+
+        // Rate limit chat messages
+        const { checkRateLimit, RATE_LIMIT_CHAT } = await import('@/lib/rate-limit')
+        const { allowed } = checkRateLimit(`chat:${userId}`, RATE_LIMIT_CHAT)
+        if (!allowed) {
+            return apiError('Too many messages. Please slow down.', 429)
+        }
 
         // Rate limit for deep research: 5 per month per user
         if (deepResearch) {

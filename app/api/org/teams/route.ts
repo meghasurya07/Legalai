@@ -35,17 +35,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
         }
 
-        const { name, description } = await request.json()
+        const body = await request.json()
+        const { sanitizeShortText, sanitizeText } = await import('@/lib/validation')
+        
+        const name = sanitizeShortText(body.name, 100)
+        const description = sanitizeText(body.description, 1000)
+
         if (!name) {
-            return NextResponse.json({ success: false, error: 'Team name is required' }, { status: 400 })
+            return NextResponse.json({ success: false, error: 'Valid team name is required' }, { status: 400 })
         }
 
         const { data, error } = await supabase
             .from('teams')
             .insert({
                 org_id: ctx.orgId,
-                name: name.trim(),
-                description: description?.trim() || null
+                name,
+                description: description || null
             })
             .select()
             .single()
@@ -81,9 +86,11 @@ export async function DELETE(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
+        const { validateUUID } = await import('@/lib/validation')
+        const id = validateUUID(searchParams.get('id'))
+
         if (!id) {
-            return NextResponse.json({ success: false, error: 'Team id is required' }, { status: 400 })
+            return NextResponse.json({ success: false, error: 'Valid team id is required' }, { status: 400 })
         }
 
         // Get team name for audit

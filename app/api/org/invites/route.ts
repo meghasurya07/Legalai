@@ -36,9 +36,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
         }
 
-        const { email, role = 'member' } = await request.json()
-        if (!email) {
-            return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 })
+        const body = await request.json()
+        const { isValidEmail, validateEnum } = await import('@/lib/validation')
+        
+        const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+        const role = validateEnum(body.role || 'member', ['admin', 'member'] as const) || 'member'
+
+        if (!isValidEmail(email)) {
+            return NextResponse.json({ success: false, error: 'Valid email is required' }, { status: 400 })
         }
 
         // Check if already a member
@@ -108,9 +113,11 @@ export async function DELETE(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
+        const { validateUUID } = await import('@/lib/validation')
+        const id = validateUUID(searchParams.get('id'))
+        
         if (!id) {
-            return NextResponse.json({ success: false, error: 'Invite id is required' }, { status: 400 })
+            return NextResponse.json({ success: false, error: 'Valid invite id is required' }, { status: 400 })
         }
 
         const { error } = await supabase

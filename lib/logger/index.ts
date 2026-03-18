@@ -25,6 +25,11 @@ export type EventType =
     | 'SETTINGS_UPDATE'
     | 'HELP_VIEW'
     | 'SUPPORT_REQUEST'
+    // Security events
+    | 'AUTH_FAILED'
+    | 'AUTH_SUCCESS'
+    | 'RATE_LIMIT_HIT'
+    | 'SUSPICIOUS_ACTIVITY'
 
 /**
  * Log a structured event. Fire-and-forget — never throws.

@@ -15,6 +15,18 @@ export async function GET(request: NextRequest) {
             return apiError('Missing projectId', 400)
         }
 
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', projectId)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return apiError('Project not found', 404)
+        }
+
         // Load columns
         const { data: columnRows, error: colError } = await supabase
             .from('tabular_review_columns')

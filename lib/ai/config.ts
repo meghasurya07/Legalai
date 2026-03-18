@@ -21,6 +21,8 @@ export const AI_MODELS = {
     chatThinking: 'o4-mini',
     /** Chat — deep research mode (requires verified org: o3-deep-research, o4-mini-deep-research) */
     chatDeepResearch: 'o4-mini-deep-research',
+    /** Title generation — ultra-cheap model for generating short conversation titles */
+    titleGeneration: 'gpt-4.1-nano',
     /** Document Intelligence — summaries, metadata, clause extraction */
     docIntel: 'gpt-4o-mini',
     /** Trust & Insight layer — conflicts, insights, project summaries */

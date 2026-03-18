@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { deleteFileChunks } from '@/lib/rag'
+import { getUserId } from '@/lib/get-user-id'
 
 interface RouteParams {
     params: Promise<{ id: string; fileId: string }>
@@ -9,7 +10,23 @@ interface RouteParams {
 // DELETE /api/documents/projects/[id]/files/[fileId] - Remove file from project
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { id, fileId } = await params
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+        }
+
         console.log(`Attempting to delete file ${fileId} from project ${id}`)
 
         // 1. Get file metadata to find path
@@ -25,18 +42,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'File not found' }, { status: 404 })
         }
 
-        // Extract storage path from URL (handles both relative paths and full URLs)
+        // Extract storage path from URL
         let storagePath = ''
         if (file.url) {
             try {
-                // Try parsing as a full URL first (legacy format)
                 const urlObj = new URL(file.url)
                 const pathParts = urlObj.pathname.split('/documents/')
                 if (pathParts.length > 1) {
                     storagePath = decodeURIComponent(pathParts[1])
                 }
             } catch {
-                // Not a full URL — it's already a relative storage path
                 storagePath = file.url
             }
         }

@@ -19,6 +19,12 @@ export async function POST(request: NextRequest) {
             return apiError('No file provided', 400)
         }
 
+        const { validateFileUpload } = await import('@/lib/validation')
+        const validation = validateFileUpload(file)
+        if (!validation.valid) {
+            return apiError(validation.error || 'Invalid file', 400)
+        }
+
         const extractedText = await extractText(file)
         return Response.json({ text: extractedText.trim() })
 

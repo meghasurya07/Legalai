@@ -31,7 +31,9 @@ export async function PATCH(request: NextRequest) {
         const orgId = session?.user?.org_id || '00000000-0000-0000-0000-000000000001';
         const actor = session?.user?.email || 'system_admin';
 
-        const updates = await request.json();
+        const body = await request.json();
+        const { sanitizeObject } = await import('@/lib/validation');
+        const updates = sanitizeObject(body, 10000);
 
         // Ensure we don't overwrite organization_id
         if (updates.organization_id) delete updates.organization_id;

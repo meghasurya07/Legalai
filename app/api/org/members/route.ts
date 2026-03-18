@@ -76,9 +76,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
         }
 
-        const { user_id, role } = await request.json()
+        const body = await request.json()
+        const { validateEnum } = await import('@/lib/validation')
+        
+        const user_id = typeof body.user_id === 'string' ? body.user_id : ''
+        const role = validateEnum(body.role, ['admin', 'member'] as const)
+
         if (!user_id || !role) {
-            return NextResponse.json({ success: false, error: 'user_id and role are required' }, { status: 400 })
+            return NextResponse.json({ success: false, error: 'Valid user_id and role are required' }, { status: 400 })
         }
 
         // Cannot change owner role
@@ -142,8 +147,8 @@ export async function DELETE(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const targetUserId = searchParams.get('user_id')
-        if (!targetUserId) {
-            return NextResponse.json({ success: false, error: 'user_id is required' }, { status: 400 })
+        if (!targetUserId || typeof targetUserId !== 'string') {
+            return NextResponse.json({ success: false, error: 'Valid user_id is required' }, { status: 400 })
         }
 
         // Cannot remove owner

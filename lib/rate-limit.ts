@@ -68,3 +68,12 @@ export const RATE_LIMIT_CHAT: RateLimitConfig = { maxRequests: 20, windowSeconds
 
 /** Heavy AI routes (batch extraction, deep research): 10 per minute */
 export const RATE_LIMIT_HEAVY: RateLimitConfig = { maxRequests: 10, windowSeconds: 60 }
+
+/** File uploads: 20 per minute per user */
+export const RATE_LIMIT_UPLOAD: RateLimitConfig = { maxRequests: 20, windowSeconds: 60 }
+
+/** Login/auth attempts: 10 per minute per IP */
+export const RATE_LIMIT_AUTH: RateLimitConfig = { maxRequests: 10, windowSeconds: 60 }
+
+/** Global API: 120 requests per minute per user (hard ceiling) */
+export const RATE_LIMIT_GLOBAL: RateLimitConfig = { maxRequests: 120, windowSeconds: 60 }

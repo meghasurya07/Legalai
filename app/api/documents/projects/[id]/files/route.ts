@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getUserId } from '@/lib/get-user-id'
+import { checkRateLimit, RATE_LIMIT_UPLOAD } from '@/lib/rate-limit'
 import { ingestFile } from '@/lib/rag'
 import { analyzeDocument } from '@/lib/document-intelligence'
 
@@ -11,7 +13,22 @@ interface RouteParams {
 // GET /api/documents/projects/[id]/files - List files in project
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return apiError('Project not found', 404)
+        }
 
         const { data, error } = await supabase
             .from('files')
@@ -25,12 +42,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         // Generate signed URLs for all files
         const filePaths = data.map(f => f.url)
-        const { data: signedUrls, error: signedError } = await supabase.storage
-            .from('documents')
-            .createSignedUrls(filePaths, 3600) // 1 hour expiry
+        let signedUrls: { signedUrl: string }[] | null = null
 
-        if (signedError) {
-            console.error('Failed to generate signed URLs:', signedError)
+        if (filePaths.length > 0) {
+            const { data: signed, error: signedError } = await supabase.storage
+                .from('documents')
+                .createSignedUrls(filePaths, 3600)
+
+            if (signedError) {
+                console.error('Failed to generate signed URLs:', signedError)
+            }
+            signedUrls = signed
         }
 
         const files = data.map((f, index) => ({
@@ -38,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             name: f.name,
             size: f.size,
             type: f.type,
-            url: signedUrls?.[index]?.signedUrl || f.url, // Fallback to path if signing fails
+            url: signedUrls?.[index]?.signedUrl || f.url,
             uploadedAt: f.uploaded_at,
             extracted_text: f.extracted_text || null,
             status: f.status
@@ -53,12 +75,40 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/documents/projects/[id]/files - Add file to project
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return apiError('Project not found', 404)
+        }
+
+        // Rate limit uploads
+        const { allowed } = checkRateLimit(`upload:${userId}`, RATE_LIMIT_UPLOAD)
+        if (!allowed) {
+            return apiError('Too many uploads. Please slow down.', 429)
+        }
+
         const formData = await request.formData()
         const file = formData.get('file') as File
 
         if (!file) {
             return apiError('No file provided', 400)
+        }
+
+        const { validateFileUpload } = await import('@/lib/validation')
+        const validation = validateFileUpload(file)
+        if (!validation.valid) {
+            return apiError(validation.error || 'Invalid file', 400)
         }
 
         const buffer = Buffer.from(await file.arrayBuffer())
@@ -90,15 +140,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             extractedText = await extractText(file)
         } catch (extractError) {
             console.error('Text extraction error:', extractError)
-            // Continue without text (it will just be a file reference)
         }
 
         const hasText = extractedText.trim().length > 0
-
-        // Sanitize extracted text: remove null bytes (PostgreSQL text columns reject \u0000)
         const sanitizedText = extractedText.trim().replace(/\0/g, '')
 
-        // 3. Save to Database — status is 'processing' if text is available for RAG ingestion
+        // 3. Save to Database
         const { data: fileRecord, error: dbError } = await supabase
             .from('files')
             .insert({
@@ -106,7 +153,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 name: file.name,
                 size: (file.size / 1024).toFixed(1) + ' KB',
                 type: file.type,
-                url: filePath, // Store just the path now
+                url: filePath,
                 extracted_text: sanitizedText,
                 status: hasText ? 'processing' : 'ready',
                 source: 'upload'
@@ -121,7 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Update project file count
         await supabase.rpc('increment_file_count', { project_id: id })
 
-        // 4. Fire-and-forget RAG ingestion (async, non-blocking)
+        // 4. Fire-and-forget RAG ingestion
         if (hasText) {
             ingestFile(fileRecord.id, id, sanitizedText, file.name)
                 .then(({ chunksCreated, success }) => {
@@ -131,7 +178,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                     console.error(`[RAG] File ${fileRecord.id} ingestion failed:`, err)
                 })
 
-            // 5. Fire-and-forget Document Intelligence (async, non-blocking)
+            // 5. Fire-and-forget Document Intelligence
             analyzeDocument(fileRecord.id, id, sanitizedText)
                 .then(({ success }) => {
                     console.log(`[DocIntel] File ${fileRecord.id} analysis complete, success=${success}`)

@@ -54,10 +54,11 @@ export async function POST(request: NextRequest) {
         if (!userId) return apiError('Unauthorized', 401)
 
         const body = await request.json()
-        const { title } = body
+        const { sanitizeShortText } = await import('@/lib/validation')
+        const title = sanitizeShortText(body.title, 200)
 
-        if (!title || typeof title !== 'string') {
-            return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+        if (!title) {
+            return NextResponse.json({ error: 'Valid title is required' }, { status: 400 })
         }
 
         const insertData: Record<string, unknown> = { title: title.trim(), user_id: userId }

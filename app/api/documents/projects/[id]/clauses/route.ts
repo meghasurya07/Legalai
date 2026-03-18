@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { getUserId } from '@/lib/get-user-id'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -9,7 +10,23 @@ interface RouteParams {
 // GET /api/documents/projects/[id]/clauses — Search clauses across project documents
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
+        const userId = await getUserId()
+        if (!userId) return apiError('Unauthorized', 401)
+
         const { id } = await params
+
+        // Verify project ownership
+        const { data: project, error: projError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single()
+
+        if (projError || !project) {
+            return apiError('Project not found', 404)
+        }
+
         const { searchParams } = new URL(request.url)
         const clauseType = searchParams.get('type')
 
