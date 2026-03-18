@@ -6,7 +6,10 @@ import { auth0 } from '@/lib/auth0';
 export async function GET() {
     try {
         const session = await auth0.getSession();
-        const userId = session?.user?.sub || 'default-user-id';
+        const userId = session?.user?.sub;
+        if (!userId) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
 
         const { data, error } = await supabase
             .from('user_settings')
@@ -28,8 +31,11 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
     try {
         const session = await auth0.getSession();
-        const userId = session?.user?.sub || 'default-user-id';
-        const actor = session?.user?.email || 'system_admin';
+        const userId = session?.user?.sub;
+        if (!userId) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+        const actor = session?.user?.email || 'unknown';
 
         const body = await request.json();
         const { sanitizeObject } = await import('@/lib/validation');

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/server';
 import { logEvent } from '@/lib/logger';
-import { auth0 } from '@/lib/auth0';
+import { getOrgContext } from '@/lib/get-org-context';
 
 export async function GET() {
     try {
-        const session = await auth0.getSession();
-        // Fallback to seeded org if no session for this MVP
-        const orgId = session?.user?.org_id || '00000000-0000-0000-0000-000000000001';
+        const ctx = await getOrgContext();
+        if (!ctx) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        const orgId = ctx.orgId;
 
         const { data, error } = await supabase
             .from('organization_settings')
@@ -27,9 +27,10 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        const orgId = session?.user?.org_id || '00000000-0000-0000-0000-000000000001';
-        const actor = session?.user?.email || 'system_admin';
+        const ctx = await getOrgContext();
+        if (!ctx) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        const orgId = ctx.orgId;
+        const actor = ctx.userId;
 
         const body = await request.json();
         const { sanitizeObject } = await import('@/lib/validation');

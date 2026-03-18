@@ -13,8 +13,7 @@ export function apiError(message: string, status: number = 500, detail?: unknown
     return NextResponse.json({
         success: false,
         data: null,
-        error: { code: status, message },
-        ...(detail ? { meta: { detail } } : {})
+        error: { code: status, message }
     }, { status })
 }
 

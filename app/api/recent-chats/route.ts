@@ -52,7 +52,13 @@ export async function POST(request: NextRequest) {
         if (!userId) return apiError('Unauthorized', 401)
 
         const body = await request.json()
-        const { title, subtitle, type, preview, meta } = body
+        const { sanitizeShortText, sanitizeText } = await import('@/lib/validation')
+
+        const title = sanitizeShortText(body.title, 200)
+        const subtitle = body.subtitle ? sanitizeShortText(body.subtitle, 200) : null
+        const type = sanitizeShortText(body.type, 50)
+        const preview = sanitizeText(body.preview, 5000)
+        const meta = body.meta || {}
 
         if (!title || !type || !preview) {
             return NextResponse.json({ error: 'Title, type, and preview are required' }, { status: 400 })

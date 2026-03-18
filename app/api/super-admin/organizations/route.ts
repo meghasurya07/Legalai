@@ -9,7 +9,9 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const search = request.nextUrl.searchParams.get('search') || ''
+        const rawSearch = request.nextUrl.searchParams.get('search') || ''
+        // Escape SQL wildcards to prevent pattern injection
+        const search = rawSearch.replace(/%/g, '\\%').replace(/_/g, '\\_')
 
         let query = supabase
             .from('organizations')

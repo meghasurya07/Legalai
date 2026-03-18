@@ -110,6 +110,6 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Workflow execution failed'
         console.error('[WorkflowHandler] Error:', message)
-        return apiError(message, 500)
+        return apiError('Workflow execution failed. Please try again.', 500)
     }
 }

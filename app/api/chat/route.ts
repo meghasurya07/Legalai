@@ -91,7 +91,12 @@ function extractCitationsFromResponse(response: OpenAI.Responses.Response): { pr
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json()
+        let body
+        try {
+            body = await request.json()
+        } catch {
+            return apiError('Invalid JSON in request body', 400)
+        }
         const { sanitizeText, validateUUID } = await import('@/lib/validation')
         const message = sanitizeText(body.message, 100000)
         const { customization, files, queryMode, webSearch, thinking, deepResearch } = body

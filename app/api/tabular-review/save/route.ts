@@ -53,12 +53,17 @@ export async function POST(request: NextRequest) {
             }
 
             // Remove stale columns no longer in the set
-            const currentColumnIds = columns.map((col: { id: string }) => col.id)
-            await supabase
-                .from('tabular_review_columns')
-                .delete()
-                .eq('project_id', projectId)
-                .not('column_id', 'in', `(${currentColumnIds.join(',')})`)
+            const currentColumnIds = columns
+                .map((col: { id: string }) => col.id)
+                .filter((id: string) => typeof id === 'string' && /^[a-zA-Z0-9_-]+$/.test(id))
+            
+            if (currentColumnIds.length > 0) {
+                await supabase
+                    .from('tabular_review_columns')
+                    .delete()
+                    .eq('project_id', projectId)
+                    .not('column_id', 'in', `(${currentColumnIds.join(',')})`)
+            }
         } else {
             // No columns — clear all
             await supabase

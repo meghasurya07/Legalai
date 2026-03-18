@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
+import { requireSuperAdmin } from '@/lib/super-admin'
 
 export async function POST() {
     try {
+        const admin = await requireSuperAdmin()
+        if (!admin) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         // 1. Clear existing workflows (optional, but ensures no duplicates if we're re-seeding)
         // Note: In a real prod app with user data attached to workflows, this would be dangerous. 
         // For this MVP where workflows are static definitions, it's safer.
