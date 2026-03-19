@@ -36,10 +36,34 @@ function logSecurityEvent(
     })
 }
 
+// Admin subdomain hostnames (configurable via env for local dev)
+const ADMIN_HOSTNAMES = (process.env.ADMIN_HOSTNAMES || 'admin.askwesley.com')
+    .split(',')
+    .map(h => h.trim().toLowerCase())
+    .filter(Boolean);
+
+// Routes allowed on the admin subdomain
+const adminAllowedPrefixes = [
+    '/super-admin',
+    '/api/super-admin',
+    '/api/admin',
+    '/api/auth',
+    '/auth',
+    '/_next',
+    '/favicon.ico',
+    '/icon.png',
+];
+
+function isAdminHost(host: string): boolean {
+    const hostname = host.split(':')[0].toLowerCase();
+    return ADMIN_HOSTNAMES.includes(hostname);
+}
+
 export async function proxy(request: NextRequest) {
     const response = await auth0.middleware(request);
 
     const pathname = request.nextUrl.pathname;
+    const host = request.headers.get('host') || '';
     const isProduction = process.env.NODE_ENV === 'production';
     const ip = getClientIp(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
@@ -51,6 +75,25 @@ export async function proxy(request: NextRequest) {
             const httpsUrl = new URL(request.url);
             httpsUrl.protocol = 'https:';
             return NextResponse.redirect(httpsUrl, 301);
+        }
+    }
+
+    // ── Admin subdomain isolation ────────────────────────────
+    if (isAdminHost(host)) {
+        // On admin domain: redirect root to /super-admin
+        if (pathname === '/' || pathname === '') {
+            return NextResponse.redirect(new URL('/super-admin', request.url));
+        }
+
+        // Only allow admin-specific routes
+        const isAllowed = adminAllowedPrefixes.some(prefix => pathname.startsWith(prefix));
+        if (!isAllowed) {
+            return new NextResponse('Not Found', { status: 404 });
+        }
+    } else {
+        // On main app domain: completely block super-admin routes
+        if (pathname.startsWith('/super-admin') || pathname.startsWith('/api/super-admin') || pathname.startsWith('/api/admin')) {
+            return new NextResponse('Not Found', { status: 404 });
         }
     }
 
