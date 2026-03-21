@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
 import { ToolPageLayout } from "@/components/ui/tool-page-layout"
 import { FileUploadZone } from "@/components/ui/file-upload-zone"
@@ -43,8 +43,9 @@ interface ContractAnalysisResult {
 }
 
 export default function ContractAnalysis() {
-    const searchParams = useSearchParams()
-    const chatId = searchParams.get('chatId')
+    const params = useParams()
+    const chatIdParam = params.chatId as string[] | undefined
+    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
 
     const [contractFile, setContractFile] = React.useState<File | null>(null)
     const [isAnalyzing, setIsAnalyzing] = React.useState(false)
@@ -409,3 +410,4 @@ export default function ContractAnalysis() {
         </ToolPageLayout>
     )
 }
+

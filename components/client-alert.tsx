@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import { ToolPageLayout } from "@/components/ui/tool-page-layout"
 
 interface ClientAlertResult {
@@ -31,8 +31,9 @@ const ALERT_TYPES = [
 ]
 
 export default function ClientAlert() {
-    const searchParams = useSearchParams()
-    const chatId = searchParams.get('chatId')
+    const params = useParams()
+    const chatIdParam = params.chatId as string[] | undefined
+    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
 
     const [alertType, setAlertType] = React.useState("")
     const [topic, setTopic] = React.useState("")
@@ -297,3 +298,4 @@ export default function ClientAlert() {
         </ToolPageLayout>
     )
 }
+

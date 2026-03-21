@@ -375,3 +375,98 @@
 .citation-highlight {
   animation: highlight-glow 1.5s ease-out;
 }
+
+/* ─── PDF.js TextLayer: pixel-perfect text positioning ─── */
+/* These styles are required for PDF.js's built-in TextLayer to
+   position text spans exactly over the canvas rendering. */
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1.0;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 1;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.textLayer span.markedContent {
+  top: 0;
+  height: 0;
+}
+
+/* Allow text selection in the PDF */
+.textLayer ::selection {
+  background: rgba(0, 100, 200, 0.3);
+}
+
+/* Highlight styling for citation matches */
+.textLayer .pdf-highlight-active {
+  background-color: rgba(250, 204, 21, 0.4) !important;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+}
+
+.dark .textLayer .pdf-highlight-active {
+  background-color: rgba(250, 204, 21, 0.3) !important;
+}
+
+/* ─── DOCX Preview: docx-preview library ─── */
+.docx-preview-wrapper {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The docx-preview library renders pages as wrapper sections */
+.docx-preview-wrapper .docx-viewer {
+  width: 100% !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Each page rendered by docx-preview */
+.docx-preview-wrapper .docx-viewer > section {
+  background: white !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dark .docx-preview-wrapper .docx-viewer > section {
+  background: #1e1e1e !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  color: #e0e0e0 !important;
+}
+
+/* Dark mode text color override */
+.dark .docx-preview-wrapper .docx-viewer > section * {
+  color: inherit;
+}
+
+.dark .docx-preview-wrapper .docx-viewer > section span,
+.dark .docx-preview-wrapper .docx-viewer > section p {
+  color: #e0e0e0 !important;
+}
+
+/* Table borders in dark mode */
+.dark .docx-preview-wrapper .docx-viewer table td,
+.dark .docx-preview-wrapper .docx-viewer table th {
+  border-color: #444 !important;
+}

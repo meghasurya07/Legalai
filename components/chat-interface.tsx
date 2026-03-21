@@ -5,7 +5,7 @@ import * as React from "react"
 import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Search, ShieldAlert, Table, ChevronDown, ChevronRight, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,8 @@ import { ModeBadges } from "@/components/ui/mode-badges"
 import { CitationsSidebar } from "@/components/citations-sidebar"
 import { ActivitySidebar } from "@/components/activity-sidebar"
 import { CopyButton } from "@/components/ui/copy-button"
+import { PdfCitationPanel } from "@/components/pdf-citation-panel"
+import type { PdfCitationTarget } from "@/components/pdf-citation-panel"
 import {
     ChatCitationSource,
     parseSources,
@@ -30,6 +32,7 @@ import {
     isDocumentSource,
     getDocumentRoute,
     getFaviconUrl,
+    parseDocumentCitationUrl,
 } from "@/lib/citations"
 
 import ReactMarkdown from "react-markdown"
@@ -105,10 +108,12 @@ export function SourceFavicon({
 export function CitationPill({
     citationNum,
     source,
+    onViewPdf,
 }: {
     citationNum: string
     source?: ChatCitationSource
     onOpenCitations?: () => void
+    onViewPdf?: (source: ChatCitationSource, citationNum: string) => void
 }) {
     const [faviconFailed, setFaviconFailed] = React.useState(false)
     const [isOpen, setIsOpen] = React.useState(false)
@@ -137,7 +142,9 @@ export function CitationPill({
                     onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        if (isDocument) {
+                        if (isDocument && onViewPdf) {
+                            onViewPdf(source, citationNum)
+                        } else if (isDocument) {
                             const route = getDocumentRoute(source.url)
                             if (route) {
                                 pillRouter.push(route)
@@ -397,6 +404,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const isAtBottomRef = React.useRef(true)
     const [openCitationsIndex, setOpenCitationsIndex] = React.useState<number | null>(null)
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
+    const [pdfViewerTarget, setPdfViewerTarget] = React.useState<PdfCitationTarget | null>(null)
     const abortControllerRef = React.useRef<AbortController | null>(null)
 
     const handleStop = () => {
@@ -408,9 +416,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         setActivityPhase(null)
     }
 
-    const router = useRouter()
-    const pathname = usePathname()
-    const searchParams = useSearchParams()
+
+
 
     // Activity indicator state
     const [activityPhase, setActivityPhase] = React.useState<ActivityPhase>(null)
@@ -530,15 +537,13 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     setConversationId(convData.id)
 
                     // Update URL to include new chatId without reloading
-                    if (conversationType === 'assistant') {
-                        // Use silent replaceState to avoid unmounting the component and killing the stream
-                        const nextUrl = `/chat/${convData.id}`
-                        window.history.replaceState(null, '', nextUrl)
-                    } else {
-                        const newSearchParams = new URLSearchParams(searchParams.toString())
-                        newSearchParams.set('chatId', convData.id)
-                        router.replace(`${pathname}?${newSearchParams.toString()}`)
+                    let nextUrl = `/chat/${convData.id}`
+                    if (conversationType === 'documents') {
+                        nextUrl = `/documents/${projectId}/chat/${convData.id}`
+                    } else if (conversationType === 'templates') {
+                        nextUrl = `/templates/${workflowId}/chat/${convData.id}`
                     }
+                    window.history.replaceState(null, '', nextUrl)
                 }
             }
 
@@ -790,6 +795,34 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         setIsCitationsSidebarOpen(true)
     }
 
+    // ─── PDF Viewer helpers ──────────────────────────────────────
+    const openPdfViewer = React.useCallback((source: ChatCitationSource, citationNum: string) => {
+        const parsed = parseDocumentCitationUrl(source.url)
+        if (!parsed) return
+
+        // Extract page number from title (format: "filename — Page N — Section")
+        const pageMatch = source.title.match(/Page\s+(\d+)/i)
+        const pageNumber = pageMatch ? parseInt(pageMatch[1], 10) : null
+
+        setPdfViewerTarget({
+            fileId: parsed.fileId,
+            fileName: source.title.split(' — ')[0] || source.title,
+            fileUrl: null,
+            snippet: source.snippet || '',
+            pageNumber,
+            chunkIndex: parsed.chunkIndex,
+            citationNum,
+        })
+
+        // Close other sidebars
+        setIsCitationsSidebarOpen(false)
+        setIsActivitySidebarOpen(false)
+    }, [])
+
+    const closePdfViewer = React.useCallback(() => {
+        setPdfViewerTarget(null)
+    }, [])
+
     const hasMessages = messages.length > 0
 
     return (
@@ -930,6 +963,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                                             citationNum={match[1]}
                                                                             source={sourcesMap.get(match[1])}
                                                                             onOpenCitations={() => openCitations(i)}
+                                                                            onViewPdf={openPdfViewer}
                                                                         />
                                                                     )
                                                                     lastIndex = matchIndex + match[0].length
@@ -1247,9 +1281,17 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
             />
             {/* Citations Sidebar */}
             <CitationsSidebar
-                isOpen={isCitationsSidebarOpen && openCitationsIndex !== null && !isActivitySidebarOpen}
+                isOpen={isCitationsSidebarOpen && openCitationsIndex !== null && !isActivitySidebarOpen && !pdfViewerTarget}
                 sources={openCitationsIndex !== null && messages[openCitationsIndex] ? parseSources(messages[openCitationsIndex].content) : []}
                 onClose={closeCitationsSidebar}
+                onViewPdf={openPdfViewer}
+            />
+            {/* PDF Citation Panel */}
+            <PdfCitationPanel
+                target={pdfViewerTarget}
+                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? parseSources(messages[openCitationsIndex].content) : (messages.length > 0 ? parseSources(messages[messages.length - 1].content) : [])}
+                onClose={closePdfViewer}
+                onCitationClick={(src) => openPdfViewer(src, src.num)}
             />
             {/* Duplicate File Warning */}
             <DuplicateFileModal

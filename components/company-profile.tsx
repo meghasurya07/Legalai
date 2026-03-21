@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import { ToolPageLayout } from "@/components/ui/tool-page-layout"
 
 interface LegalCompanyProfile {
@@ -56,8 +56,9 @@ interface LegalCompanyProfile {
 }
 
 export default function CompanyProfile() {
-    const searchParams = useSearchParams()
-    const chatId = searchParams.get('chatId')
+    const params = useParams()
+    const chatIdParam = params.chatId as string[] | undefined
+    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
 
     const [companyInput, setCompanyInput] = React.useState("")
     const [companyPrompt, setCompanyPrompt] = React.useState("")
@@ -462,3 +463,4 @@ export default function CompanyProfile() {
         </ToolPageLayout>
     )
 }
+

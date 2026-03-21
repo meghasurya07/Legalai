@@ -110,11 +110,28 @@ export function isDocumentSource(url: string): boolean {
 export function getDocumentRoute(url: string): string | null {
     try {
         const urlObj = new URL(url)
-        if (urlObj.hostname !== 'vault.app') return null
-        const pathParts = urlObj.pathname.split('/')
+        const hostname = urlObj.hostname.replace('www.', '')
+        // Accept both vault.app and documents.app as internal document hostnames
+        const isInternalHost = (
+            hostname === 'vault.app' ||
+            hostname === 'documents.app' ||
+            hostname === 'vault.local' ||
+            hostname === 'legal-source.internal' ||
+            hostname.includes('document')
+        )
+        if (!isInternalHost) return null
+        const pathParts = urlObj.pathname.split('/').filter(Boolean)
+        // Path format: /document/{fileId}
+        const docIdx = pathParts.indexOf('document')
+        if (docIdx !== -1 && docIdx + 1 < pathParts.length) {
+            const fileId = pathParts[docIdx + 1]
+            const ci = urlObj.searchParams.get('ci')
+            return `/documents/document/${fileId}${ci ? `?ci=${ci}` : ''}`
+        }
+        // Fallback: last path segment as fileId
         const fileId = pathParts[pathParts.length - 1]
-        const ci = urlObj.searchParams.get('ci')
         if (!fileId) return null
+        const ci = urlObj.searchParams.get('ci')
         return `/documents/document/${fileId}${ci ? `?ci=${ci}` : ''}`
     } catch {
         return null
@@ -144,6 +161,31 @@ export function getFaviconUrl(url: string, size: number = 64): string | null {
             return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=${size}`
         }
         return `https://www.google.com/s2/favicons?domain=${host}&sz=${size}`
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Parse a document citation URL to extract fileId and chunkIndex.
+ * Handles both vault.app URLs (from SOURCES blocks) and documents.app URLs.
+ * 
+ * Examples:
+ *   https://vault.app/document/abc-123?ci=5
+ *   https://documents.app/document/abc-123?ci=5
+ */
+export function parseDocumentCitationUrl(url: string): { fileId: string; chunkIndex: number } | null {
+    try {
+        const urlObj = new URL(url)
+        const pathParts = urlObj.pathname.split('/').filter(Boolean)
+        // Path format: /document/{fileId}
+        const docIdx = pathParts.indexOf('document')
+        if (docIdx === -1 || docIdx + 1 >= pathParts.length) return null
+
+        const fileId = pathParts[docIdx + 1]
+        const ci = parseInt(urlObj.searchParams.get('ci') || '0', 10)
+
+        return { fileId, chunkIndex: isNaN(ci) ? 0 : ci }
     } catch {
         return null
     }

@@ -90,9 +90,9 @@ export function AppHeader() {
         setIsOpen(false)
 
         if (conv.type === 'vault' && conv.projectId) {
-            router.push(`/documents/${conv.projectId}?chatId=${conv.id}`)
+            router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
         } else if (conv.type === 'workflow' && conv.workflowId) {
-            router.push(`/templates/${conv.workflowId}?chatId=${conv.id}`)
+            router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
         } else {
             router.push(`/chat/${conv.id}`)
         }

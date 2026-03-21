@@ -371,7 +371,9 @@ function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
 - When applicable, consider multiple perspectives before arriving at a conclusion.`
   }
 
-  if (!isSearchMode && !isThinking) {
+  const hasRagContext = input.hasRagContext as boolean | undefined
+
+  if (!isSearchMode && !isThinking && !hasRagContext) {
     prompt += `\n\n**MANDATORY CITATION RULE:** For EVERY response where you reference external legal sources (statutes, cases, regulations, legal principles, authoritative guidelines, government publications, or any factual claim that originates from an external source), you MUST:
 1. Use inline numbered citations [1], [2], [3] etc. throughout your response, placed IMMEDIATELY after the relevant claim or reference.
 2. Include a hidden sources block at the VERY END of your response in this EXACT format:

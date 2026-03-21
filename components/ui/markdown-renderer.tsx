@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CitationPill, SourceFavicon } from '@/components/chat-interface';
+import type { ChatCitationSource } from '@/lib/citations';
 import {
     parseSources,
     stripSourcesBlock,
@@ -11,9 +12,10 @@ import {
 interface MarkdownRendererProps {
     content: string;
     onSourceClick?: (index: string) => void;
+    onViewPdf?: (source: ChatCitationSource, citationNum: string) => void;
 }
 
-export function MarkdownRenderer({ content, onSourceClick }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: MarkdownRendererProps) {
     const [openCitationMatch, setOpenCitationMatch] = useState<string | null>(null);
 
     const openCitations = (id: string) => {
@@ -47,6 +49,7 @@ export function MarkdownRenderer({ content, onSourceClick }: MarkdownRendererPro
                     citationNum={match[1]}
                     source={sourcesMap.get(match[1])}
                     onOpenCitations={() => openCitations(match[1])}
+                    onViewPdf={onViewPdf}
                 />
             );
             lastIndex = matchIndex + match[0].length;

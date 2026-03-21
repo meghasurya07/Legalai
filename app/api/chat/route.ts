@@ -4,7 +4,7 @@ import { getPrompts } from '@/lib/ai/prompts'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_TEMPERATURES, getChatConfig, type ChatMode } from '@/lib/ai/config'
-import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, RAG_GROUNDING_INSTRUCTION } from '@/lib/rag'
+import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, ensureCitationMarkers, RAG_GROUNDING_INSTRUCTION, type RetrievedChunk } from '@/lib/rag'
 import { auth0 } from '@/lib/auth0'
 
 // Helper to emit SSE phase events
@@ -161,6 +161,7 @@ export async function POST(request: NextRequest) {
         let ragContext = ''
         let ragSystemMessage = ''
         let ragSourcesBlock = ''
+        let ragChunks: RetrievedChunk[] = []
 
         // 1. RAG Context Injection from Project Documents
         if (projectId) {
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
                     ragContext = buildRAGContext(retrieval.chunks)
                     ragSystemMessage = RAG_GROUNDING_INSTRUCTION
                     ragSourcesBlock = buildRAGSourcesBlock(retrieval.chunks)
+                    ragChunks = retrieval.chunks
                 } else {
                     // Fallback: if no chunks exist (e.g. migration not run yet), use legacy approach
                     const { data: projectFiles } = await supabase
@@ -246,14 +248,19 @@ export async function POST(request: NextRequest) {
                         queryMode,
                         webSearch,
                         thinking,
-                        deepResearch
+                        deepResearch,
+                        hasRagContext: !!ragContext
                     })
 
                     const fullSystemPrompt = [
                         systemPrompt,
                         ragSystemMessage ? ragSystemMessage : '',
-                        ragContext ? `\nPROJECT DOCUMENTS:\n---\n${ragContext}\n---` : ''
                     ].filter(Boolean).join('\n\n')
+
+                    // Move RAG context into user prompt for better citation adherence
+                    const finalUserPrompt = ragContext
+                        ? `REFERENCED DOCUMENT EXCERPTS:\n\n${ragContext}\n\n---\n\nUser question: ${userPrompt}\n\nCRITICAL: You MUST include [1], [2], [3] citation numbers inline after EVERY factual sentence. Example: "The agreement was signed on Feb 11, 2013 [1]."`
+                        : userPrompt
 
                     // ═══════════════════════════════════════════════
                     // WEB SEARCH / THINKING / DEEP RESEARCH
@@ -272,7 +279,7 @@ export async function POST(request: NextRequest) {
                         // Build Responses API input
                         const input: OpenAI.Responses.ResponseInput = [
                             { role: 'system', content: fullSystemPrompt },
-                            { role: 'user', content: userPrompt }
+                            { role: 'user', content: finalUserPrompt }
                         ]
 
                         // Build Responses API options per mode (official OpenAI docs)
@@ -484,7 +491,7 @@ export async function POST(request: NextRequest) {
                             { role: 'system', content: fullSystemPrompt }
                         ]
 
-                        messages.push({ role: 'user', content: userPrompt })
+                        messages.push({ role: 'user', content: finalUserPrompt })
 
                         const stream = await client.chat.completions.create({
                             model,
@@ -522,7 +529,20 @@ export async function POST(request: NextRequest) {
                             if (aiSourcesRegex.test(streamedContent)) {
                                 streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
                             }
-                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+
+                            // Post-process: inject citation markers if AI didn't generate them
+                            if (ragChunks.length > 0 && !/\[\d+\]/.test(streamedContent)) {
+                                const enhanced = ensureCitationMarkers(streamedContent, ragChunks)
+                                if (enhanced !== streamedContent) {
+                                    streamedContent = enhanced
+                                    // Replace entire content with citation-enhanced version + sources
+                                    safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: enhanced + sourcesBlock, replace: true })}\n\n`))
+                                } else {
+                                    safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                                }
+                            } else {
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                            }
                         } else if (!sourcesBlock && !controllerClosed) {
                             const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
                             if (aiSourcesMatch) {

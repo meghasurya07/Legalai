@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import { useDocuments } from "@/context/vault-context"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { ProjectSidebar } from "@/components/documents/project-sidebar"
 import { ChatInterface } from "@/components/chat-interface"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,6 @@ import { Project } from "@/types"
 function ProjectContent() {
     const params = useParams()
     const router = useRouter()
-    const searchParams = useSearchParams()
     const { projects, fetchProjectWithFiles, incrementQueryCount } = useDocuments()
 
     const [project, setProject] = useState<Project | null | undefined>(undefined)
@@ -22,6 +21,10 @@ function ProjectContent() {
 
     // params.id might be string or string[]
     const projectId = Array.isArray(params.id) ? params.id[0] : (params.id as string)
+    
+    // Extract chatId from catch-all route e.g. /documents/[id]/chat/[chatId]
+    const chatIdParam = params.chatId as string[] | undefined
+    const initialChatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
 
     // Initial fetch
     useEffect(() => {
@@ -97,7 +100,7 @@ function ProjectContent() {
                     projectTitle={project.title}
                     projectId={projectId}
                     conversationType="documents"
-                    initialConversationId={searchParams.get('chatId') || undefined}
+                    initialConversationId={initialChatId}
                 />
             </div>
         </div>

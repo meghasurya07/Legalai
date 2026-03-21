@@ -3,10 +3,70 @@
 import * as React from "react"
 import Image from "next/image"
 import { FileText, Cloud, AlertTriangle, Sparkles } from "lucide-react"
-import mammoth from "mammoth"
 import Papa from "papaparse"
-import DOMPurify from "dompurify"
 import { Attachment } from "@/types"
+
+/**
+ * High-fidelity DOCX renderer using docx-preview library.
+ * Renders Word documents with original formatting preserved —
+ * fonts, alignment, indentation, tables, page layout, etc.
+ */
+function DocxRenderer({ arrayBuffer }: { arrayBuffer: ArrayBuffer }) {
+    const containerRef = React.useRef<HTMLDivElement>(null)
+    const [error, setError] = React.useState<string | null>(null)
+
+    React.useEffect(() => {
+        if (!containerRef.current) return
+
+        const renderDoc = async () => {
+            try {
+                // Dynamic import — docx-preview is client-only
+                const docxPreview = await import('docx-preview')
+
+                // Clear any previous content
+                containerRef.current!.innerHTML = ''
+
+                await docxPreview.renderAsync(arrayBuffer, containerRef.current!, undefined, {
+                    className: 'docx-viewer',
+                    inWrapper: true,
+                    ignoreWidth: false,
+                    ignoreHeight: true,
+                    ignoreFonts: false,
+                    breakPages: true,
+                    ignoreLastRenderedPageBreak: false,
+                    experimental: false,
+                    trimXmlDeclaration: true,
+                    useBase64URL: true,
+                    renderHeaders: true,
+                    renderFooters: true,
+                    renderFootnotes: true,
+                    renderEndnotes: true,
+                })
+            } catch (err) {
+                console.error('[DocxRenderer] Failed:', err)
+                setError('Failed to render document preview')
+            }
+        }
+
+        renderDoc()
+    }, [arrayBuffer])
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center gap-3 text-muted-foreground h-full justify-center p-8">
+                <AlertTriangle className="h-10 w-10" />
+                <p>{error}</p>
+            </div>
+        )
+    }
+
+    return (
+        <div
+            ref={containerRef}
+            className="docx-preview-wrapper w-full min-h-full bg-[#e8e8e8] dark:bg-neutral-800 overflow-auto"
+        />
+    )
+}
 
 interface FilePreviewContentProps {
     attachment: Attachment
@@ -37,11 +97,11 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
                     if (attachment.file) {
                         arrayBuffer = await attachment.file.arrayBuffer()
                     } else {
-                        const res = await fetch(attachment.url!)
+                        const fetchUrl = attachment.url!
+                        const res = await fetch(fetchUrl)
                         if (!res.ok) {
                             throw new Error(`Failed to fetch file: ${res.status}`)
                         }
-                        // Check content-type to avoid parsing HTML error pages as ZIP
                         const contentType = res.headers.get('content-type') || ''
                         if (contentType.includes('text/html') || contentType.includes('text/xml')) {
                             throw new Error('Received HTML/XML instead of document binary')
@@ -54,10 +114,9 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
                         }
                     }
 
-                    const result = await mammoth.convertToHtml({ arrayBuffer })
-                    const sanitizedHtml = DOMPurify.sanitize(result.value)
+                    // Use docx-preview for high-fidelity Word document rendering
                     setContent(
-                        <div className="prose prose-sm max-w-none p-8 dark:prose-invert bg-white dark:bg-neutral-900 min-h-full" dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+                        <DocxRenderer arrayBuffer={arrayBuffer} />
                     )
                 } else if (attachment.type === 'csv' && (attachment.file || attachment.url)) {
                     const parseSource = attachment.file || attachment.url

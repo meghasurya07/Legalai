@@ -15,9 +15,10 @@ interface CitationsSidebarProps {
     isOpen: boolean
     sources: ChatCitationSource[]
     onClose: () => void
+    onViewPdf?: (source: ChatCitationSource, citationNum: string) => void
 }
 
-export function CitationsSidebar({ isOpen, sources, onClose }: CitationsSidebarProps) {
+export function CitationsSidebar({ isOpen, sources, onClose, onViewPdf }: CitationsSidebarProps) {
     if (!isOpen) return null
 
     return (
@@ -62,12 +63,20 @@ export function CitationsSidebar({ isOpen, sources, onClose }: CitationsSidebarP
                             </>
                         )
 
-                        if (isDoc && route) {
+                        if (isDoc) {
                             return (
                                 <div
                                     key={idx}
                                     className="group block space-y-2 border-b border-border/40 pb-5 last:border-0 cursor-pointer"
-                                    onClick={() => { onClose(); window.location.href = route }}
+                                    onClick={() => {
+                                        if (onViewPdf) {
+                                            onClose()
+                                            onViewPdf(src, src.num)
+                                        } else if (route) {
+                                            onClose()
+                                            window.location.href = route
+                                        }
+                                    }}
                                 >
                                     {inner}
                                 </div>

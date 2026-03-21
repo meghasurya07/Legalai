@@ -225,9 +225,9 @@ export default function RecentChatsPage() {
                 onClick={() => {
                     if (isRenaming) return
                     if (conv.projectId) {
-                        router.push(`/documents/${conv.projectId}?chatId=${conv.id}`)
+                        router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
                     } else if (conv.workflowId) {
-                        router.push(`/templates/${conv.workflowId}?chatId=${conv.id}`)
+                        router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
                     } else {
                         router.push(`/chat/${conv.id}`)
                     }
@@ -326,9 +326,9 @@ export default function RecentChatsPage() {
                             onClick={(e) => {
                                 e.stopPropagation()
                                 if (conv.projectId) {
-                                    router.push(`/documents/${conv.projectId}?chatId=${conv.id}`)
+                                    router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
                                 } else if (conv.workflowId) {
-                                    router.push(`/templates/${conv.workflowId}?chatId=${conv.id}`)
+                                    router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
                                 } else {
                                     router.push(`/chat/${conv.id}`)
                                 }

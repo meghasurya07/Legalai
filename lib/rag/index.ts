@@ -11,6 +11,7 @@ export {
     retrieveRelevantChunks,
     buildRAGContext,
     buildRAGSourcesBlock,
+    ensureCitationMarkers,
     RAG_GROUNDING_INSTRUCTION,
     type RetrievedChunk,
     type RetrievalResult
