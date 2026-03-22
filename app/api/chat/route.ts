@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         }
         const { sanitizeText, validateUUID } = await import('@/lib/validation')
         const message = sanitizeText(body.message, 100000)
-        const { customization, files, queryMode, webSearch, thinking, deepResearch } = body
+        const { customization, files, queryMode, webSearch, thinking, deepResearch, confidenceMode } = body
         const projectId = validateUUID(body.projectId)
         const conversationId = validateUUID(body.conversationId)
 
@@ -254,13 +254,17 @@ export async function POST(request: NextRequest) {
 
                     const fullSystemPrompt = [
                         systemPrompt,
-                        ragSystemMessage ? ragSystemMessage : '',
+                        ragSystemMessage ? ragSystemMessage : ''
                     ].filter(Boolean).join('\n\n')
 
                     // Move RAG context into user prompt for better citation adherence
-                    const finalUserPrompt = ragContext
+                    let finalUserPrompt = ragContext
                         ? `REFERENCED DOCUMENT EXCERPTS:\n\n${ragContext}\n\n---\n\nUser question: ${userPrompt}\n\nCRITICAL: You MUST include [1], [2], [3] citation numbers inline after EVERY factual sentence. Example: "The agreement was signed on Feb 11, 2013 [1]."`
                         : userPrompt
+
+                    if (confidenceMode) {
+                        finalUserPrompt += `\n\n[CONFIDENCE MODE ACTIVATED]\nCRITICAL: You MUST actively evaluate the verifyability of your statements based ONLY on the provided document context.\nFor EVERY factual claim you make, you MUST append a confidence badge directly after the sentence.\nUse one of these exactly: [CONF_HIGH], [CONF_MEDIUM], or [CONF_LOW].\n\n- Use [CONF_HIGH] if the claim is explicitly stated in the context.\n- Use [CONF_MEDIUM] if the claim is implied or synthesized from vague parts of the context.\n- Use [CONF_LOW] if you cannot find direct support in the context (hallucination risk).\n\nIf you are also using [1] citations, put the confidence badge immediately before or after the citation. Example: "The cap is $5M [1] [CONF_HIGH]."`
+                    }
 
                     // ═══════════════════════════════════════════════
                     // WEB SEARCH / THINKING / DEEP RESEARCH
@@ -459,6 +463,12 @@ export async function POST(request: NextRequest) {
                                 console.error('Error saving assistant message:', e)
                             }
                         }
+                        
+                        // DEBUG LOG:
+                        console.log("\n\n=== RAW AI OUTPUT WITH CONFIDENCE MODE? ===")
+                        console.log("confidenceMode flag:", confidenceMode)
+                        console.log("Text:", streamedContent)
+                        console.log("===========================================\n\n")
 
                         if (!controllerClosed) {
                             safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))

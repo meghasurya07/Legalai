@@ -23,6 +23,7 @@ import { ActivitySidebar } from "@/components/activity-sidebar"
 import { CopyButton } from "@/components/ui/copy-button"
 import { PdfCitationPanel } from "@/components/pdf-citation-panel"
 import type { PdfCitationTarget } from "@/components/pdf-citation-panel"
+import { ConfidenceBadge, ConfidenceLevel } from "@/components/ui/confidence-badge"
 import {
     ChatCitationSource,
     parseSources,
@@ -483,10 +484,10 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     }
 
 
-    // Advanced Query Modes
     const [isThinking, setIsThinking] = React.useState(false)
     const [isWebSearch, setIsWebSearch] = React.useState(false)
     const [isDeepResearch, setIsDeepResearch] = React.useState(false)
+    const [isConfidenceMode, setIsConfidenceMode] = React.useState(false)
 
 
     // Query Mode State
@@ -604,7 +605,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     queryMode,
                     webSearch: isWebSearch,
                     thinking: isThinking,
-                    deepResearch: isDeepResearch
+                    deepResearch: isDeepResearch,
+                    confidenceMode: isConfidenceMode
                 })
             })
 
@@ -944,11 +946,37 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                             const displayContent = escapeCitationMarkers(stripSourcesBlock(msg.content))
                                                             const sourcesMap = new Map(sources.map((src) => [src.num, src]))
 
+                                                            const processConfidenceBadges = (nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] => {
+                                                                const result: React.ReactNode[] = []
+                                                                let keyCounter = 0
+                                                                for (const node of nodes) {
+                                                                    if (typeof node === 'string') {
+                                                                        const confRegex = /\[CONF_(HIGH|MEDIUM|LOW)\]/g
+                                                                        const matches = Array.from(node.matchAll(confRegex))
+                                                                        if (matches.length === 0) {
+                                                                            result.push(node)
+                                                                            continue
+                                                                        }
+                                                                        let lastIndex = 0
+                                                                        for (const match of matches) {
+                                                                            const matchIndex = match.index!
+                                                                            if (matchIndex > lastIndex) result.push(node.slice(lastIndex, matchIndex))
+                                                                            result.push(<ConfidenceBadge key={`${keyPrefix}-conf-${keyCounter++}-${matchIndex}`} level={match[1] as ConfidenceLevel} />)
+                                                                            lastIndex = matchIndex + match[0].length
+                                                                        }
+                                                                        if (lastIndex < node.length) result.push(node.slice(lastIndex))
+                                                                    } else {
+                                                                        result.push(node)
+                                                                    }
+                                                                }
+                                                                return result
+                                                            }
+
                                                             const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
                                                                 if (!text || typeof text !== 'string') return [text]
                                                                 const citationRegex = /⟦CITE_(\d+)⟧/g
                                                                 const matches = Array.from(text.matchAll(citationRegex))
-                                                                if (matches.length === 0) return [text]
+                                                                if (matches.length === 0) return processConfidenceBadges([text], keyPrefix)
 
                                                                 const parts: React.ReactNode[] = []
                                                                 let lastIndex = 0
@@ -969,7 +997,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                                     lastIndex = matchIndex + match[0].length
                                                                 }
                                                                 if (lastIndex < text.length) parts.push(text.slice(lastIndex))
-                                                                return parts.length > 0 ? parts : [text]
+                                                                return processConfidenceBadges(parts.length > 0 ? parts : [text], keyPrefix)
                                                             }
 
                                                             const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode => {
@@ -1237,6 +1265,22 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                                 </Button>
                                             </TooltipTrigger>
                                             <TooltipContent>Deep Research</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    id="confidence-mode-toggle"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={`h-8 w-8 rounded-full ${isConfidenceMode ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20" : "text-muted-foreground"}`}
+                                                    onClick={() => setIsConfidenceMode(!isConfidenceMode)}
+                                                >
+                                                    <ShieldAlert className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Confidence Mode (Verify Risks)</TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
                                 </div>
