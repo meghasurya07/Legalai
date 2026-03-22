@@ -24,6 +24,7 @@ import { CopyButton } from "@/components/ui/copy-button"
 import { PdfCitationPanel } from "@/components/pdf-citation-panel"
 import type { PdfCitationTarget } from "@/components/pdf-citation-panel"
 import { ConfidenceBadge, ConfidenceLevel } from "@/components/ui/confidence-badge"
+import { Switch } from "@/components/ui/switch"
 import {
     ChatCitationSource,
     parseSources,
@@ -1267,22 +1268,29 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                             <TooltipContent>Deep Research</TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    id="confidence-mode-toggle"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className={`h-8 w-8 rounded-full ${isConfidenceMode ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20" : "text-muted-foreground"}`}
-                                                    onClick={() => setIsConfidenceMode(!isConfidenceMode)}
-                                                >
-                                                    <ShieldAlert className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Confidence Mode (Verify Risks)</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                    <div className="flex items-center gap-2 ml-2 pl-3 border-l border-border h-6">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex items-center gap-2">
+                                                        <Switch
+                                                            id="confidence-mode-toggle"
+                                                            checked={isConfidenceMode}
+                                                            onCheckedChange={setIsConfidenceMode}
+                                                            className="data-[state=checked]:bg-amber-500 scale-90"
+                                                        />
+                                                        <label
+                                                            htmlFor="confidence-mode-toggle"
+                                                            className="text-xs font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                                                        >
+                                                            Verification
+                                                        </label>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="max-w-[200px] text-center">Confidence Mode: Strictly verifies AI facts against your documents.</TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Button
