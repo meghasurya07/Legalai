@@ -67,6 +67,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             .catch(() => setIsSuperAdmin(false))
     }, [])
 
+    // Extract Auth0 roles from user session
+    const roles = user?.['https://askwesley.com/roles'] as string[] | undefined;
+    const isFirmAdmin = roles?.includes('FIRM_ADMIN') || false;
+
     return (
         <Sidebar collapsible="icon" className="border-r-0 bg-sidebar/50 backdrop-blur-md" {...props}>
             <SidebarHeader className="pt-4 pb-2">
@@ -166,10 +170,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         <Settings className="mr-2 h-4 w-4" />
                                         <span>Settings</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => router.push('/organization')}>
-                                        <Building2 className="mr-2 h-4 w-4" />
-                                        <span>Organization</span>
-                                    </DropdownMenuItem>
+                                    
+                                    {isFirmAdmin && (
+                                        <DropdownMenuItem onClick={() => router.push('/organization')}>
+                                            <Building2 className="mr-2 h-4 w-4" />
+                                            <span>Organization</span>
+                                        </DropdownMenuItem>
+                                    )}
+
                                     <DropdownMenuItem onClick={() => router.push('/help')}>
                                         <HelpCircle className="mr-2 h-4 w-4" />
                                         <span>Help</span>
