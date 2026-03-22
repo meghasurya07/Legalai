@@ -74,21 +74,35 @@ function ProjectContent() {
     return (
         <div className="flex h-full w-full overflow-hidden">
             <div className="flex flex-col h-full border-r bg-background w-[300px] shrink-0">
-                <div className="p-4 border-b flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/documents')} title="Back to Documents">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="font-medium text-sm flex-1">Back to Documents</span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/documents/${projectId}/tabular-review`)}
-                        className="h-7 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
-                        title="Open Tabular Review"
-                    >
-                        <Play className="h-3 w-3" />
-                        Tabular Review
-                    </Button>
+                <div className="p-4 border-b flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/documents')} title="Back to Documents" className="h-8 w-8 shrink-0">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="font-medium text-sm flex-1 truncate">Back to Documents</span>
+                    </div>
+                    <div className="flex gap-2 w-full">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/documents/${projectId}/cross-reference`)}
+                            className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-blue-600/10 border-blue-600/30 text-blue-700 hover:bg-blue-600/20 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 justify-center"
+                            title="Open Cross-Reference"
+                        >
+                            <Play className="h-3 w-3 shrink-0" />
+                            <span className="truncate">Cross-Reference</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/documents/${projectId}/tabular-review`)}
+                            className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 justify-center"
+                            title="Open Tabular Review"
+                        >
+                            <Play className="h-3 w-3 shrink-0" />
+                            <span className="truncate">Tabular Review</span>
+                        </Button>
+                    </div>
                 </div>
                 <ProjectSidebar project={project} />
             </div>
