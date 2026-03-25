@@ -71,6 +71,30 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Invitation already pending for this email' }, { status: 409 })
         }
 
+        // ── Seat capacity enforcement ──────────────────────
+        const { data: orgData } = await supabase
+            .from('organizations')
+            .select('licensed_seats, member_count')
+            .eq('id', ctx.orgId)
+            .single()
+
+        if (orgData) {
+            const maxSeats = orgData.licensed_seats ?? 10
+            const { count: pendingCount } = await supabase
+                .from('organization_invites')
+                .select('id', { count: 'exact', head: true })
+                .eq('org_id', ctx.orgId)
+                .eq('status', 'pending')
+
+            const totalCommitted = (orgData.member_count || 0) + (pendingCount || 0)
+            if (totalCommitted >= maxSeats) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Seat limit reached. Your organization has used all ${maxSeats} of ${maxSeats} licensed seats. Please contact your administrator to purchase more.`
+                }, { status: 403 })
+            }
+        }
+
         const { data, error } = await supabase
             .from('organization_invites')
             .insert({

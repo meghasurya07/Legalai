@@ -9,7 +9,6 @@ const ROLE_NAMESPACE = 'https://askwesley.com/roles';
 export async function getUserRoles(): Promise<string[]> {
   try {
     const session = await auth0.getSession();
-    console.log("=== RAW AUTH0 SESSION USER ===", JSON.stringify(session?.user, null, 2));
     if (!session?.user) return [];
 
     const roles = session.user[ROLE_NAMESPACE];

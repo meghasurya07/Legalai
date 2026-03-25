@@ -1,6 +1,7 @@
 import { auth0 } from "@/lib/auth0";
 import { ChatInterface } from "@/components/chat-interface";
 import { redirect } from "next/navigation";
+import { getOrgContext } from "@/lib/get-org-context";
 
 export default async function AppPage({
     searchParams
@@ -12,6 +13,12 @@ export default async function AppPage({
 
     if (!session) {
         redirect("/auth/login");
+    }
+
+    // Check if the user's org context requires a redirect (e.g., SSO seat limit)
+    const orgCtx = await getOrgContext();
+    if (orgCtx?.redirectTo) {
+        redirect(orgCtx.redirectTo);
     }
 
     if (chatId) {
@@ -27,3 +34,4 @@ export default async function AppPage({
         </div>
     );
 }
+

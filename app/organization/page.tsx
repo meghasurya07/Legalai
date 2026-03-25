@@ -1,6 +1,6 @@
 "use client"
-
 import { useState, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { useOrg } from "@/context/org-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,8 +20,11 @@ import {
     ScrollText,
     Clock,
     Mail,
-    Layers
+    Layers,
+    Key,
+    Loader2
 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 
 // =====================================================================
 // TYPES
@@ -60,13 +63,14 @@ interface AuditEntry {
 // TABS
 // =====================================================================
 
-type TabKey = "general" | "members" | "teams" | "invitations" | "audit"
+type TabKey = "general" | "members" | "teams" | "invitations" | "audit" | "sso"
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "general", label: "General", icon: <Building2 className="h-4 w-4" /> },
     { key: "members", label: "Members", icon: <Users className="h-4 w-4" /> },
     { key: "teams", label: "Teams", icon: <Layers className="h-4 w-4" /> },
     { key: "invitations", label: "Invitations", icon: <UserPlus className="h-4 w-4" /> },
+    { key: "sso", label: "Single Sign-On", icon: <Key className="h-4 w-4" /> },
     { key: "audit", label: "Audit Log", icon: <ScrollText className="h-4 w-4" /> },
 ]
 
@@ -115,7 +119,7 @@ export default function OrganizationAdminPage() {
     return (
         <div className="flex flex-col flex-1 w-full max-w-5xl mx-auto p-3 sm:p-4 md:p-6 pb-20 overflow-y-auto">
             {/* Header */}
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2 mb-4 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-primary/10">
                         <Building2 className="h-6 w-6 text-primary" />
@@ -127,10 +131,10 @@ export default function OrganizationAdminPage() {
                 </div>
             </div>
 
-            <Separator className="mb-6" />
+            <Separator className="mb-6 shrink-0" />
 
             {/* Tab Navigation */}
-            <div className="flex gap-1 mb-6 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex gap-1 mb-6 overflow-x-auto pb-1 scrollbar-none shrink-0 w-full">
                 {TABS.map(tab => (
                     <button
                         key={tab.key}
@@ -150,7 +154,8 @@ export default function OrganizationAdminPage() {
             {activeTab === "general" && <GeneralTab org={org} canManage={canManage} refreshOrg={refreshOrg} />}
             {activeTab === "members" && <MembersTab members={members} canManage={canManage} refreshMembers={refreshMembers} />}
             {activeTab === "teams" && <TeamsTab canManage={canManage} />}
-            {activeTab === "invitations" && <InvitationsTab canManage={canManage} />}
+            {activeTab === "invitations" && <InvitationsTab canManage={canManage} org={org} />}
+            {activeTab === "sso" && <SsoTab canManage={canManage} />}
             {activeTab === "audit" && <AuditTab />}
         </div>
     )
@@ -161,7 +166,7 @@ export default function OrganizationAdminPage() {
 // =====================================================================
 
 function GeneralTab({ org, canManage, refreshOrg }: {
-    org: { id: string; name: string; slug: string; status: string; member_count: number; created_at: string }
+    org: { id: string; name: string; slug: string; status: string; member_count: number; licensed_seats: number; created_at: string }
     canManage: boolean
     refreshOrg: () => Promise<void>
 }) {
@@ -223,8 +228,17 @@ function GeneralTab({ org, canManage, refreshOrg }: {
                         <p className="font-medium capitalize">{org.status}</p>
                     </div>
                     <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Members</Label>
-                        <p className="font-medium">{org.member_count}</p>
+                        <Label className="text-xs text-muted-foreground">Seat Usage</Label>
+                        <p className="font-medium">{org.member_count} / {org.licensed_seats} seats</p>
+                        <div className="w-full h-2 rounded-full bg-muted overflow-hidden mt-1">
+                            <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                    (org.member_count / org.licensed_seats) >= 0.9 ? 'bg-red-500' :
+                                    (org.member_count / org.licensed_seats) >= 0.7 ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${Math.min((org.member_count / org.licensed_seats) * 100, 100)}%` }}
+                            />
+                        </div>
                     </div>
                     <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Created</Label>
@@ -470,7 +484,7 @@ function TeamsTab({ canManage }: { canManage: boolean }) {
 // INVITATIONS TAB
 // =====================================================================
 
-function InvitationsTab({ canManage }: { canManage: boolean }) {
+function InvitationsTab({ canManage, org }: { canManage: boolean; org: { member_count: number; licensed_seats: number } }) {
     const [invites, setInvites] = useState<Invite[]>([])
     const [loading, setLoading] = useState(true)
     const [email, setEmail] = useState("")
@@ -534,7 +548,12 @@ function InvitationsTab({ canManage }: { canManage: boolean }) {
         <Card>
             <CardHeader>
                 <CardTitle>Invitations</CardTitle>
-                <CardDescription>Invite new members to join your organization.</CardDescription>
+                <CardDescription>
+                    {org.member_count >= org.licensed_seats
+                        ? <span className="text-red-500 font-medium">Seat limit reached ({org.member_count}/{org.licensed_seats}). Contact your administrator to purchase more seats.</span>
+                        : <>Invite new members to join your organization. <span className="text-muted-foreground">({org.member_count}/{org.licensed_seats} seats used)</span></>
+                    }
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {canManage && (
@@ -558,7 +577,7 @@ function InvitationsTab({ canManage }: { canManage: boolean }) {
                                     <SelectItem value="viewer">Viewer</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button onClick={handleInvite} disabled={sending || !email.trim()}>
+                            <Button onClick={handleInvite} disabled={sending || !email.trim() || org.member_count >= org.licensed_seats}>
                                 {sending ? "Sending…" : "Send Invite"}
                             </Button>
                         </div>
@@ -699,5 +718,195 @@ function AuditTab() {
                 )}
             </CardContent>
         </Card>
+    )
+}
+
+// =====================================================================
+// SSO TAB
+// =====================================================================
+
+function SsoTab({ canManage }: { canManage: boolean }) {
+    const [domain, setDomain] = useState("")
+    const [signInUrl, setSignInUrl] = useState("")
+    const [cert, setCert] = useState("")
+    const [loading, setLoading] = useState(false)
+    const [checking, setChecking] = useState(false)
+    const [status, setStatus] = useState<"none" | "active">("none")
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+    const handleCheck = async () => {
+        if (!domain) return
+        setChecking(true)
+        try {
+            const res = await fetch(`/api/org/sso?domain=${domain}`)
+            const data = await res.json()
+            if (data.exists && data.connection) {
+                setStatus("active")
+                setSignInUrl(data.connection.options?.signInEndpoint || "")
+                setCert(data.connection.options?.signingCert || "")
+            } else {
+                toast.error("No SSO configuration found for this domain.")
+                setStatus("none")
+                setSignInUrl("")
+                setCert("")
+            }
+        } catch (err) {
+            toast.error(`Failed to check SSO status: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        } finally {
+            setChecking(false)
+        }
+    }
+
+    const handleSave = async () => {
+        setLoading(true)
+        try {
+            const res = await fetch("/api/org/sso", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domain, signInEndpoint: signInUrl, cert })
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success("SSO Configuration Applied")
+                setStatus("active")
+            } else {
+                toast.error(data.error || data.detail || "Failed to save SSO config")
+            }
+        } catch {
+            toast.error("An error occurred")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleDelete = async () => {
+        setLoading(true)
+        try {
+            const res = await fetch(`/api/org/sso?domain=${domain}`, { method: "DELETE" })
+            const data = await res.json()
+            if (data.success) {
+                toast.success("SSO Configuration Removed")
+                setStatus("none")
+                setSignInUrl("")
+                setCert("")
+                setShowDeleteConfirm(false)
+            }
+        } catch {
+            toast.error("An error occurred")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    return (
+        <>
+            <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5 text-primary" /> Single Sign-On (SAML)
+                </CardTitle>
+                <CardDescription>Configure Enterprise SSO via Okta, Azure AD, or any SAML 2.0 Identity Provider. When active, members logging in with this domain will instantly be redirected to your secure portal.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Email Domain</Label>
+                        <div className="flex gap-2">
+                            <Input 
+                                placeholder="lawfirm.com" 
+                                value={domain} 
+                                onChange={e => {
+                                    setDomain(e.target.value.toLowerCase().trim())
+                                    setStatus("none")
+                                }} 
+                            />
+                            <Button variant="secondary" onClick={handleCheck} disabled={checking || !domain}>
+                                {checking ? "Checking..." : "Load Domain"}
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">The domain used to route users to your Identity Provider. Avoid prefixes like @.</p>
+                    </div>
+
+                    {status === "active" && (
+                        <div className="rounded-md bg-emerald-500/10 p-3 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm flex items-center gap-2 font-medium">
+                            <Key className="h-4 w-4" /> SSO is Active for this Domain
+                        </div>
+                    )}
+
+                    <div className="space-y-2 pt-4 border-t">
+                        <Label>IdP Sign-In URL</Label>
+                        <Input 
+                            placeholder="https://company.okta.com/app/.../sso/saml" 
+                            value={signInUrl} 
+                            onChange={e => setSignInUrl(e.target.value)} 
+                            disabled={!canManage}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>X.509 Public Certificate</Label>
+                        <Textarea 
+                            placeholder="-----BEGIN CERTIFICATE-----\nMIIDpDCCAoyg...\n-----END CERTIFICATE-----" 
+                            value={cert} 
+                            onChange={e => setCert(e.target.value)} 
+                            disabled={!canManage}
+                            className="font-mono text-xs min-h-[150px]"
+                        />
+                    </div>
+
+                    {canManage && (
+                        <div className="flex justify-between pt-4 border-t">
+                            {status === "active" ? (
+                                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} disabled={loading}>Disable & Delete</Button>
+                            ) : <div></div>}
+                            <Button onClick={handleSave} disabled={loading || !domain || !signInUrl || !cert}>
+                                {loading ? "Saving..." : "Save Configuration"}
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+            </Card>
+            {showDeleteConfirm && typeof window !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center">
+                    {/* Overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
+                        onClick={() => { if (!loading) setShowDeleteConfirm(false) }}
+                    />
+                    {/* Dialog */}
+                    <div className="relative z-[100] w-full max-w-md mx-4 bg-white dark:bg-zinc-900 rounded-xl border border-border/60 shadow-2xl p-6 animate-in fade-in-0 zoom-in-95 duration-200">
+                        <div className="space-y-2">
+                            <h2 className="text-lg font-semibold text-foreground">Disable SSO connection?</h2>
+                            <p className="text-sm text-muted-foreground">
+                                This will instantly sever the SAML connection for <strong>{domain}</strong>. Users will immediately fall back to standard password login. This action cannot be undone.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={loading}
+                                className="rounded-lg"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleDelete}
+                                disabled={loading}
+                                className="rounded-lg bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 block text-center"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" /> Disabling...</span>
+                                ) : (
+                                    'Disable SSO'
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+        </>
     )
 }

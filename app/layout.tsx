@@ -30,6 +30,7 @@ import { Auth0Provider } from "@auth0/nextjs-auth0/client"
 import { OrgProvider } from "@/context/org-context"
 
 import { Toaster } from "@/components/ui/sonner"
+import { VersionWatcher } from "@/components/version-watcher"
 
 export default function RootLayout({
   children,
@@ -55,6 +56,7 @@ export default function RootLayout({
                       {children}
                     </SidebarInset>
                     <Toaster />
+                    <VersionWatcher />
                   </RecentChatsProvider>
                 </DocumentsProvider>
               </UserSettingsProvider>

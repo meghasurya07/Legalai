@@ -23,6 +23,7 @@ export async function GET() {
                     slug: 'default',
                     status: 'active',
                     member_count: 1,
+                    licensed_seats: 10,
                     created_at: new Date().toISOString()
                 },
                 role: 'owner',
@@ -48,6 +49,7 @@ export async function GET() {
                 slug: data.slug,
                 status: data.status,
                 member_count: data.member_count,
+                licensed_seats: data.licensed_seats ?? 10,
                 created_at: data.created_at
             },
             role: ctx.role

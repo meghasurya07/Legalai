@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { requireSuperAdmin } from '@/lib/super-admin'
+import { getManagementApiToken, getManagementApiBaseUrl } from '@/lib/auth/management-api'
 
 export async function GET(request: NextRequest) {
     const admin = await requireSuperAdmin()
@@ -63,6 +64,103 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: enriched })
     } catch {
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    }
+}
+
+// POST /api/super-admin/users — Create a new user in Auth0 and assign to an org
+export async function POST(request: NextRequest) {
+    const admin = await requireSuperAdmin()
+    if (!admin) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
+    try {
+        const body = await request.json()
+        const { email, name, password, org_id, role } = body
+
+        if (!email || !password) {
+            return NextResponse.json({ success: false, error: 'Email and password are required' }, { status: 400 })
+        }
+
+        if (password.length < 8) {
+            return NextResponse.json({ success: false, error: 'Password must be at least 8 characters' }, { status: 400 })
+        }
+
+        const token = await getManagementApiToken()
+        const baseUrl = getManagementApiBaseUrl()
+
+        // 1. Create user in Auth0
+        const auth0Res = await fetch(`${baseUrl}/api/v2/users`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: email.trim().toLowerCase(),
+                name: name?.trim() || email.split('@')[0],
+                password,
+                connection: 'Username-Password-Authentication',
+                email_verified: true, // Pre-verify since Super Admin is creating them
+            })
+        })
+
+        if (!auth0Res.ok) {
+            const errorBody = await auth0Res.json().catch(() => ({}))
+            console.error('[Create User] Auth0 error:', errorBody)
+            const msg = errorBody.message || errorBody.error_description || 'Failed to create user in Auth0'
+            return NextResponse.json({ success: false, error: msg }, { status: 400 })
+        }
+
+        const auth0User = await auth0Res.json()
+        const userId = auth0User.user_id // e.g. "auth0|abc123..."
+
+        // 2. If org_id is provided, add user to that organization
+        if (org_id) {
+            const memberRole = role || 'member'
+
+            await supabase.from('organization_members').insert({
+                org_id: org_id,
+                organization_id: org_id,
+                user_id: userId,
+                role: memberRole,
+                user_name: name?.trim() || email.split('@')[0],
+            })
+
+            // Set default org in user_settings
+            await supabase.from('user_settings').upsert({
+                user_id: userId,
+                default_org_id: org_id,
+                user_name: name?.trim() || email.split('@')[0],
+            })
+
+            // Increment member_count
+            const { data: org } = await supabase
+                .from('organizations')
+                .select('member_count')
+                .eq('id', org_id)
+                .single()
+
+            if (org) {
+                await supabase
+                    .from('organizations')
+                    .update({ member_count: (org.member_count || 0) + 1 })
+                    .eq('id', org_id)
+            }
+        }
+
+        return NextResponse.json({
+            success: true,
+            data: {
+                user_id: userId,
+                email: auth0User.email,
+                name: auth0User.name,
+                org_id: org_id || null,
+            }
+        })
+    } catch (err) {
+        console.error('[Create User] Error:', err)
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
     }
 }

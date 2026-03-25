@@ -9,6 +9,7 @@ export interface Org {
     slug: string
     status: string
     member_count: number
+    licensed_seats: number
     created_at: string
 }
 
