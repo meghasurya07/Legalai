@@ -60,8 +60,8 @@ export function VersionWatcher() {
             if (!currentVersion) {
                 // First check, just store it
                 window.sessionStorage.setItem('app-version', fetchedVersion)
-            } else if (currentVersion !== fetchedVersion && fetchedVersion !== 'development') {
-                // Version changed, show toast
+            } else if (currentVersion !== fetchedVersion) {
+                // Version changed — a new deployment happened, show toast
                 showUpdateToast()
                 toastShownRef.current = true
                 // Update stored version so we don't keep showing it if they dismiss

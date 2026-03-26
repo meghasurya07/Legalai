@@ -1,39 +1,25 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-let cachedVersion: string | null = null;
-
+/**
+ * Returns the current application build version.
+ * 
+ * NEXT_PUBLIC_BUILD_ID is injected at BUILD TIME by next.config.ts.
+ * On Vercel: it's the Git commit SHA (VERCEL_GIT_COMMIT_SHA)
+ * On local dev: it's a timestamp from Date.now()
+ * 
+ * This means:
+ * - Old deployment's client has OLD build ID baked in (stored in sessionStorage)
+ * - New deployment's /api/version returns NEW build ID
+ * - Client detects mismatch → shows "refresh" toast
+ */
 export async function GET() {
-    if (cachedVersion) {
-        return NextResponse.json({ version: cachedVersion });
-    }
-
-    // 1. Check for common CI/CD commit SHAs (Vercel, Render)
-    cachedVersion = process.env.VERCEL_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.COMMIT_REF || null;
-
-    // 2. Fallback to Next.js BUILD_ID
-    if (!cachedVersion) {
-        try {
-            const buildIdPath = path.join(process.cwd(), '.next', 'BUILD_ID');
-            if (fs.existsSync(buildIdPath)) {
-                cachedVersion = fs.readFileSync(buildIdPath, 'utf8').trim();
-            }
-        } catch {
-            // Ignore fs errors
-        }
-    }
-
-    // 3. Last resort fallback
-    if (!cachedVersion) {
-        cachedVersion = 'development';
-    }
+    const version = process.env.NEXT_PUBLIC_BUILD_ID || 'unknown';
 
     return NextResponse.json(
-        { version: cachedVersion },
+        { version },
         {
             headers: {
-                'Cache-Control': 'no-store, max-age=0' // Never cache this!
+                'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
             }
         }
     );
