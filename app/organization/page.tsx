@@ -1417,7 +1417,7 @@ function EthicalWallsTab({ canManage, members }: {
                         <div className="p-6 space-y-5">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-semibold text-lg">{editing ? 'Edit Wall' : 'Create Ethical Wall'}</h3>
-                                <button onClick={() => { setShowCreate(false); setEditing(null); resetForm() }} className="text-muted-foreground hover:text-foreground">
+                                <button onClick={() => { setShowCreate(false); setEditing(null); resetForm() }} className="text-muted-foreground hover:text-foreground" title="Close">
                                     <X className="h-5 w-5" />
                                 </button>
                             </div>
