@@ -77,38 +77,8 @@ export async function getOrgContext(): Promise<OrgContext | null> {
             }
         }
 
-        // 4. If user already has membership, sync their profile from IdP (name/picture may change)
+        // 4. If user has membership, return their context
         if (membership && orgId) {
-            try {
-                const session = await (await import('@/lib/auth0')).auth0.getSession()
-                if (session?.user) {
-                    const idpName = session.user.name || session.user.nickname
-                    const idpPicture = session.user.picture
-                    // Only sync if IdP provides a name and it's different from what we have
-                    if (idpName || idpPicture) {
-                        const updates: Record<string, string | null> = {}
-                        if (idpName) updates.user_name = idpName
-                        if (idpPicture) updates.profile_image = idpPicture
-                        // Fire-and-forget profile sync — don't block the response
-                        supabase
-                            .from('user_settings')
-                            .upsert({ user_id: userId, ...updates })
-                            .then(() => {})
-                        // Also sync name to organization_members for display
-                        if (idpName) {
-                            supabase
-                                .from('organization_members')
-                                .update({ user_name: idpName, profile_image: idpPicture || undefined })
-                                .eq('user_id', userId)
-                                .eq('org_id', orgId)
-                                .then(() => {})
-                        }
-                    }
-                }
-            } catch {
-                // Profile sync is best-effort, don't fail the request
-            }
-
             return {
                 userId,
                 orgId,
