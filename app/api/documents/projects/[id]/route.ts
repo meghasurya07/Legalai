@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getOrgContext } from '@/lib/get-org-context'
 import { getUserId } from '@/lib/get-user-id'
+import { isProjectBlocked } from '@/lib/ethical-walls'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -31,6 +32,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         if (projectError || !project) {
             return apiError('Project not found', 404, projectError)
+        }
+
+        // Ethical Wall enforcement
+        if (ctx?.orgId && await isProjectBlocked(ctx.orgId, userId, id)) {
+            return apiError('Access denied: this project is behind an information barrier', 403)
         }
 
         const { data: files, error: filesError } = await supabase
@@ -90,6 +96,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
+
+        // Ethical Wall enforcement
+        if (ctx?.orgId && await isProjectBlocked(ctx.orgId, userId, id)) {
+            return apiError('Access denied: this project is behind an information barrier', 403)
+        }
+
         const body = await request.json()
         const { sanitizeShortText } = await import('@/lib/validation')
         const { incrementQueryCount } = body
@@ -153,6 +165,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
+
+        // Ethical Wall enforcement
+        if (ctx?.orgId && await isProjectBlocked(ctx.orgId, userId, id)) {
+            return apiError('Access denied: this project is behind an information barrier', 403)
+        }
 
         let query = supabase
             .from('projects')

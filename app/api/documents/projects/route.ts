@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getOrgContext } from '@/lib/get-org-context'
 import { getUserId } from '@/lib/get-user-id'
+import { getBlockedProjectIds } from '@/lib/ethical-walls'
 
 // GET /api/documents/projects - List all projects for the current user/org
 export async function GET() {
@@ -20,6 +21,12 @@ export async function GET() {
         // Add org_id filter only if org context is available (post-migration)
         if (ctx?.orgId) {
             query = query.eq('org_id', ctx.orgId)
+
+            // Ethical Wall enforcement: exclude blocked projects
+            const blockedIds = await getBlockedProjectIds(ctx.orgId, userId)
+            if (blockedIds.length > 0) {
+                query = query.not('id', 'in', `(${blockedIds.join(',')})`)
+            }
         }
 
         const { data, error } = await query
