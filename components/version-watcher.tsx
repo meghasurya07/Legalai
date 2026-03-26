@@ -10,35 +10,35 @@ export function VersionWatcher() {
 
     const showUpdateToast = useCallback(() => {
         toast.custom((t) => (
-            <div className="flex flex-col gap-3 w-[356px] bg-[#222222] border border-[#333333] p-4 rounded-xl shadow-2xl text-white">
+            <div className="flex flex-col gap-3 w-[356px] bg-card border border-border p-4 rounded-xl shadow-lg text-foreground">
                 <div className="flex gap-3">
                     <div className="mt-0.5 flex-shrink-0">
-                        <div className="w-5 h-5 bg-[#555555] rounded-md flex items-center justify-center">
-                            <Info className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                        <div className="w-6 h-6 bg-primary/10 rounded-md flex items-center justify-center">
+                            <Info className="w-3.5 h-3.5 text-primary" />
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <p className="text-[15px] font-semibold leading-none">A new version of this page is available</p>
-                        <p className="text-[14px] text-[#AAAAAA]">Refresh to see the latest changes.</p>
+                        <p className="text-[14px] font-semibold leading-snug text-foreground">The platform has been updated</p>
+                        <p className="text-[13px] text-muted-foreground">Please refresh the page to see changes.</p>
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-1">
                     <button
                         onClick={() => toast.dismiss(t)}
-                        className="px-3 py-1.5 text-[14px] font-medium text-white bg-[#2A2A2A] hover:bg-[#333333] border border-[#444444] rounded-md transition-colors"
+                        className="px-3 py-1.5 text-[13px] font-medium text-muted-foreground bg-secondary hover:bg-accent border border-border rounded-md transition-colors"
                     >
                         Not now
                     </button>
                     <button
                         onClick={() => window.location.reload()}
-                        className="px-3 py-1.5 text-[14px] font-medium text-white bg-[#0A7A44] hover:bg-[#086337] rounded-md transition-colors"
+                        className="px-3 py-1.5 text-[13px] font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-colors"
                     >
                         Refresh
                     </button>
                 </div>
             </div>
         ), {
-            duration: Infinity, // Don't auto-dismiss this important notification
+            duration: Infinity,
             position: 'bottom-right'
         })
     }, [])
