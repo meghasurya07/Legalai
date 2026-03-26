@@ -15,7 +15,6 @@ import {
     ChevronDown,
     LogOut,
     MessageSquarePlus,
-    Scale,
     ShieldAlert
 } from "lucide-react"
 
@@ -77,11 +76,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <div className="flex items-center gap-3 px-3 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary/5 text-primary border border-primary/10 transition-colors hover:bg-primary/10 text-xs">
-                                <Scale className="h-4 w-4" />
+                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background transition-colors">
+                                <svg width="16" height="14" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1L4.5 13H5.5L8 4.5L10.5 13H11.5L15 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                                <span className="font-serif tracking-[0.25em] font-medium text-foreground text-[11px] uppercase">Wesley</span>
+                                <span className="tracking-[0.18em] font-semibold text-foreground text-[11px] uppercase">Wesley</span>
                             </div>
                         </div>
                     </SidebarMenuItem>
