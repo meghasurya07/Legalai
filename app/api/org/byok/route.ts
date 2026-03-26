@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         await supabase.from('audit_log').insert({
             org_id: ctx.orgId,
             actor_user_id: ctx.userId,
-            action: 'byok_key_set',
+            action: 'byok.configured',
             target_entity: 'organization',
             target_id: ctx.orgId,
             metadata: { provider, key_hint: keyHint }
@@ -175,7 +175,7 @@ export async function DELETE() {
         await supabase.from('audit_log').insert({
             org_id: ctx.orgId,
             actor_user_id: ctx.userId,
-            action: 'byok_key_removed',
+            action: 'byok.removed',
             target_entity: 'organization',
             target_id: ctx.orgId,
             metadata: {}

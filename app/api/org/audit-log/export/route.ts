@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
         const csv = [headers.join(','), ...rows].join('\n')
 
-        const filename = `audit_log_${new Date().toISOString().split('T')[0]}.csv`
+        const filename = `wesley_audit_log_${new Date().toISOString().split('T')[0]}.csv`
 
         return new NextResponse(csv, {
             headers: {

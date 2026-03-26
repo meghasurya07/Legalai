@@ -14,13 +14,15 @@ export async function GET(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url)
-        const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
-        const offset = parseInt(searchParams.get('offset') || '0')
+        const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50') || 50, 1), 100)
+        const offset = Math.max(parseInt(searchParams.get('offset') || '0') || 0, 0)
         const action = searchParams.get('action')
         const userId = searchParams.get('userId')
         const from = searchParams.get('from')
         const to = searchParams.get('to')
-        const search = searchParams.get('search')
+        // Sanitize search: strip special SQL/ilike chars to prevent abuse
+        const rawSearch = searchParams.get('search')
+        const search = rawSearch ? rawSearch.replace(/[%_\\]/g, '').trim().substring(0, 100) : null
 
         let query = supabase
             .from('audit_log')

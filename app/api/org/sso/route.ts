@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     if (!res.ok) {
       const errorBody = await res.text();
       console.error("[SSO GET] Management API error:", res.status, errorBody);
-      return NextResponse.json({ error: 'Failed to query SSO status', detail: errorBody }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to query SSO status' }, { status: 502 });
     }
     
     const connections = await res.json();
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ exists: true, connection: connections[0] });
   } catch (error) {
     console.error("SSO GET Error:", error);
-    return NextResponse.json({ error: 'Internal Server Error', detail: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     if (!getRes.ok) {
       const errorBody = await getRes.text();
       console.error("[SSO POST] Failed to check existing connection:", errorBody);
-      return NextResponse.json({ error: 'Failed to check existing SSO configuration', detail: errorBody }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to check existing SSO configuration' }, { status: 502 });
     }
 
     const existing = await getRes.json();
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       if (!patchRes.ok) {
         const errorBody = await patchRes.text();
         console.error("[SSO POST] Failed to update connection:", errorBody);
-        return NextResponse.json({ error: 'Failed to update SSO connection', detail: errorBody }, { status: 502 });
+        return NextResponse.json({ error: 'Failed to update SSO connection' }, { status: 502 });
       }
       return NextResponse.json({ success: true, action: 'updated' });
     } else {
@@ -124,13 +124,13 @@ export async function POST(request: Request) {
       if (!postRes.ok) {
         const errorBody = await postRes.text();
         console.error("[SSO POST] Auth0 Create Connection Error:", errorBody);
-        return NextResponse.json({ error: 'Failed to create SSO connection', detail: errorBody }, { status: 502 });
+        return NextResponse.json({ error: 'Failed to create SSO connection' }, { status: 502 });
       }
       return NextResponse.json({ success: true, action: 'created' });
     }
   } catch (error) {
     console.error("SSO POST Error:", error);
-    return NextResponse.json({ error: 'Internal Server Error', detail: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -156,7 +156,7 @@ export async function DELETE(request: Request) {
     if (!getRes.ok) {
       const errorBody = await getRes.text();
       console.error("[SSO DELETE] Failed to fetch connection:", errorBody);
-      return NextResponse.json({ error: 'Failed to query SSO connection', detail: errorBody }, { status: 502 });
+      return NextResponse.json({ error: 'Failed to query SSO connection' }, { status: 502 });
     }
 
     const existing = await getRes.json();
@@ -170,13 +170,13 @@ export async function DELETE(request: Request) {
       if (!delRes.ok) {
         const errorBody = await delRes.text();
         console.error("[SSO DELETE] Failed to delete connection:", errorBody);
-        return NextResponse.json({ error: 'Failed to delete SSO connection', detail: errorBody }, { status: 502 });
+        return NextResponse.json({ error: 'Failed to delete SSO connection' }, { status: 502 });
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("SSO DELETE Error:", error);
-    return NextResponse.json({ error: 'Internal Server Error', detail: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

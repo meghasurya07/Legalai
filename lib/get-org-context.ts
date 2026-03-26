@@ -156,13 +156,13 @@ export async function getOrgContext(): Promise<OrgContext | null> {
 
                         // Audit log the JIT provisioning
                         try {
-                            await supabase.from('audit_logs').insert({
+                            await supabase.from('audit_log').insert({
                                 org_id: ssoOrg.id,
                                 actor_user_id: userId,
                                 action: 'member.sso_provisioned',
                                 target_entity: 'user',
                                 target_id: userId,
-                                details: { email, domain: emailDomain, org_name: ssoOrg.name },
+                                metadata: { email, domain: emailDomain, org_name: ssoOrg.name },
                             })
                         } catch {
                             // Audit log is best-effort
