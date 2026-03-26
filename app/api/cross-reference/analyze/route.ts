@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateObject } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { apiError } from '@/lib/api-utils'
 import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { AI_MODELS, AI_TEMPERATURES } from '@/lib/ai/config'
+import { resolveOpenAIClient } from '@/lib/byok'
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,10 +22,19 @@ export async function POST(request: NextRequest) {
             return apiError('Missing required fields', 400)
         }
 
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) {
-            return apiError('AI service is not configured', 503)
-        }
+        // Resolve org context for BYOK
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
+
+        // Get the resolved client to extract its API key for Vercel AI SDK
+        const resolvedClient = await resolveOpenAIClient(orgId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const resolvedApiKey = (resolvedClient as any).apiKey as string
+        const openai = createOpenAI({ apiKey: resolvedApiKey })
 
         const systemPrompt = `You are a sophisticated legal AI assistant tasked with cross-referencing and comparing clauses across multiple legal documents.
 You will be provided with an Anchor Document and one or more Target Documents.

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { callAISafe } from '@/lib/ai/client'
 import { apiError, parseAIJSON } from '@/lib/api-utils'
 import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
 import { AI_MODELS } from '@/lib/ai/config'
+import { resolveOpenAIClient } from '@/lib/byok'
 
 export async function POST(request: NextRequest) {
     try {
@@ -20,12 +20,15 @@ export async function POST(request: NextRequest) {
         // 1. Use OpenAI's native web search to research the company
         console.log(`[CompanyResearchProfile] Researching: ${company}`)
 
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) {
-            return apiError('AI service is not configured', 503)
-        }
+        // Resolve org context for BYOK
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
 
-        const client = new OpenAI({ apiKey })
+        const client = await resolveOpenAIClient(orgId)
 
         const searchQuery = `${company} company research profile legal risks recent news sec filings`
 

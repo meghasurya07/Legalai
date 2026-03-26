@@ -1,19 +1,11 @@
 import OpenAI from 'openai'
 import { getPrompts, type UseCase } from './prompts'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from './config'
+import { resolveOpenAIClient } from '@/lib/byok'
 
-// Singleton OpenAI client
-let openaiClient: OpenAI | null = null
-
-function getClient(): OpenAI {
-    if (!openaiClient) {
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) {
-            throw new Error('OPENAI_API_KEY is not configured')
-        }
-        openaiClient = new OpenAI({ apiKey })
-    }
-    return openaiClient
+// Get OpenAI client — uses BYOK key if the org has one configured
+async function getClient(orgId?: string): Promise<OpenAI> {
+    return resolveOpenAIClient(orgId)
 }
 
 // Truncate input text defensively
@@ -37,7 +29,7 @@ export async function callAI(
         orgId?: string
     }
 ): Promise<{ result: string; tokensUsed: number }> {
-    const client = getClient()
+    const client = await getClient(options?.orgId)
     const { systemPrompt, userPrompt } = getPrompts(useCase, input)
 
     // Build messages array

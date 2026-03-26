@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
-import OpenAI from 'openai'
 import { AI_MODELS } from '@/lib/ai/config'
+import { resolveOpenAIClient } from '@/lib/byok'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -98,10 +98,7 @@ async function generateTitleIfNeeded(conversationId: string, messageContent: str
 
     let title: string
     try {
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) throw new Error('No API key')
-
-        const client = new OpenAI({ apiKey })
+        const client = await resolveOpenAIClient() // System key for background title gen
         const completion = await client.chat.completions.create({
             model: AI_MODELS.titleGeneration,
             messages: [

@@ -227,12 +227,18 @@ export async function POST(request: NextRequest) {
         const chatMode: ChatMode = deepResearch ? 'deepResearch' : thinking ? 'thinking' : webSearch ? 'webSearch' : 'standard'
         const { model } = getChatConfig(chatMode)
 
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) {
-            return apiError('AI service is not configured', 503)
+        // Resolve OpenAI client (BYOK or system key)
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch {
+            // No org context — use system key
         }
 
-        const client = new OpenAI({ apiKey, timeout: deepResearch ? 3600 * 1000 : undefined })
+        const { resolveOpenAIClient } = await import('@/lib/byok')
+        const client = await resolveOpenAIClient(orgId, { timeout: deepResearch ? 3600 * 1000 : undefined })
         const encoder = new TextEncoder()
         const streamStartTime = Date.now()
 

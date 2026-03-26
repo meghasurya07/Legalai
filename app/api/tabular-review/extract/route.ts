@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
+import { resolveOpenAIClient } from '@/lib/byok'
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,12 +19,15 @@ export async function POST(request: NextRequest) {
             return apiError('Missing required fields', 400)
         }
 
-        const apiKey = process.env.OPENAI_API_KEY
-        if (!apiKey) {
-            return apiError('AI service is not configured', 503)
-        }
+        // Resolve org context for BYOK
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
 
-        const client = new OpenAI({ apiKey })
+        const client = await resolveOpenAIClient(orgId)
 
         const response = await client.chat.completions.create({
             model: AI_MODELS.tabularReview,
