@@ -27,6 +27,7 @@ export async function executeStep(step: WorkflowStepDefinition, context: Workflo
         }, {
             jsonMode: true,
             projectId: context.projectId,
+            orgId: context.orgId,
             useRAG: step.contextSource === 'RAG' || step.contextSource === 'ALL'
         })
 

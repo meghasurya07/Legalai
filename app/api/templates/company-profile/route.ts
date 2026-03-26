@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             company,
             searchResults: searchContext,
             userPrompt
-        }, { jsonMode: true })
+        }, { jsonMode: true, orgId })
 
         if (error) {
             return apiError(error, 503)

@@ -53,9 +53,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const useCase = action === 'summarize' ? 'document_summary' : 'document_analysis'
 
+        // Resolve org context for BYOK
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
+
         const { result, error } = await callAISafe(useCase as 'document_summary' | 'document_analysis', {
             text
-        })
+        }, { orgId })
 
         if (error) {
             return NextResponse.json({ error }, { status: 503 })

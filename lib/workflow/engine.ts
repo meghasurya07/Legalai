@@ -16,13 +16,15 @@ export async function executeWorkflow(
     pipeline: WorkflowPipeline,
     inputs: Record<string, unknown>,
     projectId?: string,
-    workflowRunId?: string
+    workflowRunId?: string,
+    orgId?: string
 ): Promise<Record<string, unknown>> {
 
     // 1. Initialize Context
     const context: WorkflowContext = {
         workflowRunId: workflowRunId || '',
         projectId,
+        orgId,
         inputs,
         stepResults: {},
         documentAnalysis: [],

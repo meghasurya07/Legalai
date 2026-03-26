@@ -21,9 +21,17 @@ export async function POST(request: NextRequest) {
             `Important Admissions: ${JSON.stringify(context?.importantAdmissions || [])}`
         ].join('\n')
 
+        // Resolve org context for BYOK
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
+
         const { result, error } = await callAISafe('assistant_chat', {
             message: `Based on this transcript analysis context, answer the question. Cite specific testimony when relevant.\n\nContext:\n${truncateText(contextSummary)}\n\nQuestion: ${question}`
-        })
+        }, { orgId })
 
         if (error) {
             return NextResponse.json({ error }, { status: 503 })

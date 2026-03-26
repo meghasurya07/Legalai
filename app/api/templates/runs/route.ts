@@ -42,11 +42,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create workflow run' }, { status: 500 })
         }
 
+        // Resolve org context for BYOK (needed for both pipeline and legacy paths)
+        let orgId: string | undefined
+        try {
+            const { getOrgContext } = await import('@/lib/get-org-context')
+            const ctx = await getOrgContext()
+            orgId = ctx?.orgId
+        } catch { /* no org context */ }
+
         // Check if this workflow has a multi-step pipeline definition
         const pipeline = PIPELINES[workflowId]
         if (pipeline) {
             // execute async (fire-and-forget) to not block UI
-            executeWorkflow(pipeline, inputData || {}, undefined, run.id)
+            executeWorkflow(pipeline, inputData || {}, undefined, run.id, orgId)
                 .then(async (result) => {
                     await supabase
                         .from('workflow_runs')
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
         const { result, error: aiError } = await callAISafe('workflow_execution', {
             workflowName: workflow?.title || workflowId,
             inputData: inputData || {}
-        })
+        }, { orgId })
 
         if (aiError) {
             // Update run as failed

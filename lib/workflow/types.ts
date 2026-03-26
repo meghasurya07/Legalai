@@ -42,6 +42,7 @@ export interface StepExecutionResult {
 export interface WorkflowContext {
     workflowRunId: string
     projectId?: string
+    orgId?: string
     inputs: Record<string, unknown>
     stepResults: Record<string, unknown> // map of stepId -> output
     documentAnalysis?: unknown[]

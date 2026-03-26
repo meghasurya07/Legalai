@@ -223,13 +223,16 @@ export async function resolveOpenAIClient(
         return new OpenAI({ apiKey: systemKey, ...options })
     }
 
-    // Decrypt the org's key
+    // Decrypt the org's key — NEVER silently fall back to system key
     let decryptedKey: string
     try {
         decryptedKey = decryptKey(config.encrypted_api_key)
     } catch {
-        console.error(`[BYOK] Failed to decrypt key for org ${orgId} — falling back to system key`)
-        return new OpenAI({ apiKey: systemKey, ...options })
+        console.error(`[BYOK] CRITICAL: Failed to decrypt key for org ${orgId}`)
+        throw new Error(
+            'Your organization\'s API key could not be decrypted. ' +
+            'Please contact your administrator to re-enter the API key in Organization Settings → API Keys.'
+        )
     }
 
     // Return the appropriate client
