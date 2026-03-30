@@ -1377,7 +1377,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="gap-1.5 md:gap-2 text-foreground/80 hover:text-foreground transition-all px-3 md:px-4 bg-background hover:bg-muted"
+                                        className="gap-1.5 md:gap-2 text-foreground/80 hover:text-foreground transition-all px-3 md:px-4 bg-background hover:bg-muted disabled:opacity-50"
                                         onClick={handleImprovePrompt}
                                         disabled={isLoading || isImprovingPrompt || !inputValue.trim()}
                                     >
