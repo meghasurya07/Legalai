@@ -238,38 +238,63 @@ function highlightMatchingSpans(
         spanRanges.push({ start, end: runningText.length - 1, span })
     }
 
-    // Normalize for matching
-    const normalizedPage = runningText.replace(/\s+/g, " ").toLowerCase()
+    // Build an index map mapping normalized text indices back to original chunk string
+    let normalizedPage = ""
+    let isSpace = false
+    const indexMap: number[] = []
+
+    for (let i = 0; i < runningText.length; i++) {
+        const char = runningText[i]
+        if (/\s/.test(char)) {
+            if (!isSpace) {
+                // Only add a single space to normalized text if we haven't just added one
+                if (normalizedPage.length > 0) {
+                    normalizedPage += " "
+                    indexMap.push(i)
+                    isSpace = true
+                }
+            }
+        } else {
+            normalizedPage += char.toLowerCase()
+            indexMap.push(i)
+            isSpace = false
+        }
+    }
+    indexMap.push(runningText.length)
+
     const normalizedSearch = searchText.replace(/\s+/g, " ").trim().toLowerCase()
 
-    // Try multiple matching lengths for robustness
+    // Try progressively shorter snippets for matching to handle PDF.js extraction anomalies
     const searchLengths = [
         Math.min(normalizedSearch.length, 200),
-        80,
-        40,
+        Math.min(normalizedSearch.length, 100),
+        Math.min(normalizedSearch.length, 60),
+        Math.min(normalizedSearch.length, 30),
     ]
 
     let matchIndex = -1
     let matchLength = 0
 
     for (const len of searchLengths) {
-        if (len > normalizedSearch.length) continue
+        if (len < 15) continue
         const fragment = normalizedSearch.substring(0, len)
         matchIndex = normalizedPage.indexOf(fragment)
         if (matchIndex !== -1) {
-            matchLength = fragment.length
+            matchLength = Math.min(normalizedSearch.length, normalizedPage.length - matchIndex)
             break
         }
     }
 
     if (matchIndex === -1) return null
 
-    const matchEnd = matchIndex + matchLength
+    const originalStart = indexMap[matchIndex]
+    const originalEnd = indexMap[Math.min(matchIndex + matchLength, indexMap.length - 1)]
+
     let firstHighlighted: HTMLElement | null = null
 
     // Highlight spans that overlap with the match range
     for (const { start, end, span } of spanRanges) {
-        if (end > matchIndex && start < matchEnd) {
+        if (end > originalStart && start < originalEnd) {
             // This span overlaps with the matched text — highlight it
             span.style.backgroundColor = "rgba(250, 204, 21, 0.4)"
             span.style.borderRadius = "2px"

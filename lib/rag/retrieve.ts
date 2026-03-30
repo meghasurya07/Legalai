@@ -215,11 +215,108 @@ export function buildRAGSourcesBlock(chunks: RetrievedChunk[]): string {
         if (chunk.pageNumber) title += ` — Page ${chunk.pageNumber}`
         if (chunk.sectionHeading) title += ` — ${chunk.sectionHeading}`
 
-        // Use in-app document viewer URL with chunk index for highlighting
-        const url = `https://documents.app/document/${chunk.fileId}?ci=${chunk.chunkIndex}`
+        // Use in-app document viewer URL with chunk index for highlighting, or a generic URL for temp uploaded files
+        const url = chunk.fileId.startsWith('upload-')
+            ? `https://upload.local/file/${encodeURIComponent(chunk.fileId)}`
+            : `https://documents.app/document/${chunk.fileId}?ci=${chunk.chunkIndex}`
 
-        // Snippet: first ~200 chars of content, cleaned
-        const snippet = chunk.content.replace(/\r?\n/g, ' ').substring(0, 200)
+        // Snippet: first ~800 chars of content, cleaned
+        const snippet = chunk.content.replace(/\r?\n/g, ' ').substring(0, 800)
+
+        lines.push(`[${i + 1}] ${title} | ${url} | ${snippet}`)
+    }
+
+    if (lines.length === 0) return ''
+
+    return `\n\n<!--SOURCES:\n${lines.join('\n')}\n-->`
+}
+
+/**
+ * Build a <!--SOURCES: block dynamically based on the AI's response.
+ * It selects the snippet from each chunk that has the most word overlap with the AI's response,
+ * ensuring the frontend highlights the most relevant passage.
+ */
+export function buildDynamicRAGSourcesBlock(chunks: RetrievedChunk[], responseText: string): string {
+    if (chunks.length === 0) return ''
+
+    const lines: string[] = []
+
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]
+        
+        let title = chunk.fileName || 'Document'
+        if (chunk.pageNumber) title += ` — Page ${chunk.pageNumber}`
+        if (chunk.sectionHeading) title += ` — ${chunk.sectionHeading}`
+
+        const url = chunk.fileId.startsWith('upload-')
+            ? `https://upload.local/file/${encodeURIComponent(chunk.fileId)}`
+            : `https://documents.app/document/${chunk.fileId}?ci=${chunk.chunkIndex}`
+
+        let bestSnippet = chunk.content.substring(0, 800)
+
+        // Find where this specific chunk was cited in the response " [i+1]"
+        const citMarker = `[${i + 1}]`
+        const markerIdx = responseText.indexOf(citMarker)
+        
+        // Extract the context immediately BEFORE the citation if marker exists.
+        // If not, use the entire response text as context to find the best snippet.
+        let precedingText = responseText
+        if (markerIdx !== -1) {
+            const startIdx = Math.max(0, markerIdx - 400)
+            precedingText = responseText.substring(startIdx, markerIdx)
+        }
+        
+        const aiWords = new Set(
+            precedingText.toLowerCase()
+                .replace(/[^\w\s'-]/g, ' ')
+                .split(/\s+/)
+                .filter(w => w.length > 3) // catch more context
+        )
+        
+        // Split chunk into sentences for much finer granularity
+        // Handles legal docs with massive paragraphs by isolating the specific relevant sentence.
+        const sentences = chunk.content.match(/[^.!?]+(?:[.!?]+|$)/g) || [chunk.content]
+        
+        let maxOverlap = -1
+        let bestSentenceIdx = 0
+        
+        for (let s = 0; s < sentences.length; s++) {
+            const sentenceText = sentences[s].trim()
+            if (sentenceText.length < 10) continue
+
+            const sWords = new Set(
+                sentenceText.toLowerCase()
+                    .replace(/[^\w\s'-]/g, ' ')
+                    .split(/\s+/)
+                    .filter(w => w.length > 3)
+            )
+            
+            let overlap = 0
+            if (aiWords.size > 0) {
+                for (const w of sWords) {
+                    if (aiWords.has(w)) overlap++
+                }
+            }
+            
+            // Prefer the later sentence if overlap is identical to prioritize deep chunk matches rather than first sentence
+            if (overlap > maxOverlap || (overlap === maxOverlap && overlap > 0)) {
+                maxOverlap = overlap
+                bestSentenceIdx = s
+            }
+        }
+        
+        // Gather context starting slightly before the best sentence, or at the best sentence
+        let gatheredSnippet = ""
+        let currentS = Math.max(0, bestSentenceIdx - 1) // include 1 preceding sentence for context
+        
+        while (gatheredSnippet.length < 800 && currentS < sentences.length) {
+            gatheredSnippet += sentences[currentS].trim() + " "
+            currentS++
+        }
+        
+        bestSnippet = gatheredSnippet.trim().substring(0, 800)
+
+        const snippet = bestSnippet.replace(/\r?\n/g, ' ').substring(0, 800).trim()
 
         lines.push(`[${i + 1}] ${title} | ${url} | ${snippet}`)
     }

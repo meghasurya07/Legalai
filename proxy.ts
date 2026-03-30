@@ -4,8 +4,8 @@ import { checkRateLimit, RATE_LIMIT_AUTH, RATE_LIMIT_GLOBAL } from "./lib/rate-l
 
 const protectedRoutes = ['/documents', '/templates', '/recent-chats', '/settings', '/help', '/super-admin', '/organization'];
 
-// API routes that require authentication (all except auth callbacks)
-const publicApiPrefixes = ['/api/auth'];
+// API routes that require authentication (all except auth callbacks and cron jobs)
+const publicApiPrefixes = ['/api/auth', '/api/cron'];
 
 function getClientIp(request: NextRequest): string {
     return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()

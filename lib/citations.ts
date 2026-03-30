@@ -63,8 +63,8 @@ export function getCitationSourceDisplayName(url: string, title: string): string
         const urlObj = new URL(url)
         const hostname = urlObj.hostname.replace('www.', '')
 
-        if (hostname === 'vault.app' || hostname.includes('supabase') || hostname === 'vault.local') {
-            const fileName = title.split(' - ')[0]
+        if (hostname === 'vault.app' || hostname === 'documents.app' || hostname.includes('supabase') || hostname === 'vault.local' || hostname === 'upload.local' || hostname === 'legal-source.internal') {
+            const fileName = title.split(' - ')[0].split(' — ')[0]
             return fileName.length > 25 ? fileName.substring(0, 22) + '...' : fileName
         }
 
@@ -93,11 +93,11 @@ export function isDocumentSource(url: string): boolean {
         const hostname = urlObj.hostname.replace('www.', '')
         return (
             hostname === 'vault.app' ||
+            hostname === 'documents.app' ||
             hostname.includes('supabase') ||
             hostname === 'vault.local' ||
-            hostname === 'legal-source.internal' ||
-            hostname.includes('document') ||
-            lowerUrl.includes('/documents/')
+            hostname === 'upload.local' ||
+            hostname === 'legal-source.internal'
         )
     } catch {
         return true
@@ -116,8 +116,7 @@ export function getDocumentRoute(url: string): string | null {
             hostname === 'vault.app' ||
             hostname === 'documents.app' ||
             hostname === 'vault.local' ||
-            hostname === 'legal-source.internal' ||
-            hostname.includes('document')
+            hostname === 'legal-source.internal'
         )
         if (!isInternalHost) return null
         const pathParts = urlObj.pathname.split('/').filter(Boolean)
@@ -178,14 +177,22 @@ export function parseDocumentCitationUrl(url: string): { fileId: string; chunkIn
     try {
         const urlObj = new URL(url)
         const pathParts = urlObj.pathname.split('/').filter(Boolean)
-        // Path format: /document/{fileId}
+        // Path format: /document/{fileId} or /file/{fileId}
         const docIdx = pathParts.indexOf('document')
-        if (docIdx === -1 || docIdx + 1 >= pathParts.length) return null
+        const fileIdx = pathParts.indexOf('file')
+        
+        let fileId = ''
+        if (docIdx !== -1 && docIdx + 1 < pathParts.length) {
+            fileId = pathParts[docIdx + 1]
+        } else if (fileIdx !== -1 && fileIdx + 1 < pathParts.length) {
+            fileId = pathParts[fileIdx + 1]
+        } else {
+            return null
+        }
 
-        const fileId = pathParts[docIdx + 1]
         const ci = parseInt(urlObj.searchParams.get('ci') || '0', 10)
 
-        return { fileId, chunkIndex: isNaN(ci) ? 0 : ci }
+        return { fileId: decodeURIComponent(fileId), chunkIndex: isNaN(ci) ? 0 : ci }
     } catch {
         return null
     }

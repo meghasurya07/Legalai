@@ -562,32 +562,38 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 })
             }
 
-            // Process files for extraction
+            // Process files for extraction and storage
             const processedFiles = await Promise.all(currentFiles.map(async (file) => {
                 // If it's a Drive file, we can't extract text yet as we don't have the file blob
                 if (file.source === 'drive' || !file.file) {
                     return { name: file.name, type: file.type }
                 }
 
-                let content = ''
                 try {
-                    if (file.type === 'pdf' || file.type === 'docx') {
-                        const formData = new FormData()
-                        formData.append('file', file.file)
-                        const res = await fetch('/api/extract-text', { method: 'POST', body: formData })
-                        if (res.ok) {
-                            const data = await res.json()
-                            content = data.text
+                    const formData = new FormData()
+                    formData.append('file', file.file)
+                    // Upload to ephemeral storage to get a real fileId for citations
+                    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData })
+                    if (res.ok) {
+                        const data = await res.json()
+                        return { 
+                            id: data.id, 
+                            name: file.name, 
+                            type: file.type, 
+                            content: data.content 
                         }
-                    } else if (file.type === 'text' || file.type === 'csv' || file.type === 'other') {
-                        // Clientside extraction for text-based files
-                        content = await file.file.text()
+                    } else {
+                        throw new Error('Upload failed')
                     }
                 } catch (e) {
-                    console.error("Failed to extract text for chat", e)
+                    console.error("Failed to upload/extract text for chat", e)
+                    // Fallback to client-side text if upload fails for text files
+                    let content = ''
+                    if (file.type === 'text' || file.type === 'csv' || file.type === 'other') {
+                        content = await file.file.text()
+                    }
+                    return { name: file.name, type: file.type, content }
                 }
-
-                return { name: file.name, type: file.type, content }
             }))
 
             // Stream response from API
@@ -975,29 +981,58 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                                                             const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
                                                                 if (!text || typeof text !== 'string') return [text]
-                                                                const citationRegex = /⟦CITE_(\d+)⟧/g
-                                                                const matches = Array.from(text.matchAll(citationRegex))
-                                                                if (matches.length === 0) return processConfidenceBadges([text], keyPrefix)
-
+                                                                // Match groups of citations that are separated only by whitespace or commas, or are adjacent
+                                                                const citationGroupRegex = /⟦CITE_\d+⟧(?:[\s,]*⟦CITE_\d+⟧)*/g
+                                                                const matches = Array.from(text.matchAll(citationGroupRegex))
                                                                 const parts: React.ReactNode[] = []
                                                                 let lastIndex = 0
-                                                                let keyCounter = 0
+                                                                let groupCounter = 0
 
                                                                 for (const match of matches) {
                                                                     const matchIndex = match.index!
-                                                                    if (matchIndex > lastIndex) parts.push(text.slice(lastIndex, matchIndex))
-                                                                    parts.push(
+                                                                    if (matchIndex > lastIndex) {
+                                                                        const beforeText = text.slice(lastIndex, matchIndex)
+                                                                        parts.push(...(processConfidenceBadges([beforeText], `${keyPrefix}-before-${groupCounter}`) as React.ReactNode[]))
+                                                                    }
+                                                                    
+                                                                    const matchString = match[0]
+                                                                    const numRegex = /⟦CITE_(\d+)⟧/g
+                                                                    const nums = Array.from(matchString.matchAll(numRegex)).map(m => m[1])
+                                                                    
+                                                                    // Deduplicate citations by source title
+                                                                    const uniqueSources = new Map<string, { num: string, source: ChatCitationSource | undefined }>()
+                                                                    for (const num of nums) {
+                                                                        const src = sourcesMap.get(num)
+                                                                        // Merge identical documents in the same group
+                                                                        const key = src?.title || `unknown-${num}`
+                                                                        if (!uniqueSources.has(key)) {
+                                                                            uniqueSources.set(key, { num, source: src })
+                                                                        }
+                                                                    }
+
+                                                                    const pills = Array.from(uniqueSources.values()).map((item, idx) => (
                                                                         <CitationPill
-                                                                            key={`${keyPrefix}-citation-${keyCounter++}-${matchIndex}`}
-                                                                            citationNum={match[1]}
-                                                                            source={sourcesMap.get(match[1])}
+                                                                            key={`${keyPrefix}-citation-${groupCounter}-${idx}`}
+                                                                            citationNum={item.num}
+                                                                            source={item.source}
                                                                             onOpenCitations={() => openCitations(i)}
                                                                             onViewPdf={openPdfViewer}
                                                                         />
+                                                                    ))
+
+                                                                    // Render grouped pills seamlessly without commas
+                                                                    parts.push(
+                                                                        <span key={`${keyPrefix}-group-${groupCounter++}`} className="inline-flex items-center flex-wrap gap-1 mx-0.5">
+                                                                            {pills}
+                                                                        </span>
                                                                     )
-                                                                    lastIndex = matchIndex + match[0].length
+                                                                    
+                                                                    lastIndex = matchIndex + matchString.length
                                                                 }
-                                                                if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+                                                                if (lastIndex < text.length) {
+                                                                    const afterText = text.slice(lastIndex)
+                                                                    parts.push(...(processConfidenceBadges([afterText], `${keyPrefix}-after-${groupCounter}`) as React.ReactNode[]))
+                                                                }
                                                                 return processConfidenceBadges(parts.length > 0 ? parts : [text], keyPrefix)
                                                             }
 

@@ -29,30 +29,55 @@ export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: Markdown
 
     const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
         if (!text || typeof text !== 'string') return [text];
-        const citationRegex = /⟦CITE_(\d+)⟧/g;
-        const matches = Array.from(text.matchAll(citationRegex));
+        // Match groups of citations that are separated only by whitespace or commas, or are adjacent
+        const citationGroupRegex = /⟦CITE_\d+⟧(?:[\s,]*⟦CITE_\d+⟧)*/g;
+        const matches = Array.from(text.matchAll(citationGroupRegex));
 
         if (matches.length === 0) return [text];
 
         const parts: React.ReactNode[] = [];
         let lastIndex = 0;
-        let keyCounter = 0;
+        let groupCounter = 0;
 
         for (const match of matches) {
             const matchIndex = match.index!;
             if (matchIndex > lastIndex) {
                 parts.push(text.slice(lastIndex, matchIndex));
             }
-            parts.push(
+
+            const matchString = match[0];
+            const numRegex = /⟦CITE_(\d+)⟧/g;
+            const nums = Array.from(matchString.matchAll(numRegex)).map(m => m[1]);
+
+            // Deduplicate citations by source title
+            const uniqueSources = new Map<string, { num: string, source: ChatCitationSource | undefined }>();
+            for (const num of nums) {
+                const src = sourcesMap.get(num);
+                // Merge identical documents in the same group
+                const key = src?.title || `unknown-${num}`;
+                if (!uniqueSources.has(key)) {
+                    uniqueSources.set(key, { num, source: src });
+                }
+            }
+
+            const pills = Array.from(uniqueSources.values()).map((item, idx) => (
                 <CitationPill
-                    key={`${keyPrefix}-citation-${keyCounter++}-${matchIndex}`}
-                    citationNum={match[1]}
-                    source={sourcesMap.get(match[1])}
-                    onOpenCitations={() => openCitations(match[1])}
+                    key={`${keyPrefix}-citation-${groupCounter}-${idx}`}
+                    citationNum={item.num}
+                    source={item.source}
+                    onOpenCitations={() => openCitations(item.num)}
                     onViewPdf={onViewPdf}
                 />
+            ));
+
+            // Render grouped pills seamlessly without commas
+            parts.push(
+                <span key={`${keyPrefix}-group-${groupCounter++}`} className="inline-flex items-center flex-wrap gap-1 mx-0.5">
+                    {pills}
+                </span>
             );
-            lastIndex = matchIndex + match[0].length;
+
+            lastIndex = matchIndex + matchString.length;
         }
 
         if (lastIndex < text.length) {

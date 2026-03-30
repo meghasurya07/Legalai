@@ -107,8 +107,36 @@ function DocTextViewer({
             return <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">{text}</pre>
         }
 
-        // Normalize both for matching (collapse whitespace)
-        const normalizedText = text.replace(/\s+/g, ' ')
+        // Build an index map mapping normalized text indices back to original text indices
+        let normalizedText = ''
+        let isSpace = false
+        const indexMap: number[] = []
+
+        // To handle leading whitespace appropriately
+        const trimmedOriginalMatch = text.match(/^\s+/)
+        if (trimmedOriginalMatch) {
+            // we will skip mapping leading spaces into `normalizedText` or handle them carefully
+        }
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i]
+            if (/\s/.test(char)) {
+                if (!isSpace) {
+                    // Only add a single space to normalized text if we haven't just added one
+                    if (normalizedText.length > 0) { // skip leading spaces entirely
+                        normalizedText += ' '
+                        indexMap.push(i)
+                        isSpace = true
+                    }
+                }
+            } else {
+                normalizedText += char
+                indexMap.push(i)
+                isSpace = false
+            }
+        }
+        indexMap.push(text.length)
+
         const normalizedSnippet = highlightText.replace(/\s+/g, ' ').trim()
 
         // Try progressively shorter snippets for matching
@@ -150,10 +178,13 @@ function DocTextViewer({
             )
         }
 
-        // Split text into before, match, after
-        const before = normalizedText.substring(0, matchIndex)
-        const match = normalizedText.substring(matchIndex, matchIndex + matchLength)
-        const after = normalizedText.substring(matchIndex + matchLength)
+        // Split original text using mapped indices
+        const originalStart = indexMap[matchIndex]
+        const originalEnd = indexMap[Math.min(matchIndex + matchLength, indexMap.length - 1)]
+
+        const before = text.substring(0, originalStart)
+        const match = text.substring(originalStart, originalEnd)
+        const after = text.substring(originalEnd)
 
         return (
             <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">

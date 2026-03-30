@@ -4,7 +4,7 @@ import { getPrompts } from '@/lib/ai/prompts'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_TEMPERATURES, getChatConfig, type ChatMode } from '@/lib/ai/config'
-import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, ensureCitationMarkers, RAG_GROUNDING_INSTRUCTION, type RetrievedChunk } from '@/lib/rag'
+import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, ensureCitationMarkers, RAG_GROUNDING_INSTRUCTION, type RetrievedChunk, buildDynamicRAGSourcesBlock } from '@/lib/rag'
 import { auth0 } from '@/lib/auth0'
 
 // Helper to emit SSE phase events
@@ -23,10 +23,10 @@ interface AttachedFile {
  * Returns processedText (with [N] markers replacing OpenAI citation markers)
  * and a <!--SOURCES: block with [N] title | url | snippet.
  */
-function extractCitationsFromResponse(response: OpenAI.Responses.Response): { processedText: string; sourcesBlock: string } {
+function extractCitationsFromResponse(response: OpenAI.Responses.Response, startNum: number = 1): { processedText: string; sourcesBlock: string } {
     const urlToNum = new Map<string, number>()
     const citations: { num: number; title: string; url: string; snippet: string }[] = []
-    let num = 1
+    let num = startNum
 
     interface AnnotationInfo { startIndex: number; endIndex: number; url: string; title: string }
     const allAnnotations: AnnotationInfo[] = []
@@ -212,11 +212,58 @@ export async function POST(request: NextRequest) {
             const fileNames = files.map((f: AttachedFile) => typeof f === 'string' ? f : f.name).join(', ')
             userContent += `\n\n[User uploaded files in this message: ${fileNames}]`
 
-            files.forEach((f: AttachedFile) => {
-                if (typeof f === 'object' && f.content) {
-                    userContent += `\n--- FILE: ${f.name} ---\n${f.content.slice(0, 20000)}\n----------------\n`
+            const pseudoChunks: RetrievedChunk[] = []
+            files.forEach((f: AttachedFile, index: number) => {
+                if (typeof f === 'object' && f.content && typeof f.content === 'string') {
+                    const rawContent = f.content.slice(0, 100000)
+                    const words = rawContent.split(/\s+/)
+                    let currentChunk = ''
+                    let chunkIndex = 0
+
+                    const fileId = f.id ? String(f.id) : `upload-${index}`
+
+                    for (const w of words) {
+                        if (currentChunk.length + w.length > 800 && currentChunk.length > 0) {
+                            pseudoChunks.push({
+                                id: `${fileId}-${chunkIndex}`,
+                                fileId: fileId,
+                                fileName: f.name,
+                                fileUrl: `https://upload.local/file/${encodeURIComponent(f.name)}`,
+                                content: currentChunk.trim(),
+                                tokenCount: Math.ceil(currentChunk.length / 4),
+                                chunkIndex: chunkIndex++,
+                                similarity: 1.0,
+                                pageNumber: null,
+                                sectionHeading: null,
+                            })
+                            currentChunk = w
+                        } else {
+                            currentChunk += (currentChunk ? ' ' : '') + w
+                        }
+                    }
+                    if (currentChunk.trim()) {
+                        pseudoChunks.push({
+                            id: `${fileId}-${chunkIndex}`,
+                            fileId: fileId,
+                            fileName: f.name,
+                            fileUrl: `https://upload.local/file/${encodeURIComponent(f.name)}`,
+                            content: currentChunk.trim(),
+                            tokenCount: Math.ceil(currentChunk.length / 4),
+                            chunkIndex: chunkIndex,
+                            similarity: 1.0,
+                            pageNumber: null,
+                            sectionHeading: null,
+                        })
+                    }
                 }
             })
+
+            if (pseudoChunks.length > 0) {
+                ragChunks = [...ragChunks, ...pseudoChunks]
+                ragContext = buildRAGContext(ragChunks)
+                ragSystemMessage = RAG_GROUNDING_INSTRUCTION
+                ragSourcesBlock = buildRAGSourcesBlock(ragChunks)
+            }
 
             if (!message) {
                 userContent += '\nPlease analyze these files.'
@@ -269,7 +316,13 @@ export async function POST(request: NextRequest) {
                         : userPrompt
 
                     if (confidenceMode) {
-                        finalUserPrompt += `\n\n[CONFIDENCE MODE ACTIVATED]\nCRITICAL: You MUST actively evaluate the verifyability of your statements based ONLY on the provided document context.\nFor EVERY factual claim you make, you MUST append a confidence badge directly after the sentence.\nUse one of these exactly: [CONF_HIGH], [CONF_MEDIUM], or [CONF_LOW].\n\n- Use [CONF_HIGH] if the claim is explicitly stated in the context.\n- Use [CONF_MEDIUM] if the claim is implied or synthesized from vague parts of the context.\n- Use [CONF_LOW] if you cannot find direct support in the context (hallucination risk).\n\nIf you are also using [1] citations, put the confidence badge immediately before or after the citation. Example: "The cap is $5M [1] [CONF_HIGH]."`
+                        const sourceDesc = (webSearch || deepResearch) ? "the search results provided by the search tool" : "the provided document context"
+                        finalUserPrompt += `\n\n[CONFIDENCE MODE ACTIVATED]\nCRITICAL: You MUST actively evaluate the verifyability of your statements based ONLY on ${sourceDesc}.\nFor EVERY factual claim you make, you MUST append a confidence badge directly after the sentence.\nUse one of these exactly: [CONF_HIGH], [CONF_MEDIUM], or [CONF_LOW].\n\n- Use [CONF_HIGH] if the claim is explicitly stated in the context/results.\n- Use [CONF_MEDIUM] if the claim is implied or synthesized from vague parts of the context/results.\n- Use [CONF_LOW] if you cannot find direct support in the context/results (hallucination risk).\n\nIf you are also using [1] citations, put the confidence badge immediately before or after the citation. Example: "The cap is $5M [1] [CONF_HIGH]."`
+
+                        if (!ragContext && !webSearch && !deepResearch) {
+                            // Without context, everything is hallucinated / guessed
+                            finalUserPrompt += `\n\nNOTE: You were not provided with any document context or search results for this query. Therefore, ANY factual claims you make about specific documents, people, or entities MUST be marked as [CONF_LOW].`
+                        }
                     }
 
                     // ═══════════════════════════════════════════════
@@ -415,16 +468,29 @@ export async function POST(request: NextRequest) {
                             }
                         }
 
+                        // Rebuild sources dynamically based on what the AI actually selected
+                        if (ragChunks.length > 0 && streamedContent) {
+                            sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
+                        }
+
                         // For web search / deep research: extract citations and append sources
                         if ((webSearch || deepResearch) && completedResponse && !controllerClosed) {
-                            const { processedText, sourcesBlock: citationSourcesBlock } = extractCitationsFromResponse(completedResponse)
+                            const { processedText, sourcesBlock: citationSourcesBlock } = extractCitationsFromResponse(completedResponse, ragChunks.length + 1)
 
                             if (citationSourcesBlock && processedText) {
                                 // We have proper citations — send a replace with [N] markers + sources
                                 const cleanProcessed = processedText.replace(/【[^】]*】/g, '')
                                 streamedContent = cleanProcessed
-                                sourcesBlock = citationSourcesBlock
-                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanProcessed + citationSourcesBlock, replace: true })}\n\n`))
+                                
+                                let finalSourcesBlock = citationSourcesBlock
+                                if (sourcesBlock) {
+                                    const cleanExistingSources = sourcesBlock.replace(/\n*-->\s*$/, '')
+                                    const cleanNewSources = citationSourcesBlock.replace(/^\n*<!--SOURCES:\n/, '')
+                                    finalSourcesBlock = `${cleanExistingSources}\n${cleanNewSources}`
+                                }
+                                
+                                sourcesBlock = finalSourcesBlock
+                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: cleanProcessed + finalSourcesBlock, replace: true })}\n\n`))
                             } else {
                                 // No citation annotations — just clean native 【...】 markers but KEEP any [N] markers the AI wrote
                                 const cleanedFinal = streamedContent.replace(/【[^】]*】/g, '')
@@ -546,19 +612,17 @@ export async function POST(request: NextRequest) {
                                 streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
                             }
 
-                            // Post-process: inject citation markers if AI didn't generate them
+                            // Post-process: inject citation markers if AI didn't generate them FIRST
                             if (ragChunks.length > 0 && !/\[\d+\]/.test(streamedContent)) {
-                                const enhanced = ensureCitationMarkers(streamedContent, ragChunks)
-                                if (enhanced !== streamedContent) {
-                                    streamedContent = enhanced
-                                    // Replace entire content with citation-enhanced version + sources
-                                    safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: enhanced + sourcesBlock, replace: true })}\n\n`))
-                                } else {
-                                    safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
-                                }
-                            } else {
-                                safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`))
+                                streamedContent = ensureCitationMarkers(streamedContent, ragChunks)
                             }
+
+                            if (ragChunks.length > 0) {
+                                // Now we can build dynamic sources block, because streamedContent has citations
+                                sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
+                            }
+
+                            safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: streamedContent + sourcesBlock, replace: true })}\n\n`))
                         } else if (!sourcesBlock && !controllerClosed) {
                             const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
                             if (aiSourcesMatch) {
