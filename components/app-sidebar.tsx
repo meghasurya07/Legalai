@@ -101,9 +101,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </SidebarMenuItem>
                             <div className="mx-3 my-2 border-t border-border" />
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/' || pathname === '/chat'} tooltip="Chat" onClick={() => router.push('/')}>
+                                <SidebarMenuButton isActive={pathname === '/' || pathname === '/chat'} tooltip="Workspace" onClick={() => router.push('/')}>
                                     <LayoutGrid />
-                                    <span>Chat</span>
+                                    <span>Workspace</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
 
