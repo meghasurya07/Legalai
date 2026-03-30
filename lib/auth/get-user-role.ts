@@ -23,7 +23,10 @@ export async function getUserRoles(): Promise<string[]> {
     }
 
     return [];
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error instanceof Error && 'digest' in error && error.digest === 'DYNAMIC_SERVER_USAGE') {
+      throw error;
+    }
     console.error('Error fetching user roles:', error);
     return [];
   }
