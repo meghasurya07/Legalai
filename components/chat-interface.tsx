@@ -394,6 +394,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
 
     const [inputValue, setInputValue] = React.useState("")
+    const [isImprovingPrompt, setIsImprovingPrompt] = React.useState(false)
     const [isFileDialogOpen, setIsFileDialogOpen] = React.useState(false)
     const [uploadedFiles, setUploadedFiles] = React.useState<Attachment[]>([])
     const [previewAttachment, setPreviewAttachment] = React.useState<Attachment | null>(null)
@@ -493,6 +494,51 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
     // Query Mode State
     const queryMode = "ask"
+
+    const handleImprovePrompt = async () => {
+        if (!inputValue.trim() || isImprovingPrompt || isLoading) return
+        
+        setIsImprovingPrompt(true)
+        const originalInput = inputValue
+        setInputValue("") 
+
+        try {
+            const controller = new AbortController()
+            const response = await fetch('/api/chat/improve-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({ prompt: originalInput })
+            })
+
+            if (!response.ok) {
+                toast.error("Failed to improve prompt")
+                setInputValue(originalInput)
+                return
+            }
+
+            const reader = response.body?.getReader()
+            const decoder = new TextDecoder()
+            let newText = ''
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    const chunk = decoder.decode(value, { stream: true })
+                    newText += chunk
+                    setInputValue(newText)
+                }
+            }
+        } catch (error) {
+            console.error(error)
+            toast.error("An error occurred while improving the prompt")
+            setInputValue(originalInput)
+        } finally {
+            setIsImprovingPrompt(false)
+        }
+    }
 
     const handleSend = async () => {
         if ((!inputValue.trim() && uploadedFiles.length === 0) || isLoading) return
@@ -1192,7 +1238,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                             <Textarea
                                 id="chat-input"
-                                placeholder={isLoading ? "AI is thinking..." : "Ask Wesley anything..."}
+                                placeholder={isLoading ? "AI is thinking..." : isImprovingPrompt ? "Rewriting prompt..." : "Ask Wesley anything..."}
                                 className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
@@ -1328,6 +1374,16 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="gap-1.5 md:gap-2 text-foreground/80 hover:text-foreground transition-all px-3 md:px-4 bg-background hover:bg-muted"
+                                        onClick={handleImprovePrompt}
+                                        disabled={isLoading || isImprovingPrompt || !inputValue.trim()}
+                                    >
+                                        <Wand2 className={`h-3 w-3 ${isImprovingPrompt ? "animate-pulse text-primary" : "text-primary"}`} />
+                                        <span className="hidden sm:inline">{isImprovingPrompt ? "Improving..." : "Improve"}</span>
+                                    </Button>
                                     <Button
                                         size="sm"
                                         className={`gap-2 bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-50 px-3 md:px-4 transition-all`}

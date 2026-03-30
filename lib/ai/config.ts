@@ -31,6 +31,8 @@ export const AI_MODELS = {
     tabularReview: 'gpt-4o-mini',
     /** Company research — web search for company profiles */
     companyResearch: 'gpt-4o-mini',
+    /** Prompt Improvement — rewriting user inputs */
+    promptImprovement: 'gpt-4o-mini',
     /** Embedding model for RAG vector search */
     embedding: 'text-embedding-3-small',
 } as const
