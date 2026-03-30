@@ -9,12 +9,12 @@ export const auth0 = new Auth0Client({
         const namespace = 'https://askwesley.com';
         
         if (decoded[`${namespace}/roles`]) {
-            if (!session.user) session.user = { sub: decoded.sub || 'unknown' } as any;
-            (session.user as any)[`${namespace}/roles`] = decoded[`${namespace}/roles`];
+            if (!session.user) session.user = { sub: decoded.sub || 'unknown' };
+            Object.assign(session.user, { [`${namespace}/roles`]: decoded[`${namespace}/roles`] });
         }
         if (decoded[`${namespace}/debug`]) {
-            if (!session.user) session.user = { sub: decoded.sub || 'unknown' } as any;
-            (session.user as any)[`${namespace}/debug`] = decoded[`${namespace}/debug`];
+            if (!session.user) session.user = { sub: decoded.sub || 'unknown' };
+            Object.assign(session.user, { [`${namespace}/debug`]: decoded[`${namespace}/debug`] });
         }
       } catch (e) {
         console.error("Auth0 Claim Restore Failed", e);
