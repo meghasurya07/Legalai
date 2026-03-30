@@ -315,6 +315,10 @@ export async function POST(request: NextRequest) {
                         ? `REFERENCED DOCUMENT EXCERPTS:\n\n${ragContext}\n\n---\n\nUser question: ${userPrompt}\n\nCRITICAL: You MUST include [1], [2], [3] citation numbers inline after EVERY factual sentence. Example: "The agreement was signed on Feb 11, 2013 [1]."`
                         : userPrompt
 
+                    if (webSearch || deepResearch) {
+                        finalUserPrompt += `\n\n[CRITICAL INSTRUCTION: You MUST actively use the web_search tool to gather the most accurate, up-to-date, and comprehensive information before answering. Do NOT rely solely on your internal training data, even if you think you know the answer.]`
+                    }
+
                     if (confidenceMode) {
                         const sourceDesc = (webSearch || deepResearch) ? "the search results provided by the search tool" : "the provided document context"
                         finalUserPrompt += `\n\n[CONFIDENCE MODE ACTIVATED]\nCRITICAL: You MUST actively evaluate the verifyability of your statements based ONLY on ${sourceDesc}.\nFor EVERY factual claim you make, you MUST append a confidence badge directly after the sentence.\nUse one of these exactly: [CONF_HIGH], [CONF_MEDIUM], or [CONF_LOW].\n\n- Use [CONF_HIGH] if the claim is explicitly stated in the context/results.\n- Use [CONF_MEDIUM] if the claim is implied or synthesized from vague parts of the context/results.\n- Use [CONF_LOW] if you cannot find direct support in the context/results (hallucination risk).\n\nIf you are also using [1] citations, put the confidence badge immediately before or after the citation. Example: "The cap is $5M [1] [CONF_HIGH]."`
@@ -536,11 +540,6 @@ export async function POST(request: NextRequest) {
                             }
                         }
                         
-                        // DEBUG LOG:
-                        console.log("\n\n=== RAW AI OUTPUT WITH CONFIDENCE MODE? ===")
-                        console.log("confidenceMode flag:", confidenceMode)
-                        console.log("Text:", streamedContent)
-                        console.log("===========================================\n\n")
 
                         if (!controllerClosed) {
                             safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))
