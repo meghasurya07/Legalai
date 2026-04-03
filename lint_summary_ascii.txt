@@ -1,0 +1,28 @@
+\app\chat\[id]\page.tsx - 30:@typescript-eslint/no-unused-vars
+\app\organization\components\api-keys-tab.tsx - 3:@typescript-eslint/no-unused-vars, 13:@typescript-eslint/no-unused-vars, 15:@typescript-eslint/no-unused-vars
+\app\organization\components\audit-tab.tsx - 12:@typescript-eslint/no-unused-vars, 14:@typescript-eslint/no-unused-vars, 15:@typescript-eslint/no-unused-vars, 17:@typescript-eslint/no-unused-vars, 17:@typescript-eslint/no-unused-vars
+\app\organization\components\ethical-walls-tab.tsx - 14:@typescript-eslint/no-unused-vars, 22:@typescript-eslint/no-unused-vars
+\app\organization\components\general-tab.tsx - 3:@typescript-eslint/no-unused-vars, 3:@typescript-eslint/no-unused-vars, 10:@typescript-eslint/no-unused-vars
+\app\organization\components\members-tab.tsx - 3:@typescript-eslint/no-unused-vars, 3:@typescript-eslint/no-unused-vars, 3:@typescript-eslint/no-unused-vars
+\app\organization\components\memory-tab.tsx - 14:@typescript-eslint/no-unused-vars
+\app\organization\components\sso-tab.tsx - 3:@typescript-eslint/no-unused-vars, 3:@typescript-eslint/no-unused-vars, 12:@typescript-eslint/no-unused-vars, 15:@typescript-eslint/no-unused-vars, 16:@typescript-eslint/no-unused-vars
+\app\recent-chats\page.tsx - 71:@typescript-eslint/no-unused-vars, 78:@typescript-eslint/no-unused-vars
+\app\super-admin\components\overview-tab.tsx - 5:@typescript-eslint/no-unused-vars, 6:@typescript-eslint/no-unused-vars
+\app\super-admin\components\system-tab.tsx - 3:@typescript-eslint/no-unused-vars
+\app\super-admin\components\usage-tab.tsx - 7:@typescript-eslint/no-unused-vars
+\app\super-admin\components\users-tab.tsx - 6:@typescript-eslint/no-unused-vars
+\components\app-header.tsx - 78:@typescript-eslint/no-unused-vars, 115:@typescript-eslint/no-unused-vars, 145:@typescript-eslint/no-unused-vars, 178:@typescript-eslint/no-unused-vars
+\components\chat-interface.tsx - 5:@typescript-eslint/no-unused-vars, 8:@typescript-eslint/no-unused-vars, 138:@typescript-eslint/no-unused-vars, 214:@typescript-eslint/no-unused-vars, 313:@typescript-eslint/no-unused-vars
+\components\client-alert.tsx - 58:@typescript-eslint/no-unused-vars, 63:@typescript-eslint/no-unused-vars
+\components\company-profile.tsx - 81:@typescript-eslint/no-unused-vars, 86:@typescript-eslint/no-unused-vars
+\components\contract-analysis.tsx - 71:@typescript-eslint/no-unused-vars, 76:@typescript-eslint/no-unused-vars
+\components\documents\cross-reference-view.tsx - 67:@typescript-eslint/no-unused-vars
+\components\documents\tabular-review-chat.tsx - 226:@typescript-eslint/no-unused-vars
+\components\documents\tabular-review-view.tsx - 86:@typescript-eslint/no-unused-vars, 141:@typescript-eslint/no-unused-vars, 184:@typescript-eslint/no-unused-vars
+\components\pdf-citation-panel.tsx - 62:@typescript-eslint/no-unused-vars
+\components\pdf-viewer.tsx - 175:@typescript-eslint/no-unused-vars
+\components\redline-analysis.tsx - 112:@typescript-eslint/no-unused-vars
+\components\templates-page.tsx - 99:@typescript-eslint/no-unused-vars, 176:@typescript-eslint/no-unused-vars
+\components\transcripts.tsx - 93:@typescript-eslint/no-unused-vars
+\components\ui\file-preview-content.tsx - 45:@typescript-eslint/no-unused-vars, 194:@typescript-eslint/no-unused-vars
+\components\version-watcher.tsx - 70:@typescript-eslint/no-unused-vars
