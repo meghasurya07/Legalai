@@ -4,6 +4,7 @@ import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { resolveOpenAIClient } from '@/lib/byok'
+import { logger } from '@/lib/logger'
 
 /**
  * Batch extraction: extracts ALL columns for a single document in ONE API call.
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("extract-batch/route", "Operation failed", err) }
 
         const client = await resolveOpenAIClient(orgId)
 

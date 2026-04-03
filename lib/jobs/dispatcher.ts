@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase/server'
 import type { JobType } from './types'
+import { logger } from '@/lib/logger'
 
 /**
  * Enqueue a background job.
@@ -36,7 +37,7 @@ export async function enqueueJob(
             return null
         }
 
-        console.log(`[Jobs] Enqueued ${type} job: ${data.id}`)
+        logger.info("jobs/dispatcher", `[Jobs] Enqueued ${type} job: ${data.id}`)
         return data.id
     } catch (err) {
         console.error(`[Jobs] Dispatch error for ${type}:`, err)

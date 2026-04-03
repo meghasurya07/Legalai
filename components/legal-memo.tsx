@@ -64,7 +64,6 @@ export default function LegalMemo() {
             setResult(data)
             toast.success("Legal memo generated successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to generate legal memo"
             toast.error(message)
         } finally {

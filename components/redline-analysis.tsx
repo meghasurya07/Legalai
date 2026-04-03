@@ -78,7 +78,6 @@ export default function RedlineAnalysis() {
             setResult(data)
             toast.success("Documents compared successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to compare documents"
             toast.error(message)
         } finally {
@@ -111,7 +110,6 @@ export default function RedlineAnalysis() {
             const data = await response.json()
             setConversation(prev => [...prev, { role: 'assistant', content: data.answer }])
         } catch (error) {
-            console.error(error)
             toast.error("Failed to get answer")
         } finally {
             setIsAsking(false)

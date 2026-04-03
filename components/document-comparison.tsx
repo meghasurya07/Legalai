@@ -72,7 +72,6 @@ export default function DocumentComparison() {
             setResult(data)
             toast.success("Documents compared successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to compare documents"
             toast.error(message)
         } finally {

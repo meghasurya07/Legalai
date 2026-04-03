@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getUserId } from '@/lib/get-user-id'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log(`[Tabular Review] Saved ${columns.length} columns, ${cells?.length || 0} cells, ${chatMessages?.length || 0} messages for project ${projectId}`)
+        logger.info("save/route", `[Tabular Review] Saved ${columns.length} columns, ${cells?.length || 0} cells, ${chatMessages?.length || 0} messages for project ${projectId}`)
         return NextResponse.json({ success: true })
     } catch (error) {
         console.error('[Tabular Review Save] Error:', error)

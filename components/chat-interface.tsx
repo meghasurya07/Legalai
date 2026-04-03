@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Check, Sparkles, Brain, ScanSearch, Scale, Search, ShieldAlert, Table, ChevronDown, ChevronRight, Square } from "lucide-react"
+import { Paperclip, Globe, FileText, Wand2, UploadCloud, X, Cloud, Sparkles, Brain, ShieldAlert, Table, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter } from "next/navigation"
@@ -16,7 +16,6 @@ import { FilePreviewContent } from "@/components/ui/file-preview-content"
 import { Attachment, Message } from "@/types"
 import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ModeBadges } from "@/components/ui/mode-badges"
 import { CitationsSidebar } from "@/components/citations-sidebar"
 import { ActivitySidebar } from "@/components/activity-sidebar"
@@ -30,345 +29,27 @@ import {
     parseSources,
     stripSourcesBlock,
     escapeCitationMarkers,
-    getCitationSourceDisplayName,
-    isDocumentSource,
-    getDocumentRoute,
-    getFaviconUrl,
     parseDocumentCitationUrl,
 } from "@/lib/citations"
 
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+// Sub-components extracted from this file
+import { SourceFavicon } from "@/components/chat/source-favicon"
+import { CitationPill } from "@/components/chat/citation-pill"
+import type { ActivityPhase } from "@/components/chat/activity-timeline"
+
 // Re-export types and utils for backwards compatibility (markdown-renderer.tsx imports from here)
 export type { ChatCitationSource } from "@/lib/citations"
 export { getCitationSourceDisplayName, isDocumentSource, getDocumentRoute, getFaviconUrl } from "@/lib/citations"
+// Re-export sub-components for backwards compatibility
+export { SourceFavicon } from "@/components/chat/source-favicon"
+export { CitationPill } from "@/components/chat/citation-pill"
+export { AIActivityTimeline } from "@/components/chat/activity-timeline"
+export type { ActivityPhase, AIActivityTimelineProps } from "@/components/chat/activity-timeline"
 
-export function SourceFavicon({
-    url,
-    size,
-    className,
-}: {
-    url: string
-    size: number
-    className?: string
-}) {
-    const [failed, setFailed] = React.useState(false)
-    const isDocument = isDocumentSource(url)
 
-    // If it's a project document, always use the FileText icon instead of fetching a favicon
-    if (isDocument) {
-        const sizeClasses: Record<number, string> = {
-            14: "h-3.5 w-3.5",
-            16: "h-4 w-4",
-            20: "h-5 w-5",
-            32: "h-8 w-8",
-            64: "h-16 w-16"
-        }
-        const sizeClass = sizeClasses[size] || "h-5 w-5"
-        return (
-            <div className={`flex items-center justify-center bg-primary/5 rounded-sm overflow-hidden shrink-0 ${sizeClass} ${className || ""}`}>
-                <FileText className="h-[75%] w-[75%] text-primary/70" />
-            </div>
-        )
-    }
-
-    const src = getFaviconUrl(url, size)
-
-    // Map common sizes to Tailwind classes to avoid inline styles
-    const sizeClasses: Record<number, string> = {
-        14: "h-3.5 w-3.5",
-        20: "h-5 w-5",
-        32: "h-8 w-8",
-        64: "h-16 w-16"
-    }
-
-    const sizeClass = sizeClasses[size] || `h-[${size}px] w-[${size}px]`
-    const style = sizeClasses[size] ? undefined : { width: size, height: size }
-
-    if (!src || failed) {
-        return React.createElement('div', {
-            className: `flex items-center justify-center bg-primary/5 shrink-0 ${sizeClass} ${className || ""}`,
-            style: style,
-            'aria-hidden': "true"
-        }, React.createElement(FileText, { className: "h-full w-full p-0.5 text-primary/40" }))
-    }
-
-    return (
-        <Image
-            src={src}
-            alt=""
-            width={size}
-            height={size}
-            className={className}
-            unoptimized // Using unoptimized because favicons come from diverse external domains
-            onError={() => setFailed(true)}
-        />
-    )
-}
-
-export function CitationPill({
-    citationNum,
-    source,
-    onViewPdf,
-}: {
-    citationNum: string
-    source?: ChatCitationSource
-    onOpenCitations?: () => void
-    onViewPdf?: (source: ChatCitationSource, citationNum: string) => void
-}) {
-    const [faviconFailed, setFaviconFailed] = React.useState(false)
-    const [isOpen, setIsOpen] = React.useState(false)
-    const pillRouter = useRouter()
-
-    if (!source) {
-        return (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[0.75em] font-medium bg-muted text-muted-foreground mx-0.5">
-                [{citationNum}]
-            </span>
-        )
-    }
-
-    const displayName = getCitationSourceDisplayName(source.url, source.title)
-    const faviconUrl = getFaviconUrl(source.url)
-    const isDocument = isDocumentSource(source.url)
-
-    return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium bg-muted/60 hover:bg-muted/80 text-foreground/80 hover:text-foreground transition-all cursor-pointer border border-transparent hover:border-border/50 leading-none h-[22px]"
-                    onMouseEnter={() => setIsOpen(true)}
-                    onMouseLeave={() => setIsOpen(false)}
-                    onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        if (isDocument && onViewPdf) {
-                            onViewPdf(source, citationNum)
-                        } else if (isDocument) {
-                            const route = getDocumentRoute(source.url)
-                            if (route) {
-                                pillRouter.push(route)
-                            }
-                        } else {
-                            window.open(source.url, '_blank', 'noopener,noreferrer')
-                        }
-                    }}
-                    aria-label={`Citation ${citationNum}: ${source.title}`}
-                >
-                    <span className="inline-flex h-3.5 w-3.5 items-center justify-center overflow-hidden rounded-sm shrink-0 relative">
-                        {isDocument ? (
-                            <FileText className="h-3 w-3 text-primary/70" />
-                        ) : faviconUrl && !faviconFailed ? (
-                            <Image
-                                src={faviconUrl}
-                                alt=""
-                                width={14}
-                                height={14}
-                                className="h-3.5 w-3.5 rounded-sm object-contain"
-                                unoptimized
-                                onError={() => setFaviconFailed(true)}
-                            />
-                        ) : (
-                            <FileText className="h-3 w-3 text-primary/40" />
-                        )}
-                    </span>
-                    <span className="truncate max-w-[120px]">{displayName}</span>
-                </button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-80 p-3 shadow-xl rounded-xl bg-background border border-border"
-                side="top"
-                align="center"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                onMouseEnter={() => setIsOpen(true)}
-                onMouseLeave={() => setIsOpen(false)}
-            >
-                <div className="flex items-start gap-3">
-                    <div className="mt-0.5 h-8 w-8 rounded-full border border-border bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
-                        {isDocument ? (
-                            <FileText className="h-4 w-4 text-primary/70" />
-                        ) : (
-                            <SourceFavicon url={source.url} size={32} className="h-8 w-8 object-cover" />
-                        )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">
-                            {isDocument ? 'Project Document' : displayName}
-                        </div>
-                        <h4 className="text-sm font-bold leading-tight line-clamp-2">
-                            {source.title}
-                        </h4>
-                        <div className="text-[11px] text-muted-foreground line-clamp-2 pt-0.5 leading-snug">
-                            {source.snippet || (isDocument ? 'Document' : source.url)}
-                        </div>
-                    </div>
-                </div>
-            </PopoverContent>
-        </Popover>
-    )
-}
-
-export type ActivityPhase =
-    | 'research_planning'
-    | 'source_collection'
-    | 'searching_web'
-    | 'reading_sources'
-    | 'reading_extraction'
-    | 'comparing'
-    | 'synthesis'
-    | 'synthesizing'
-    | 'thinking'
-    | 'drafting'
-    | 'writing'
-    | 'complete'
-    | 'error'
-    | null
-
-export interface AIActivityTimelineProps {
-    phase: ActivityPhase
-    entries: { phase: string; detail: string; time: Date }[]
-    completedPhases: string[]
-    domains: string[]
-    sourceCount: number
-    isExpanded: boolean
-    onToggleExpand: () => void
-}
-
-export function AIActivityTimeline({
-    phase,
-    entries,
-    completedPhases,
-    domains,
-    sourceCount,
-    isExpanded,
-    onToggleExpand
-}: AIActivityTimelineProps) {
-    if (!phase || phase === 'complete') return null
-
-    const isWriting = phase === 'writing' || phase === 'drafting'
-    const isError = phase === 'error'
-
-    const phaseLabels: Record<string, string> = {
-        research_planning: 'Research Planning',
-        source_collection: 'Source Collection',
-        searching_web: 'Searching Web',
-        reading_sources: 'Reading Sources',
-        reading_extraction: 'Information Extraction',
-        comparing: 'Data Synthesis',
-        synthesis: 'Synthesizing',
-        synthesizing: 'Synthesizing',
-        thinking: 'Analyzing Problem',
-        drafting: 'Formulating Response',
-        writing: 'Writing',
-        error: 'System Error'
-    }
-
-    const phaseIcons: Record<string, React.ReactNode> = {
-        research_planning: <Search className="h-3.5 w-3.5" />,
-        source_collection: <Globe className="h-3.5 w-3.5" />,
-        searching_web: <Globe className="h-3.5 w-3.5" />,
-        reading_sources: <FileText className="h-3.5 w-3.5" />,
-        reading_extraction: <ScanSearch className="h-3.5 w-3.5" />,
-        comparing: <Scale className="h-3.5 w-3.5" />,
-        synthesis: <Wand2 className="h-3.5 w-3.5" />,
-        synthesizing: <Wand2 className="h-3.5 w-3.5" />,
-        thinking: <Brain className="h-3.5 w-3.5" />,
-        drafting: <Sparkles className="h-3.5 w-3.5" />,
-        writing: <Sparkles className="h-3.5 w-3.5" />,
-        error: <ShieldAlert className="h-3.5 w-3.5" />
-    }
-
-    // Determine current "display title"
-    const currentTitle = isWriting ? "Generating answer" : (phaseLabels[phase] || "Processing")
-
-    return (
-        <div className="flex gap-3 justify-start max-w-[90%] my-2 animate-in fade-in slide-in-from-left-2 duration-300">
-            {/* Avatar for Activity */}
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border transition-colors ${isError ? 'bg-destructive/10 border-destructive/20 text-destructive' :
-                isWriting ? 'bg-primary/10 border-primary/20 text-primary' :
-                    'bg-muted/50 border-border text-muted-foreground'
-                }`}>
-                {isWriting ? <Sparkles className="h-4 w-4" /> : isError ? <ShieldAlert className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
-            </div>
-
-            <div className="flex-1 min-w-0 flex flex-col gap-2">
-                {/* Header / Primary Status */}
-                {React.createElement('button', {
-                    onClick: onToggleExpand,
-                    className: "flex items-center gap-2 group text-left w-fit",
-                    'aria-expanded': isExpanded
-                }, (
-                    <>
-                        <span className={`text-sm font-semibold tracking-tight ${isError ? 'text-destructive' : 'text-foreground/90'}`}>
-                            {currentTitle}
-                            {!isWriting && !isError && <span className="activity-shimmer ml-1 group-hover:text-primary"></span>}
-                        </span>
-
-                        {sourceCount > 0 && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md border border-border/50">
-                                {sourceCount} {sourceCount === 1 ? 'Source' : 'Sources'}
-                            </span>
-                        )}
-
-                        <div className="text-muted-foreground/30 group-hover:text-muted-foreground transition-colors">
-                            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                        </div>
-                    </>
-                ))}
-
-                {/* Expanded Content */}
-                {isExpanded && (
-                    <div className="flex flex-col gap-3 p-3 rounded-xl bg-muted/30 border border-border/40 animate-in zoom-in-98 duration-200 origin-top">
-                        {/* Domain Badges */}
-                        {domains.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 pb-1">
-                                {domains.map((domain, i) => (
-                                    <div key={i} className="inline-flex items-center gap-1.5 px-2 py-1 bg-background border border-border/60 rounded-lg text-[11px] font-medium text-foreground/70 shadow-sm">
-                                        <SourceFavicon url={`https://${domain}`} size={14} className="rounded-sm opacity-80" />
-                                        <span>{domain}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Phase Steps */}
-                        <div className="space-y-2">
-                            {/* Completed Phases */}
-                            {completedPhases.map((cp, i) => (
-                                <div key={i} className="flex items-center gap-2.5 text-[12px] text-muted-foreground/60">
-                                    <div className="h-5 w-5 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/10">
-                                        <Check className="h-3 w-3 text-green-600" />
-                                    </div>
-                                    <span className="font-medium text-foreground/40">{phaseLabels[cp] || cp.replace(/_/g, ' ')}</span>
-                                </div>
-                            ))}
-
-                            {/* Current (Active) Phase */}
-                            {!isWriting && !isError && (
-                                <div className="flex items-center gap-2.5 text-[12px]">
-                                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 animate-pulse text-primary">
-                                        {phaseIcons[phase] || <div className="h-1 w-1 bg-current rounded-full" />}
-                                    </div>
-                                    <span className="font-semibold text-foreground/80">{phaseLabels[phase] || phase.replace(/_/g, ' ')}</span>
-                                    <span className="activity-shimmer-dots text-primary"></span>
-                                </div>
-                            )}
-
-                            {/* Detail entries for the current phase */}
-                            {entries.filter(e => e.phase === phase).slice(-1).map((entry, i) => (
-                                <div key={i} className="pl-7 text-[12px] text-muted-foreground leading-relaxed animate-in fade-in duration-500">
-                                    {entry.detail}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    )
-}
 
 interface ChatInterfaceProps {
     onMessageSent?: () => void
@@ -455,7 +136,6 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         }, 100)
                     }
                 } catch (error) {
-                    console.error('Failed to load conversation:', error)
                 }
             }
             loadConversation()
@@ -532,7 +212,6 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 }
             }
         } catch (error) {
-            console.error(error)
             toast.error("An error occurred while improving the prompt")
             setInputValue(originalInput)
         } finally {
@@ -632,7 +311,6 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         throw new Error('Upload failed')
                     }
                 } catch (e) {
-                    console.error("Failed to upload/extract text for chat", e)
                     // Fallback to client-side text if upload fails for text files
                     let content = ''
                     if (file.type === 'text' || file.type === 'csv' || file.type === 'other') {
@@ -783,10 +461,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
             if (onMessageSent) onMessageSent()
         } catch (error: unknown) {
             if (error instanceof Error && error.name === 'AbortError') {
-                console.log('Fetch aborted')
             } else {
                 toast.error('Failed to send message')
-                console.error(error)
             }
         } finally {
             setIsLoading(false)

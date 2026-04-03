@@ -4,6 +4,7 @@ import { callAISafe } from '@/lib/ai/client'
 import { executeWorkflow } from '@/lib/workflow/engine'
 import { PIPELINES } from '@/lib/workflow/pipelines'
 import { getUserId } from '@/lib/get-user-id'
+import { logger } from '@/lib/logger'
 
 // POST /api/templates/runs - Create a new workflow run with real AI
 export async function POST(request: NextRequest) {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("runs/route", "Operation failed", err) }
 
         // Check if this workflow has a multi-step pipeline definition
         const pipeline = PIPELINES[workflowId]

@@ -7,6 +7,7 @@
 
 import OpenAI from 'openai'
 import { EMBEDDING_CONFIG } from '@/lib/ai/config'
+import { logger } from '@/lib/logger'
 
 export interface EmbeddingResult {
     content: string
@@ -81,7 +82,7 @@ export async function embedChunks(chunks: ChunkInput[]): Promise<EmbeddingResult
             })
 
             const totalTokens = response.usage?.total_tokens || 0
-            console.log(`[RAG Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} chunks, ${totalTokens} tokens used`)
+            logger.info("rag/embeddings", `[RAG Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} chunks, ${totalTokens} tokens used`)
 
             for (let j = 0; j < response.data.length; j++) {
                 results.push({

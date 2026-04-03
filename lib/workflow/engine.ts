@@ -8,6 +8,7 @@ import { WorkflowPipeline, WorkflowContext } from './types'
 import { executeStep } from './steps'
 import { supabase } from '@/lib/supabase/server'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
+import { logger } from '@/lib/logger'
 
 /**
  * Execute a workflow pipeline.
@@ -49,7 +50,7 @@ export async function executeWorkflow(
     let finalResult = {}
 
     for (const step of pipeline.steps) {
-        console.log(`[WorkflowEngine] Executing step: ${step.name} (${step.type})`)
+        logger.info("workflow/engine", `[WorkflowEngine] Executing step: ${step.name} (${step.type})`)
 
         // Create initial step record
         let stepRecordId = ''

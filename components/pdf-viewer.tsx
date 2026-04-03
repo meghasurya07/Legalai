@@ -174,7 +174,6 @@ export function PdfViewer({
                 }
             } catch (err) {
                 if (!cancelled) {
-                    console.error("[PdfViewer] Load error:", err)
                     setError("Failed to load PDF")
                     setLoading(false)
                 }

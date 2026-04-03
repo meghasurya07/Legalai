@@ -8,6 +8,7 @@
 import { embedText } from './embeddings'
 import { supabase } from '@/lib/supabase/server'
 import { RAG_CONFIG } from '@/lib/ai/config'
+import { logger } from '@/lib/logger'
 
 export interface RetrievedChunk {
     id: string
@@ -64,7 +65,7 @@ export async function retrieveRelevantChunks(
         // 1. Detect if the query references a specific file by name
         const targetFileId = (opts.fileId || '') || await detectFileReference(projectId, query)
         if (targetFileId) {
-            console.log(`[RAG Retrieve] Detected file reference → filtering to file ${targetFileId}`)
+            logger.info("rag/retrieve", `[RAG Retrieve] Detected file reference → filtering to file ${targetFileId}`)
         }
 
         // 2. Embed the query
@@ -88,7 +89,7 @@ export async function retrieveRelevantChunks(
         }
 
         if (!candidates || candidates.length === 0) {
-            console.log(`[RAG Retrieve] No chunks found for project ${projectId}`)
+            logger.info("rag/retrieve", `[RAG Retrieve] No chunks found for project ${projectId}`)
             return { chunks: [], totalTokens: 0, fileIds: [] }
         }
 
@@ -98,7 +99,7 @@ export async function retrieveRelevantChunks(
             : candidates
 
         if (targetFileId && filteredCandidates.length === 0) {
-            console.log(`[RAG Retrieve] No chunks found for file ${targetFileId}, falling back to all candidates`)
+            logger.info("rag/retrieve", `[RAG Retrieve] No chunks found for file ${targetFileId}, falling back to all candidates`)
         }
 
         const finalCandidates = filteredCandidates.length > 0 ? filteredCandidates : candidates
@@ -157,7 +158,7 @@ export async function retrieveRelevantChunks(
 
         // 5. Log retrieval details
         const duration = Date.now() - startTime
-        console.log(
+        logger.info("rag/retrieve", 
             `[RAG Retrieve] project=${projectId} | ` +
             `chunks=${diverseChunks.length}/${candidates.length} candidates | ` +
             `files=${fileIds.length} | ` +
@@ -490,7 +491,7 @@ async function detectFileReference(
                 }
             }
 
-            console.log(`[RAG Detect] File "${name}": matched=[${matchedWords.join(', ')}], weightedScore=${weightedScore.toFixed(1)}, totalWords=${words.length}`)
+            logger.info("rag/retrieve", `[RAG Detect] File "${name}": matched=[${matchedWords.join(', ')}], weightedScore=${weightedScore.toFixed(1)}, totalWords=${words.length}`)
 
             // Need at least 2 matching words total, with meaningful weighted score
             if (matchedWords.length >= 2 && weightedScore >= 2.0) {
@@ -517,11 +518,11 @@ async function detectFileReference(
 
             // Best match must be at least 1.5x better than runner-up
             if (secondBest > 0 && bestMatch.score / secondBest < 1.5) {
-                console.log(`[RAG Detect] Ambiguous: best=${bestMatch.score.toFixed(1)}, secondBest=${secondBest.toFixed(1)}, skipping filter`)
+                logger.info("rag/retrieve", `[RAG Detect] Ambiguous: best=${bestMatch.score.toFixed(1)}, secondBest=${secondBest.toFixed(1)}, skipping filter`)
                 return null
             }
 
-            console.log(`[RAG Detect] Winner: "${bestMatch.name}" (score=${bestMatch.score.toFixed(1)}, words=[${bestMatch.matchedWords.join(', ')}])`)
+            logger.info("rag/retrieve", `[RAG Detect] Winner: "${bestMatch.name}" (score=${bestMatch.score.toFixed(1)}, words=[${bestMatch.matchedWords.join(', ')}])`)
             return bestMatch.fileId
         }
 

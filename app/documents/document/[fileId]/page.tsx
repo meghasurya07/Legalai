@@ -72,7 +72,6 @@ function DocumentViewerContent() {
                     setChunk(chunkData)
                 }
             } catch (err) {
-                console.error('Error loading document:', err)
                 setError(err instanceof Error ? err.message : 'Failed to load document')
             } finally {
                 setIsLoading(false)

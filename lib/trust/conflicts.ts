@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveClauses } from '@/lib/document-intelligence'
 import type { ConflictType, Severity } from './types'
+import { logger } from '@/lib/logger'
 
 /**
  * Detect conflicts across project documents.
@@ -18,7 +19,7 @@ import type { ConflictType, Severity } from './types'
  */
 export async function detectConflicts(projectId: string): Promise<number> {
     try {
-        console.log(`[Trust] Starting conflict detection for project ${projectId}`)
+        logger.info("trust/conflicts", `[Trust] Starting conflict detection for project ${projectId}`)
 
         // 1. Check for existing conflicts (avoid re-running)
         const { count: existing } = await supabase
@@ -27,7 +28,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
             .eq('project_id', projectId)
 
         if (existing && existing > 0) {
-            console.log(`[Trust] Conflicts already detected (${existing}), skipping`)
+            logger.info("trust/conflicts", `[Trust] Conflicts already detected (${existing}), skipping`)
             return existing
         }
 
@@ -35,7 +36,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
         const clauses = await retrieveClauses(projectId)
 
         if (clauses.length < 2) {
-            console.log('[Trust] Not enough clauses for conflict detection')
+            logger.info("trust/conflicts", '[Trust] Not enough clauses for conflict detection')
             return 0
         }
 
@@ -63,7 +64,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
         }
 
         if (conflictClauses.length < 2) {
-            console.log('[Trust] No cross-document clause pairs found')
+            logger.info("trust/conflicts", '[Trust] No cross-document clause pairs found')
             return 0
         }
 
@@ -96,7 +97,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
             if (!error) count++
         }
 
-        console.log(`[Trust] Detected ${count} conflicts for project ${projectId}`)
+        logger.info("trust/conflicts", `[Trust] Detected ${count} conflicts for project ${projectId}`)
         return count
 
     } catch (error) {

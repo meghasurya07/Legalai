@@ -10,6 +10,7 @@
 
 import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
+import { logger } from '@/lib/logger'
 
 export interface OrgContext {
     userId: string
@@ -168,7 +169,7 @@ export async function getOrgContext(): Promise<OrgContext | null> {
                             // Audit log is best-effort
                         }
 
-                        console.log(`[SSO JIT] Auto-provisioned user ${email} into org ${ssoOrg.name}`)
+                        logger.info("lib/get-org-context", `[SSO JIT] Auto-provisioned user ${email} into org ${ssoOrg.name}`)
 
                         return {
                             userId,

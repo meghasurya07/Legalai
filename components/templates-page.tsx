@@ -97,7 +97,6 @@ export default function WorkflowsPage() {
                 const workflowsData = await workflowsRes.json()
                 setWorkflows(workflowsData)
             } catch (err) {
-                console.error('Error fetching data:', err)
                 setError('Failed to load workflows')
             } finally {
                 setIsLoading(false)
@@ -175,7 +174,6 @@ export default function WorkflowsPage() {
                                         if (!res.ok) throw new Error('Failed to seed')
                                         window.location.reload()
                                     } catch (error) {
-                                        console.error('Seed error:', error)
                                         toast.error('Failed to initialize workflows')
                                         setIsLoading(false)
                                     }

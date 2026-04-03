@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/get-user-id'
 import { AI_MODELS } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1. Use OpenAI's native web search to research the company
-        console.log(`[CompanyResearchProfile] Researching: ${company}`)
+        logger.info("company-profile/route", `[CompanyResearchProfile] Researching: ${company}`)
 
         // Resolve org context for BYOK
         let orgId: string | undefined
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("company-profile/route", "Operation failed", err) }
 
         const client = await resolveOpenAIClient(orgId)
 

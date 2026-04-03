@@ -74,7 +74,6 @@ export default function DraftFromTemplate() {
             setResult(data)
             toast.success("Document generated successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to generate document"
             toast.error(message)
         } finally {

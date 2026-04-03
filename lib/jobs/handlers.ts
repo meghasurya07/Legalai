@@ -92,6 +92,22 @@ export async function executeJobHandler(
         CONFLICT_DETECTION: async (p) => {
             const { detectConflicts } = await import('@/lib/trust')
             await detectConflicts(String(p.projectId))
+        },
+
+        ARGUMENT_EXTRACTION: async (p) => {
+            const { extractArguments, persistArguments } = await import('@/lib/memory/argument-tracker')
+            const args = await extractArguments(
+                String(p.text),
+                String(p.projectId),
+                p.organizationId ? String(p.organizationId) : undefined,
+                p.conversationId ? String(p.conversationId) : undefined
+            )
+            await persistArguments(args)
+        },
+
+        FIRM_PATTERN_DETECTION: async (p) => {
+            const { detectFirmPatterns } = await import('@/lib/memory/firm-intelligence')
+            await detectFirmPatterns(String(p.organizationId))
         }
     }
 

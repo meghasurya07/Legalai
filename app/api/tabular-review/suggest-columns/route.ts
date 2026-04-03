@@ -4,6 +4,7 @@ import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { resolveOpenAIClient } from '@/lib/byok'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("suggest-columns/route", "Operation failed", err) }
 
         const client = await resolveOpenAIClient(orgId)
 
@@ -91,7 +92,7 @@ Respond in this exact JSON format:
                 prompt: col.prompt
             }))
 
-        console.log(`[Tabular Review] AI suggested ${columns.length} columns for project ${projectId}: ${columns.map((c: { name: string }) => c.name).join(', ')}`)
+        logger.info("suggest-columns/route", `[Tabular Review] AI suggested ${columns.length} columns for project ${projectId}: ${columns.map((c: { name: string }) => c.name).join(', ')}`)
 
         return NextResponse.json({ columns })
     } catch (error) {

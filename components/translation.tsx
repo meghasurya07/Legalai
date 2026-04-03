@@ -71,7 +71,6 @@ export default function Translation() {
             setResult(data)
             toast.success("Document translated successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to translate document"
             toast.error(message)
         } finally {

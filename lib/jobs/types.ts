@@ -8,6 +8,8 @@ export type JobType =
     | 'CLAUSE_EXTRACTION'
     | 'WORKFLOW_RUN'
     | 'MEMORY_EXTRACTION'
+    | 'ARGUMENT_EXTRACTION'
+    | 'FIRM_PATTERN_DETECTION'
     | 'GRAPH_BUILD'
     | 'INSIGHT_GEN'
     | 'PROJECT_SUMMARY'

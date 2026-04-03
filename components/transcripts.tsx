@@ -68,7 +68,6 @@ export default function Transcripts() {
             setAnalysis(data)
             toast.success("Transcript analyzed successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to analyze transcript"
             toast.error(message)
         } finally {
@@ -92,7 +91,6 @@ export default function Transcripts() {
             const data = await response.json()
             setConversation(prev => [...prev, { role: 'assistant', content: data.answer }])
         } catch (error) {
-            console.error(error)
             toast.error("Failed to get answer")
         } finally {
             setIsAsking(false)

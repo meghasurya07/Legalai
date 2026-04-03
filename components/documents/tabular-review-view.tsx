@@ -83,9 +83,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                     chatMessages: msgs
                 })
             })
-            console.log('[Tabular Review] Auto-saved to database')
         } catch (err) {
-            console.error('[Tabular Review] Auto-save failed:', err)
         }
     }, [projectId])
 
@@ -141,14 +139,12 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                     }
                 }
             } catch (err) {
-                console.error('[Tabular Review] Cache load failed, falling back to AI:', err)
             }
 
             setIsLoadingCached(false)
 
             // STEP 2: No cached data — generate columns with AI
             if (docsWithText.length === 0) {
-                console.log('[Tabular Review] No documents with text, using fallback columns')
                 setColumns(FALLBACK_COLUMNS)
                 setIsGeneratingColumns(false)
                 return
@@ -186,7 +182,6 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                     throw new Error('No columns returned')
                 }
             } catch (err) {
-                console.error('[Tabular Review] Column suggestion failed, using fallback:', err)
                 setColumns(FALLBACK_COLUMNS)
                 toast.error('Using default columns (AI suggestion failed)')
             } finally {

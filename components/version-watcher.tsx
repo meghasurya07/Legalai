@@ -68,7 +68,6 @@ export function VersionWatcher() {
                 window.sessionStorage.setItem('app-version', fetchedVersion)
             }
         } catch (error) {
-            console.error("Version check failed", error)
         }
     }, [showUpdateToast])
 

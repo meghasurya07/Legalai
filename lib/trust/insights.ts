@@ -11,13 +11,14 @@ import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
 import type { InsightType, Severity } from './types'
+import { logger } from '@/lib/logger'
 
 /**
  * Generate auto-insights for a project's vault.
  */
 export async function generateVaultInsights(projectId: string): Promise<number> {
     try {
-        console.log(`[Trust] Generating vault insights for project ${projectId}`)
+        logger.info("trust/insights", `[Trust] Generating vault insights for project ${projectId}`)
 
         // 1. Skip if recently generated
         const { count: existing } = await supabase
@@ -26,7 +27,7 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
             .eq('project_id', projectId)
 
         if (existing && existing > 0) {
-            console.log(`[Trust] Insights already exist (${existing}), skipping`)
+            logger.info("trust/insights", `[Trust] Insights already exist (${existing}), skipping`)
             return existing
         }
 
@@ -46,7 +47,7 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
         ].filter(Boolean).join('\n\n')
 
         if (context.length < 50) {
-            console.log('[Trust] Insufficient data for insight generation')
+            logger.info("trust/insights", '[Trust] Insufficient data for insight generation')
             return 0
         }
 
@@ -75,7 +76,7 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
             if (!error) count++
         }
 
-        console.log(`[Trust] Generated ${count} insights for project ${projectId}`)
+        logger.info("trust/insights", `[Trust] Generated ${count} insights for project ${projectId}`)
         return count
 
     } catch (error) {

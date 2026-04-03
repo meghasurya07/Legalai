@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getUserId } from '@/lib/get-user-id'
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
     try {
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
             content: row.content,
         }))
 
-        console.log(`[Tabular Review] Loaded ${columns.length} columns, ${cells.length} cells, ${chatMessages.length} messages for project ${projectId}`)
+        logger.info("load/route", `[Tabular Review] Loaded ${columns.length} columns, ${cells.length} cells, ${chatMessages.length} messages for project ${projectId}`)
 
         return NextResponse.json({ columns, cells, chatMessages })
     } catch (error) {

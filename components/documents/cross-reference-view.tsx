@@ -65,7 +65,6 @@ export function CrossReferenceView({ project, projectId }: CrossReferenceViewPro
             const data = await response.json()
             setResults(data.results || [])
         } catch (error) {
-            console.error("[CrossReference] Error:", error)
             // Handle error toast here
         } finally {
             setIsAnalyzing(false)

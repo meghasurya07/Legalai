@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation"
 import { ProjectSidebar } from "@/components/documents/project-sidebar"
 import { ChatInterface } from "@/components/chat-interface"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2, Play } from "lucide-react"
+import { ArrowLeft, Loader2, Play, Brain } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { Project } from "@/types"
 
@@ -103,6 +103,16 @@ function ProjectContent() {
                             <span className="truncate">Tabular Review</span>
                         </Button>
                     </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/documents/${projectId}/memory`)}
+                        className="w-full h-7 px-2 gap-1.5 text-[11px] bg-violet-600/10 border-violet-600/30 text-violet-700 hover:bg-violet-600/20 hover:text-violet-800 dark:text-violet-400 dark:hover:text-violet-300 justify-center"
+                        title="Open Memory Intelligence"
+                    >
+                        <Brain className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Memory</span>
+                    </Button>
                 </div>
                 <ProjectSidebar project={project} />
             </div>

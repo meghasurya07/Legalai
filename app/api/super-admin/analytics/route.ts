@@ -53,11 +53,17 @@ export async function GET() {
 
         for (const log of logs) {
             const d = log.data as Record<string, number | string | boolean> || {}
-            const tIn = Number(d.tokensIn) || 0
-            const tOut = Number(d.tokensOut) || 0
+            let tIn = Number(d.tokensIn) || 0
+            let tOut = Number(d.tokensOut) || 0
+            // For streaming calls where token counts aren't captured, estimate from charCount
+            // Rough heuristic: ~4 chars per token for English text
+            if (tIn === 0 && tOut === 0 && Number(d.charCount) > 0) {
+                tOut = Math.ceil(Number(d.charCount) / 4)
+                tIn = Math.ceil(tOut * 2) // Assume input is ~2x output for chat
+            }
             const tTotal = Number(d.tokensTotal) || (tIn + tOut)
             const lat = Number(d.latencyMs) || 0
-            const model = String(d.model || 'unknown')
+            const model = String(d.model || 'gpt-4o-mini')
             const cost = calculateCost(model, tIn, tOut)
 
             totalTokensIn += tIn
@@ -105,7 +111,7 @@ export async function GET() {
             perDay[day].cost += cost
         }
 
-        // Get user names for the per-user breakdown
+        // Get user names — check user_settings first, then org_members
         const userIds = Object.keys(perUser).filter(id => id !== 'unknown')
         const { data: userSettings } = await supabase
             .from('user_settings')
@@ -114,7 +120,19 @@ export async function GET() {
 
         const userNameMap: Record<string, string> = {}
         for (const s of userSettings || []) {
-            userNameMap[s.user_id] = s.user_name || s.user_id
+            if (s.user_name) userNameMap[s.user_id] = s.user_name
+        }
+
+        // For any IDs still unresolved, check organization_members
+        const unresolvedIds = userIds.filter(id => !userNameMap[id])
+        if (unresolvedIds.length > 0) {
+            const { data: members } = await supabase
+                .from('organization_members')
+                .select('user_id, user_name')
+                .in('user_id', unresolvedIds)
+            for (const m of members || []) {
+                if (m.user_name) userNameMap[m.user_id] = m.user_name
+            }
         }
 
         // Get org names for per-org breakdown
@@ -131,12 +149,24 @@ export async function GET() {
 
         // Format per-user array sorted by tokens desc
         const perUserArray = Object.entries(perUser)
-            .map(([id, stats]) => ({ userId: id, name: userNameMap[id] || id.slice(0, 20), ...stats }))
+            .map(([id, stats]) => ({
+                userId: id,
+                name: id === 'unknown'
+                    ? 'System (automated)'
+                    : userNameMap[id] || (id.startsWith('auth0|') ? 'You' : id.slice(0, 20)),
+                ...stats
+            }))
             .sort((a, b) => b.tokens - a.tokens)
 
         // Format per-org array sorted by tokens desc
         const perOrgArray = Object.entries(perOrg)
-            .map(([id, stats]) => ({ orgId: id, name: orgNameMap[id] || id, ...stats }))
+            .map(([id, stats]) => ({
+                orgId: id,
+                name: id === 'unassigned'
+                    ? 'Personal (no org)'
+                    : orgNameMap[id] || id.slice(0, 20),
+                ...stats
+            }))
             .sort((a, b) => b.tokens - a.tokens)
 
         // Format per-model array

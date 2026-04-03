@@ -5,7 +5,10 @@ import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_TEMPERATURES, getChatConfig, type ChatMode } from '@/lib/ai/config'
 import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, ensureCitationMarkers, RAG_GROUNDING_INSTRUCTION, type RetrievedChunk, buildDynamicRAGSourcesBlock } from '@/lib/rag'
+import { retrieveMemories, assembleMemoryContext, buildMemoryAttribution, logMemoryAccess, reinforceMemory } from '@/lib/memory'
+import type { MemoryRetrievalResult } from '@/lib/memory'
 import { auth0 } from '@/lib/auth0'
+import { logger } from '@/lib/logger'
 
 // Helper to emit SSE phase events
 function phaseEvent(phase: string, status: string, detail?: string, meta?: Record<string, unknown>) {
@@ -162,6 +165,9 @@ export async function POST(request: NextRequest) {
         let ragSystemMessage = ''
         let ragSourcesBlock = ''
         let ragChunks: RetrievedChunk[] = []
+        let memoryContextText = ''
+        let memoryAttributionText = ''
+        let usedMemories: MemoryRetrievalResult[] = []
 
         // 1. RAG Context Injection from Project Documents
         if (projectId) {
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
             } catch (ragError) {
-                console.error('[RAG] Retrieval error, falling back to legacy:', ragError)
+                logger.error('chat/route', 'RAG retrieval error, falling back to legacy', ragError)
                 const { data: projectFiles } = await supabase
                     .from('files')
                     .select('name, extracted_text')
@@ -205,6 +211,33 @@ export async function POST(request: NextRequest) {
                     })
                     userContent += `\n[INSTRUCTION: Use the above PROJECT CONTEXT to answer the user's query. Cite specific files if relevant.]`
                 }
+            }
+        }
+
+        // 2. Memory Intelligence Retrieval (parallel, non-blocking)
+        if (projectId) {
+            try {
+                const memoryResult = await retrieveMemories({
+                    query: message || '',
+                    projectId,
+                    organizationId: undefined, // orgId resolved later — project-scoped retrieval is sufficient here
+                    userId,
+                    blockedProjectIds: [],
+                })
+
+                if (memoryResult.results.length > 0) {
+                    const memContext = assembleMemoryContext(
+                        memoryResult.results.filter(m => m.retrieval_path !== 'structured' || m.memory_type !== 'preference'),
+                        [],  // Firm patterns — Phase 5
+                        memoryResult.results.filter(m => m.memory_type === 'preference')
+                    )
+                    memoryContextText = memContext.formatted_text
+                    memoryAttributionText = buildMemoryAttribution()
+                    usedMemories = memoryResult.results
+                    logger.info("chat/route", `[Memory] Retrieved ${memoryResult.results.length} memories (V:${memoryResult.pathStats.vector} G:${memoryResult.pathStats.graph} S:${memoryResult.pathStats.structured})`)
+                }
+            } catch (memError) {
+                logger.warn('chat/route', 'Memory retrieval failed (non-blocking)', memError)
             }
         }
 
@@ -307,7 +340,9 @@ export async function POST(request: NextRequest) {
 
                     const fullSystemPrompt = [
                         systemPrompt,
-                        ragSystemMessage ? ragSystemMessage : ''
+                        ragSystemMessage ? ragSystemMessage : '',
+                        memoryContextText ? memoryContextText : '',
+                        memoryAttributionText ? memoryAttributionText : ''
                     ].filter(Boolean).join('\n\n')
 
                     // Move RAG context into user prompt for better citation adherence
@@ -451,7 +486,7 @@ export async function POST(request: NextRequest) {
                                 }
                             }
                         } catch (streamErr) {
-                            console.error('[Chat API] Stream error:', streamErr)
+                            logger.error('chat/route', 'Stream error', streamErr)
                             if (!controllerClosed && !streamedContent) {
                                 const errMsg = streamErr instanceof Error ? streamErr.message : 'Stream failed'
                                 safeEnqueue(encoder.encode(`data: ${JSON.stringify({ content: `\n\n⚠️ Error: ${errMsg}` })}\n\n`))
@@ -524,19 +559,47 @@ export async function POST(request: NextRequest) {
                                     })
 
                                 if (saveError) {
-                                    console.error('Failed to save assistant message:', saveError)
+                                    logger.error('chat/route', 'Failed to save assistant message', saveError)
                                 } else if (projectId && streamedContent) {
                                     import('@/lib/jobs').then(j => {
                                         j.enqueueJob('MEMORY_EXTRACTION', {
                                             projectId,
+                                            organizationId: orgId,
+                                            userId,
                                             text: streamedContent,
                                             source: 'chat',
                                             sourceId: conversationId
                                         }, projectId)
-                                    }).catch(e => console.error('[Memory] Job enqueue failed:', e))
+
+                                        // Silent argument extraction (Phase 4)
+                                        j.enqueueJob('ARGUMENT_EXTRACTION', {
+                                            projectId,
+                                            organizationId: orgId,
+                                            text: streamedContent,
+                                            conversationId
+                                        }, projectId)
+                                    }).catch(e => logger.error('chat/route', 'Memory job enqueue failed', e))
+
+                                    // Log memory usage for learning loop
+                                    if (usedMemories.length > 0) {
+                                        Promise.allSettled(
+                                            usedMemories.map(m =>
+                                                Promise.all([
+                                                    logMemoryAccess({
+                                                        memoryId: m.id,
+                                                        conversationId,
+                                                        userId,
+                                                        retrievalScore: m.relevance_score,
+                                                        wasCited: true,
+                                                    }),
+                                                    reinforceMemory(m.id),
+                                                ])
+                                            )
+                                        ).catch(() => {})
+                                    }
                                 }
                             } catch (e) {
-                                console.error('Error saving assistant message:', e)
+                                logger.error('chat/route', 'Error saving assistant message', e)
                             }
                         }
                         
@@ -544,7 +607,7 @@ export async function POST(request: NextRequest) {
                         if (!controllerClosed) {
                             safeEnqueue(encoder.encode(phaseEvent('complete', 'end')))
                             safeEnqueue(encoder.encode('data: [DONE]\n\n'))
-                            try { controller.close() } catch { /* already closed */ }
+                            try { controller.close() } catch (err) { logger.error("chat/route", "Operation failed", err) }
                         }
 
                         // Log streaming AI call for usage tracking
@@ -647,26 +710,46 @@ export async function POST(request: NextRequest) {
                                     })
 
                                 if (saveError) {
-                                    console.error('Failed to save assistant message:', saveError)
+                                    logger.error('chat/route', 'Failed to save assistant message', saveError)
                                 } else if (projectId && streamedContent) {
                                     import('@/lib/jobs').then(j => {
                                         j.enqueueJob('MEMORY_EXTRACTION', {
                                             projectId,
+                                            organizationId: orgId,
+                                            userId,
                                             text: streamedContent,
                                             source: 'chat',
                                             sourceId: conversationId
                                         }, projectId)
-                                    }).catch(e => console.error('[Memory] Job enqueue failed:', e))
+                                    }).catch(e => logger.error('chat/route', 'Memory job enqueue failed', e))
+
+                                    // Log memory usage for learning loop
+                                    if (usedMemories.length > 0) {
+                                        Promise.allSettled(
+                                            usedMemories.map(m =>
+                                                Promise.all([
+                                                    logMemoryAccess({
+                                                        memoryId: m.id,
+                                                        conversationId,
+                                                        userId,
+                                                        retrievalScore: m.relevance_score,
+                                                        wasCited: true,
+                                                    }),
+                                                    reinforceMemory(m.id),
+                                                ])
+                                            )
+                                        ).catch(() => {})
+                                    }
                                 }
                             } catch (e) {
-                                console.error('Error saving assistant message:', e)
+                                logger.error('chat/route', 'Error saving assistant message', e)
                             }
                         }
 
                         if (!controllerClosed) {
 
                             safeEnqueue(encoder.encode('data: [DONE]\n\n'))
-                            try { controller.close() } catch { /* already closed */ }
+                            try { controller.close() } catch (err) { logger.error("chat/route", "Operation failed", err) }
                         }
 
                         // Log streaming AI call for usage tracking
@@ -685,7 +768,7 @@ export async function POST(request: NextRequest) {
                         }).catch(() => { })
                     }
                 } catch (err) {
-                    console.error('Stream error:', err)
+                    logger.error('chat/route', 'Stream error', err)
                     try {
                         controller.enqueue(encoder.encode(phaseEvent('error', 'error', 'Something went wrong while processing')))
                         controller.enqueue(encoder.encode('data: [DONE]\n\n'))

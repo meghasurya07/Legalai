@@ -28,7 +28,6 @@ export default function ChatConversationPage() {
                     })
                 }
             } catch (error) {
-                console.error('Failed to load conversation metadata:', error)
             } finally {
                 setIsLoading(false)
             }

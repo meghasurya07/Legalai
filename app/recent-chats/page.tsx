@@ -69,16 +69,13 @@ export default function RecentChatsPage() {
                     setConversations(await convsRes.json())
                 } else {
                     const errBody = await convsRes.text()
-                    console.error('Failed to fetch conversations:', convsRes.status, errBody)
                     toast.error(`Failed to load conversations (${convsRes.status})`)
                 }
                 if (workflowsRes.ok) {
                     setWorkflows(await workflowsRes.json())
                 } else {
-                    console.error('Failed to fetch workflows:', workflowsRes.status)
                 }
             } catch (error) {
-                console.error('Failed to fetch recent chats data:', error)
                 toast.error('Failed to load recent chats data')
             } finally {
                 setIsLoading(false)

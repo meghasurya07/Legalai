@@ -43,7 +43,6 @@ function DocxRenderer({ arrayBuffer }: { arrayBuffer: ArrayBuffer }) {
                     renderEndnotes: true,
                 })
             } catch (err) {
-                console.error('[DocxRenderer] Failed:', err)
                 setError('Failed to render document preview')
             }
         }
@@ -193,7 +192,6 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
                     )
                 }
             } catch (error) {
-                console.error("Preview error:", error)
                 // Show extracted text as fallback if available
                 if (attachment.extractedText) {
                     setContent(

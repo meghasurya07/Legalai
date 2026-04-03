@@ -67,7 +67,6 @@ export function AppHeader() {
 
             const res = await fetch(`/api/chat/conversations?${urlParams.toString()}`)
             if (!res.ok) {
-                console.error('Failed to fetch recents:', res.status)
                 setError(`Failed to load (${res.status})`)
                 return
             }
@@ -77,7 +76,6 @@ export function AppHeader() {
                 setConversations(data)
             }
         } catch (err) {
-            console.error("Failed to fetch recent conversations", err)
             setError('Failed to load conversations')
         } finally {
             setIsLoading(false)
@@ -115,7 +113,6 @@ export function AppHeader() {
             ))
             toast.success(conv.pinned ? "Conversation unpinned" : "Conversation pinned")
         } catch (err) {
-            console.error("Pin error:", err)
             toast.error("Failed to update pin status")
         } finally {
             setIsActionLoading(false)
@@ -146,7 +143,6 @@ export function AppHeader() {
                 router.push(pathname)
             }
         } catch (err) {
-            console.error("Delete error:", err)
             toast.error("Failed to delete conversation")
         } finally {
             setIsDeleting(false)
@@ -180,7 +176,6 @@ export function AppHeader() {
             setRenamingId(null)
             toast.success("Conversation renamed")
         } catch (err) {
-            console.error("Rename error:", err)
             toast.error("Failed to rename conversation")
         } finally {
             setIsActionLoading(false)

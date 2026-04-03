@@ -224,7 +224,6 @@ export function TabularReviewChat({
                 }
             }
         } catch (err) {
-            console.error("Chat error:", err)
             setMessages(prev => [...prev, {
                 role: "assistant",
                 content: "Sorry, I encountered an error. Please try again.",

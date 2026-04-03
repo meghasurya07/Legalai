@@ -69,13 +69,11 @@ export default function ContractAnalysis() {
                             const parsedData = JSON.parse(assistantMsg.content)
                             setAnalysis(parsedData)
                         } catch (e) {
-                            console.error("Failed to parse history content:", e)
                             toast.error("Failed to load past result")
                         }
                     }
                 }
             } catch (error) {
-                console.error("Failed to fetch history:", error)
             } finally {
                 setIsAnalyzing(false)
             }
@@ -118,7 +116,6 @@ export default function ContractAnalysis() {
             setAnalysis(data)
             toast.success("Contract analyzed successfully!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to analyze contract"
             toast.error(message)
         } finally {

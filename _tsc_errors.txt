@@ -1,0 +1,12 @@
+﻿app/organization/components/ethical-walls-tab.tsx(28,40): error TS2304: Cannot find name 'EthicalWallData'.
+app/organization/components/ethical-walls-tab.tsx(31,44): error TS2304: Cannot find name 'EthicalWallData'.
+app/organization/components/ethical-walls-tab.tsx(32,54): error TS2304: Cannot find name 'EthicalWallData'.
+app/organization/components/ethical-walls-tab.tsx(33,52): error TS2304: Cannot find name 'OrgProject'.
+app/organization/components/ethical-walls-tab.tsx(70,29): error TS2304: Cannot find name 'EthicalWallData'.
+app/organization/components/ethical-walls-tab.tsx(73,45): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/organization/components/ethical-walls-tab.tsx(74,47): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/organization/components/ethical-walls-tab.tsx(125,45): error TS2304: Cannot find name 'EthicalWallData'.
+app/organization/components/ethical-walls-tab.tsx(211,72): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/organization/components/ethical-walls-tab.tsx(220,73): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/organization/components/memory-tab.tsx(32,46): error TS2304: Cannot find name 'OrgMemory'.
+app/organization/components/memory-tab.tsx(109,35): error TS2304: Cannot find name 'OrgMemory'.

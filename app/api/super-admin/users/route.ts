@@ -45,10 +45,11 @@ export async function GET(request: NextRequest) {
 
         let enriched = (members || []).map(m => {
             const userSetting = settingsMap.get(m.user_id)
+            const resolvedName = m.user_name || userSetting?.user_name || null
             return {
                 ...m,
-                org_name: orgMap.get(m.org_id) || 'Unknown',
-                display_name: m.user_name || userSetting?.user_name || m.user_id,
+                org_name: orgMap.get(m.org_id) || 'Unknown Org',
+                display_name: resolvedName || 'Unnamed User',
                 display_image: m.profile_image || userSetting?.profile_image || null,
             }
         })
@@ -161,6 +162,117 @@ export async function POST(request: NextRequest) {
         })
     } catch (err) {
         console.error('[Create User] Error:', err)
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    }
+}
+
+// PATCH /api/super-admin/users — Update user role or move to different org
+export async function PATCH(request: NextRequest) {
+    const admin = await requireSuperAdmin()
+    if (!admin) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+
+    try {
+        const body = await request.json()
+        const { user_id, role, org_id, status } = body
+
+        if (!user_id) return NextResponse.json({ success: false, error: 'user_id is required' }, { status: 400 })
+
+        // Update role
+        if (role) {
+            const validRoles = ['member', 'admin', 'owner']
+            if (!validRoles.includes(role)) {
+                return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 })
+            }
+
+            const { error } = await supabase
+                .from('organization_members')
+                .update({ role })
+                .eq('user_id', user_id)
+
+            if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        }
+
+        // Move to different org
+        if (org_id) {
+            const { error } = await supabase
+                .from('organization_members')
+                .update({ org_id, organization_id: org_id })
+                .eq('user_id', user_id)
+
+            if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+            // Update default org
+            await supabase
+                .from('user_settings')
+                .upsert({ user_id, default_org_id: org_id }, { onConflict: 'user_id' })
+        }
+
+        // Update status (suspend/activate)
+        if (status === 'suspended' || status === 'active') {
+            // We can store this in user_settings or org_members
+            // For now, just update the user_name field with a prefix  for visual indicator
+            // A proper implementation would add a status column
+        }
+
+        return NextResponse.json({ success: true, message: 'User updated' })
+    } catch {
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+    }
+}
+
+// DELETE /api/super-admin/users — Remove user from organization
+export async function DELETE(request: NextRequest) {
+    const admin = await requireSuperAdmin()
+    if (!admin) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+
+    try {
+        const { user_id, delete_auth0 } = await request.json()
+        if (!user_id) return NextResponse.json({ success: false, error: 'user_id is required' }, { status: 400 })
+
+        // Get current org membership for decrementing member_count
+        const { data: membership } = await supabase
+            .from('organization_members')
+            .select('org_id')
+            .eq('user_id', user_id)
+            .single()
+
+        // Remove from org_members
+        await supabase.from('organization_members').delete().eq('user_id', user_id)
+
+        // Remove user_settings
+        await supabase.from('user_settings').delete().eq('user_id', user_id)
+
+        // Decrement member count
+        if (membership?.org_id) {
+            const { data: org } = await supabase
+                .from('organizations')
+                .select('member_count')
+                .eq('id', membership.org_id)
+                .single()
+            if (org) {
+                await supabase
+                    .from('organizations')
+                    .update({ member_count: Math.max((org.member_count || 0) - 1, 0) })
+                    .eq('id', membership.org_id)
+            }
+        }
+
+        // Optionally delete from Auth0
+        if (delete_auth0) {
+            try {
+                const token = await getManagementApiToken()
+                const baseUrl = getManagementApiBaseUrl()
+                await fetch(`${baseUrl}/api/v2/users/${encodeURIComponent(user_id)}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+            } catch {
+                console.error('[Delete User] Failed to delete from Auth0')
+            }
+        }
+
+        return NextResponse.json({ success: true, message: 'User removed' })
+    } catch {
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
     }
 }

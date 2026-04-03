@@ -8,6 +8,7 @@
 import { chunkText } from './chunker'
 import { embedChunks } from './embeddings'
 import { supabase } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 /**
  * Ingest a file's extracted text into the RAG system.
@@ -28,7 +29,7 @@ export async function ingestFile(
 
     try {
         if (!text || text.trim().length === 0) {
-            console.log(`[RAG Ingest] Skipping file ${fileId} — no text content`)
+            logger.info("rag/ingest", `[RAG Ingest] Skipping file ${fileId} — no text content`)
             return { chunksCreated: 0, success: true }
         }
 
@@ -39,19 +40,19 @@ export async function ingestFile(
             .eq('file_id', fileId)
 
         if (existingCount && existingCount > 0) {
-            console.log(`[RAG Ingest] Skipping file ${fileId} — ${existingCount} chunks already exist`)
+            logger.info("rag/ingest", `[RAG Ingest] Skipping file ${fileId} — ${existingCount} chunks already exist`)
             return { chunksCreated: 0, success: true }
         }
 
         // 2. Chunk the text
         const chunks = chunkText(text)
         if (chunks.length === 0) {
-            console.log(`[RAG Ingest] File ${fileId} produced no valid chunks`)
+            logger.info("rag/ingest", `[RAG Ingest] File ${fileId} produced no valid chunks`)
             await updateFileStatus(fileId, 'ready')
             return { chunksCreated: 0, success: true }
         }
 
-        console.log(`[RAG Ingest] File ${fileId}: ${chunks.length} chunks created, generating embeddings...`)
+        logger.info("rag/ingest", `[RAG Ingest] File ${fileId}: ${chunks.length} chunks created, generating embeddings...`)
 
         // 3. Generate embeddings
         const embeddedChunks = await embedChunks(
@@ -101,7 +102,7 @@ export async function ingestFile(
         await updateFileStatus(fileId, 'ready')
 
         const duration = Date.now() - startTime
-        console.log(`[RAG Ingest] File ${fileId}: ${inserted}/${embeddedChunks.length} chunks stored in ${duration}ms`)
+        logger.info("rag/ingest", `[RAG Ingest] File ${fileId}: ${inserted}/${embeddedChunks.length} chunks stored in ${duration}ms`)
 
         return { chunksCreated: inserted, success: true }
     } catch (error) {
@@ -138,6 +139,6 @@ export async function deleteFileChunks(fileId: string): Promise<void> {
     if (error) {
         console.error(`[RAG Ingest] Failed to delete chunks for file ${fileId}:`, error)
     } else {
-        console.log(`[RAG Ingest] Deleted ${count ?? 'all'} chunks for file ${fileId}`)
+        logger.info("rag/ingest", `[RAG Ingest] Deleted ${count ?? 'all'} chunks for file ${fileId}`)
     }
 }

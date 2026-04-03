@@ -1,6 +1,9 @@
 export * from './types'
 export { getPermissionsForRole, roleHasPermission } from './roles'
 export { checkPermission, checkProjectAccess } from './permissions'
+export { canManage, outranks, checkPermission as checkRBACPermission } from './rbac'
+export type { OrgRole, Action } from './rbac'
 export { getUserOrgs, getOrgForProject, getOrgMembers, bootstrapDefaultOrg } from './org'
 export { requirePermission, requireProjectAccess, extractGuardContext } from './guards'
 export type { GuardContext } from './guards'
+

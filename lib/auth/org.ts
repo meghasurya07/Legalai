@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase/server'
 import type { Organization, OrgMember } from './types'
+import { logger } from '@/lib/logger'
 
 /**
  * Get all orgs a user belongs to.
@@ -101,6 +102,6 @@ export async function bootstrapDefaultOrg(userId: string, orgName: string = 'My 
         .eq('user_id', userId)
         .is('organization_id', null)
 
-    console.log(`[Auth] Bootstrapped org ${org.id} for user ${userId}`)
+    logger.info("auth/org", `[Auth] Bootstrapped org ${org.id} for user ${userId}`)
     return org.id
 }

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
 import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 interface RouteParams {
     params: Promise<{ id: string; fileId: string }>
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("analyze/route", "Operation failed", err) }
 
         const { result, error } = await callAISafe(useCase as 'document_summary' | 'document_analysis', {
             text
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error }, { status: 503 })
         }
 
-        console.log(`[Vault AI] project=${projectId} file=${fileId} action=${action}`)
+        logger.info("analyze/route", `[Vault AI] project=${projectId} file=${fileId} action=${action}`)
 
         return NextResponse.json({
             fileId,

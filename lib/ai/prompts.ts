@@ -229,25 +229,50 @@ Return ONLY the bullet points, nothing else. No intro text, no explanation. Just
   }),
 
   memory_extraction: (input) => ({
-    systemPrompt: `You are a legal intelligence analyst. Extract persistent project facts, decisions, risks, and obligations from the provided text.
+    systemPrompt: `You are a legal intelligence analyst with expertise in extracting persistent knowledge from legal text and dialogue.
+
+Extract memories from the provided text and classify each with a confidence score.
+
 Return a JSON object:
 {
   "memories": [
     {
-      "content": "The specific fact or insight",
-      "type": "fact|decision|risk|obligation|insight",
+      "content": "The specific fact, insight, or pattern (concise but complete)",
+      "type": "fact|decision|risk|obligation|insight|preference|argument|outcome|procedure|pattern|correction",
       "importance": 1-5,
-      "reasoning": "Brief explanation"
+      "confidence": 0.0-1.0,
+      "reasoning": "Brief explanation of why this was extracted",
+      "source_context": "The exact sentence(s) from the input that this memory was derived from"
     }
   ]
 }
-Rules:
-- Content must be concise but complete.
-- Facts: Specific objective truths (e.g. Governing law is NY).
-- Decisions: Agreed upon paths or choices.
-- Risks: Legal or commercial liabilities.
-- Obligations: Immediate or future actions required.
-- Importance: 5 is critical, 1 is minor context.`,
+
+**Memory Type Definitions:**
+- **fact**: Objective truths (e.g., "Governing law is New York", "Contract value is $2M")
+- **decision**: Agreed-upon choices or strategic decisions (e.g., "Team decided to pursue arbitration")
+- **risk**: Legal or commercial liabilities (e.g., "Indemnity clause lacks a cap")
+- **obligation**: Required actions with deadlines (e.g., "Notice must be given 30 days prior")
+- **insight**: Analytical observations or interpretations (e.g., "This clause is unusual for this jurisdiction")
+- **preference**: User or firm preferences detected from patterns (e.g., "User prefers formal tone")
+- **argument**: Legal arguments or positions taken (e.g., "Argued that force majeure applies")
+- **outcome**: Results of legal proceedings or negotiations (e.g., "Motion to dismiss was denied")
+- **procedure**: Process steps or workflows mentioned (e.g., "Filing requires 3 copies to the clerk")
+- **pattern**: Recurring structures across content (e.g., "Standard limitation period is 2 years")
+- **correction**: Error corrections or updates to prior information (e.g., "Previously stated X, but actually Y")
+
+**Confidence Scoring:**
+- 1.0: Explicitly stated, unambiguous
+- 0.8-0.9: Clearly implied with strong evidence
+- 0.6-0.7: Reasonable inference, some ambiguity
+- Below 0.6: Speculative — DO NOT include these
+
+**Rules:**
+- Content must be self-contained (understandable without the original text)
+- Importance: 5 = critical to the case/project, 1 = minor context
+- Extract ALL arguments and their supporting reasoning
+- Detect preferences from repeated patterns (e.g., if a user consistently asks for specific formats)
+- Always include source_context — the exact text span the memory was derived from
+- Do NOT extract trivial or obvious information`,
     userPrompt: `Extract intelligence from this legal text or dialogue:\n\n${truncateText(String(input.text || ''))}`
   }),
 

@@ -7,6 +7,7 @@ import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { AI_MODELS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
@@ -28,12 +29,11 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("analyze/route", "Operation failed", err) }
 
         // Get the resolved client to extract its API key for Vercel AI SDK
         const resolvedClient = await resolveOpenAIClient(orgId)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const resolvedApiKey = (resolvedClient as any).apiKey as string
+        const resolvedApiKey = (resolvedClient as { apiKey?: string }).apiKey ?? process.env.OPENAI_API_KEY ?? ''
         const openai = createOpenAI({ apiKey: resolvedApiKey })
 
         const systemPrompt = `You are a sophisticated legal AI assistant tasked with cross-referencing and comparing clauses across multiple legal documents.
@@ -75,7 +75,7 @@ ${doc.text}
 
         return NextResponse.json(object)
     } catch (error) {
-        console.error('[Cross Reference Analyze] Error:', error)
+        logger.error('cross-reference/analyze', 'Cross reference analysis failed', error)
         return apiError('Cross reference analysis failed', 500, error)
     }
 }

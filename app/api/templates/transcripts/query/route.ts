@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callAISafe } from '@/lib/ai/client'
 import { truncateText } from '@/lib/ai/client'
+import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
             const { getOrgContext } = await import('@/lib/get-org-context')
             const ctx = await getOrgContext()
             orgId = ctx?.orgId
-        } catch { /* no org context */ }
+        } catch (err) { logger.error("query/route", "Operation failed", err) }
 
         const { result, error } = await callAISafe('assistant_chat', {
             message: `Based on this transcript analysis context, answer the question. Cite specific testimony when relevant.\n\nContext:\n${truncateText(contextSummary)}\n\nQuestion: ${question}`

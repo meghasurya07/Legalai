@@ -9,13 +9,14 @@ import { AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
+import { logger } from '@/lib/logger'
 
 /**
  * Generate or update the project summary.
  */
 export async function generateProjectSummary(projectId: string): Promise<boolean> {
     try {
-        console.log(`[Trust] Generating project summary for ${projectId}`)
+        logger.info("trust/summary", `[Trust] Generating project summary for ${projectId}`)
 
         // 1. Gather all intelligence
         const [analyses, clauses, conflictsResult, memoriesResult, entitiesResult] = await Promise.all([
@@ -35,7 +36,7 @@ export async function generateProjectSummary(projectId: string): Promise<boolean
         ].filter(Boolean).join('\n\n')
 
         if (context.length < 50) {
-            console.log('[Trust] Insufficient data for summary generation')
+            logger.info("trust/summary", '[Trust] Insufficient data for summary generation')
             return false
         }
 
@@ -77,7 +78,7 @@ export async function generateProjectSummary(projectId: string): Promise<boolean
                 .insert(summaryRow)
         }
 
-        console.log(`[Trust] Project summary generated for ${projectId}`)
+        logger.info("trust/summary", `[Trust] Project summary generated for ${projectId}`)
         return true
 
     } catch (error) {

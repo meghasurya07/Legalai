@@ -60,7 +60,6 @@ function DocTextViewer({
                     setText(data.text || '')
                 }
             } catch (err) {
-                console.error('[DocTextViewer] Error:', err)
                 if (!cancelled) setError('Failed to load document text')
             } finally {
                 if (!cancelled) setLoading(false)

@@ -79,13 +79,11 @@ export default function CompanyProfile() {
                             const parsedData = JSON.parse(assistantMsg.content)
                             setProfile(parsedData)
                         } catch (e) {
-                            console.error("Failed to parse history content:", e)
                             toast.error("Failed to load past result")
                         }
                     }
                 }
             } catch (error) {
-                console.error("Failed to fetch history:", error)
             } finally {
                 setIsGenerating(false)
             }
@@ -113,7 +111,6 @@ export default function CompanyProfile() {
             setProfile(data)
             toast.success("Legal company research profile generated!")
         } catch (error: unknown) {
-            console.error(error)
             const message = error instanceof Error ? error.message : "Failed to generate company research profile"
             toast.error(message)
         } finally {

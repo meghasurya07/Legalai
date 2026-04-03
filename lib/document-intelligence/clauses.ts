@@ -10,6 +10,7 @@ import { AI_MODELS, AI_TOKENS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { buildClausePrompt } from './prompts'
 import type { DocumentClause, ClauseType } from './types'
+import { logger } from '@/lib/logger'
 
 const VALID_CLAUSE_TYPES: ClauseType[] = [
     'termination', 'indemnity', 'confidentiality', 'liability',
@@ -34,7 +35,7 @@ export async function extractClauses(
             .eq('file_id', fileId)
 
         if (count && count > 0) {
-            console.log(`[DocIntel] Clauses already exist for file ${fileId}, skipping`)
+            logger.info("document-intelligence/clauses", `[DocIntel] Clauses already exist for file ${fileId}, skipping`)
             return []
         }
 
@@ -55,7 +56,7 @@ export async function extractClauses(
         const rawClauses = Array.isArray(parsed.clauses) ? parsed.clauses : []
 
         if (rawClauses.length === 0) {
-            console.log(`[DocIntel] No clauses detected for file ${fileId}`)
+            logger.info("document-intelligence/clauses", `[DocIntel] No clauses detected for file ${fileId}`)
             return []
         }
 
@@ -108,7 +109,7 @@ export async function extractClauses(
                 return []
             }
 
-            console.log(`[DocIntel] Stored ${clauses.length} clauses for file ${fileId}`)
+            logger.info("document-intelligence/clauses", `[DocIntel] Stored ${clauses.length} clauses for file ${fileId}`)
         }
 
         return clauses

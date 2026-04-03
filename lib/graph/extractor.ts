@@ -10,6 +10,7 @@ import { parseAIJSON } from '@/lib/api-utils'
 import { upsertEntity } from './entities'
 import { addRelationship } from './relationships'
 import { ExtractedEntity, ExtractedRelationship, EntitySource } from './types'
+import { logger } from '@/lib/logger'
 
 /**
  * Extract entities and relationships from text and persist to graph.
@@ -26,7 +27,7 @@ export async function extractAndPersistGraph(params: {
     if (!text || text.length < 50) return
 
     try {
-        console.log(`[Graph] Extracting entities from ${source} (${refId || 'no-id'})`)
+        logger.info("graph/extractor", `[Graph] Extracting entities from ${source} (${refId || 'no-id'})`)
 
         const { result } = await callAI('graph_extraction', { text }, {
             jsonMode: true,
@@ -39,7 +40,7 @@ export async function extractAndPersistGraph(params: {
         const relationships: ExtractedRelationship[] = Array.isArray(parsed?.relationships) ? parsed.relationships : []
 
         if (entities.length === 0) {
-            console.log('[Graph] No entities extracted.')
+            logger.info("graph/extractor", '[Graph] No entities extracted.')
             return
         }
 
@@ -84,7 +85,7 @@ export async function extractAndPersistGraph(params: {
             }
         }
 
-        console.log(`[Graph] Extracted ${entityMap.size} entities, ${relCount} relationships.`)
+        logger.info("graph/extractor", `[Graph] Extracted ${entityMap.size} entities, ${relCount} relationships.`)
 
     } catch (error) {
         console.error('[Graph] Extraction failed:', error)

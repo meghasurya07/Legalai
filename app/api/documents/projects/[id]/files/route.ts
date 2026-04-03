@@ -5,6 +5,7 @@ import { getUserId } from '@/lib/get-user-id'
 import { checkRateLimit, RATE_LIMIT_UPLOAD } from '@/lib/rate-limit'
 import { ingestFile } from '@/lib/rag'
 import { analyzeDocument } from '@/lib/document-intelligence'
+import { logger } from '@/lib/logger'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         if (hasText) {
             ingestFile(fileRecord.id, id, sanitizedText, file.name)
                 .then(({ chunksCreated, success }) => {
-                    console.log(`[RAG] File ${fileRecord.id} ingestion complete: ${chunksCreated} chunks, success=${success}`)
+                    logger.info("files/route", `[RAG] File ${fileRecord.id} ingestion complete: ${chunksCreated} chunks, success=${success}`)
                 })
                 .catch(err => {
                     console.error(`[RAG] File ${fileRecord.id} ingestion failed:`, err)
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // 5. Fire-and-forget Document Intelligence
             analyzeDocument(fileRecord.id, id, sanitizedText)
                 .then(({ success }) => {
-                    console.log(`[DocIntel] File ${fileRecord.id} analysis complete, success=${success}`)
+                    logger.info("files/route", `[DocIntel] File ${fileRecord.id} analysis complete, success=${success}`)
                 })
                 .catch(err => {
                     console.error(`[DocIntel] File ${fileRecord.id} analysis failed:`, err)

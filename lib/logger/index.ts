@@ -31,6 +31,8 @@ export type EventType =
     | 'RATE_LIMIT_HIT'
     | 'SUSPICIOUS_ACTIVITY'
 
+const isDev = process.env.NODE_ENV !== 'production'
+
 /**
  * Log a structured event. Fire-and-forget — never throws.
  */
@@ -51,8 +53,9 @@ export function logEvent(
         data
     }
 
-    // Console for dev visibility
-    console.log(`[LOG] ${eventType}`, JSON.stringify(data).slice(0, 200))
+    if (isDev) {
+        console.log(`[LOG] ${eventType}`, JSON.stringify(data).slice(0, 200))
+    }
 
     // Persist (fire-and-forget)
     supabase
@@ -61,4 +64,34 @@ export function logEvent(
         .then(({ error }) => {
             if (error) console.error('[Logger] Persist failed:', error.message)
         })
+}
+
+// ---------------------------------------------------------------------------
+// General-purpose logger helpers (console-only, no DB persistence)
+// Use these in place of raw console.log/warn/error throughout the codebase.
+// ---------------------------------------------------------------------------
+
+function formatMsg(level: string, context: string, msg: string, meta?: unknown): string {
+    const ts = new Date().toISOString()
+    const base = `[${ts}] [${level}] [${context}] ${msg}`
+    if (meta !== undefined) return `${base} ${JSON.stringify(meta, null, 0)?.slice(0, 300)}`
+    return base
+}
+
+export const logger = {
+    /** Informational messages. Only prints in development. */
+    info(context: string, msg: string, meta?: unknown) {
+        if (isDev) console.log(formatMsg('INFO', context, msg, meta))
+    },
+    /** Warnings. Always prints. */
+    warn(context: string, msg: string, meta?: unknown) {
+        console.warn(formatMsg('WARN', context, msg, meta))
+    },
+    /** Errors. Always prints. */
+    error(context: string, msg: string, error?: unknown) {
+        const errInfo = error instanceof Error
+            ? { message: error.message, stack: error.stack?.split('\n').slice(0, 3).join('\n') }
+            : error
+        console.error(formatMsg('ERROR', context, msg, errInfo))
+    },
 }

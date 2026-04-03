@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { getPrompts, type UseCase } from './prompts'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from './config'
 import { resolveOpenAIClient } from '@/lib/byok'
+import { logger } from '@/lib/logger'
 
 // Get OpenAI client — uses BYOK key if the org has one configured
 async function getClient(orgId?: string): Promise<OpenAI> {
@@ -48,7 +49,12 @@ export async function callAI(
                 retrieveRelevantChunks(options.projectId, String(input.text || input.message || '')),
                 retrieveProjectAnalysis(options.projectId),
                 retrieveClauses(options.projectId),
-                import('@/lib/memory').then(m => m.retrieveProjectMemory(options.projectId!, String(input.text || input.message || ''))),
+                import('@/lib/memory').then(async m => {
+                    try {
+                        const result = await m.retrieveMemories({ query: String(input.text || input.message || ''), projectId: options.projectId! })
+                        return result.results || []
+                    } catch { return [] }
+                }),
                 import('@/lib/graph').then(g => g.retrieveGraphContext(options.projectId!)),
                 import('@/lib/trust').then(t => t.retrieveConflicts(options.projectId!)),
                 import('@/lib/trust').then(t => t.retrieveInsights(options.projectId!)),
@@ -148,7 +154,7 @@ export async function callAI(
     const duration = Date.now() - startTime
 
     // Log usage (console + structured)
-    console.log(`[AI] use_case=${useCase} | tokens=${tokensUsed} | prompt_tokens=${completion.usage?.prompt_tokens || 0} | completion_tokens=${completion.usage?.completion_tokens || 0} | duration=${duration}ms${options?.useRAG ? ' | rag=true' : ''}`)
+    logger.info("ai/client", `[AI] use_case=${useCase} | tokens=${tokensUsed} | prompt_tokens=${completion.usage?.prompt_tokens || 0} | completion_tokens=${completion.usage?.completion_tokens || 0} | duration=${duration}ms${options?.useRAG ? ' | rag=true' : ''}`)
 
     import('@/lib/logger').then(({ logEvent }) => {
         logEvent('AI_CALL', {

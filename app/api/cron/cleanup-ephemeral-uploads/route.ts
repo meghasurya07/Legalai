@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
 
 // GET /api/cron/cleanup-ephemeral-uploads
 // Deletes files in global chat (ephemeral-uploads) older than 48 hours.
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: 'No ephemeral files to clean up at this time.' })
         }
 
-        console.log(`[CRON] Found ${files.length} ephemeral files older than 48 hours to delete.`)
+        logger.info("cleanup-ephemeral-uploads/route", `[CRON] Found ${files.length} ephemeral files older than 48 hours to delete.`)
 
         const fileIds = files.map(f => f.id)
         // The URL column stores the storage relative path (e.g. ephemeral-uploads/...)
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
                 // but this could leave orphaned storage objects. 
                 // For a robust system, you might want to only delete from DB if storage succeeds.
             } else {
-                console.log(`[CRON] Deleted ${fileUrls.length} file(s) from Supabase Storage.`)
+                logger.info("cleanup-ephemeral-uploads/route", `[CRON] Deleted ${fileUrls.length} file(s) from Supabase Storage.`)
             }
         }
 

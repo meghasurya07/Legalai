@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { deleteFileChunks } from '@/lib/rag'
 import { getUserId } from '@/lib/get-user-id'
+import { logger } from '@/lib/logger'
 
 interface RouteParams {
     params: Promise<{ id: string; fileId: string }>
@@ -27,7 +28,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 })
         }
 
-        console.log(`Attempting to delete file ${fileId} from project ${id}`)
+        logger.info("[fileId]/route", `Attempting to delete file ${fileId} from project ${id}`)
 
         // 1. Get file metadata to find path
         const { data: file, error: fetchError } = await supabase
@@ -85,7 +86,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const { error: rpcError } = await supabase.rpc('decrement_file_count', { project_id: id })
 
         if (rpcError) {
-            console.log('RPC failed, using fallback for file count decrement')
+            logger.info("[fileId]/route", 'RPC failed, using fallback for file count decrement')
             const { data: p } = await supabase.from('projects').select('file_count').eq('id', id).single()
             if (p) {
                 await supabase.from('projects').update({ file_count: Math.max(0, (p.file_count || 0) - 1) }).eq('id', id)

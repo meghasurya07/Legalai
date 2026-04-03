@@ -12,6 +12,7 @@ import { buildSummaryPrompt } from './prompts'
 import { extractMetadata } from './metadata'
 import { extractClauses } from './clauses'
 import type { UseCase } from '@/lib/ai/prompts'
+import { logger } from '@/lib/logger'
 
 /**
  * Run the full document intelligence pipeline for a file.
@@ -34,7 +35,7 @@ export async function analyzeDocument(
 
     try {
         if (!text || text.trim().length < 50) {
-            console.log(`[DocIntel] Skipping file ${fileId} — insufficient text (${text?.length || 0} chars)`)
+            logger.info("document-intelligence/analyzer", `[DocIntel] Skipping file ${fileId} — insufficient text (${text?.length || 0} chars)`)
             return { success: true }
         }
 
@@ -45,11 +46,11 @@ export async function analyzeDocument(
             .eq('file_id', fileId)
 
         if (count && count > 0) {
-            console.log(`[DocIntel] Analysis already exists for file ${fileId}, skipping`)
+            logger.info("document-intelligence/analyzer", `[DocIntel] Analysis already exists for file ${fileId}, skipping`)
             return { success: true }
         }
 
-        console.log(`[DocIntel] Starting analysis for file ${fileId}...`)
+        logger.info("document-intelligence/analyzer", `[DocIntel] Starting analysis for file ${fileId}...`)
 
         // 2. Generate summary
         let summary = ''
@@ -109,7 +110,7 @@ export async function analyzeDocument(
         }).catch(err => console.error('[DocIntel] Graph job enqueue failed:', err))
 
         const duration = Date.now() - startTime
-        console.log(
+        logger.info("document-intelligence/analyzer", 
             `[DocIntel] Analysis complete for file ${fileId}: ` +
             `summary=${summary.length} chars, clauses=${clauses.length}, ` +
             `parties=${metadata.parties.length}, risks=${metadata.risks.length}, ` +

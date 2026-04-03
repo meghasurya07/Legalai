@@ -2,7 +2,20 @@
  * Knowledge Graph — Core Types
  */
 
-export type EntityType = 'party' | 'document' | 'clause' | 'obligation' | 'risk' | 'fact'
+export type EntityType =
+    | 'party'
+    | 'document'
+    | 'clause'
+    | 'obligation'
+    | 'risk'
+    | 'fact'
+    | 'argument'
+    | 'outcome'
+    | 'precedent'
+    | 'clause_pattern'
+    | 'judge'
+    | 'jurisdiction'
+
 export type EntitySource = 'doc' | 'workflow' | 'chat'
 
 export type RelationshipType =
@@ -14,6 +27,13 @@ export type RelationshipType =
     | 'AMENDS'
     | 'CONFLICTS_WITH'
     | 'RELATED_TO'
+    | 'ARGUED_FOR'
+    | 'RESULTED_IN'
+    | 'CITES_PRECEDENT'
+    | 'IN_JURISDICTION'
+    | 'BEFORE_JUDGE'
+    | 'USES_CLAUSE'
+    | 'SIMILAR_TO'
 
 export interface GraphEntity {
     id: string
