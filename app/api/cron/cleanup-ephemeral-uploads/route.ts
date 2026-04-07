@@ -7,12 +7,15 @@ import { logger } from '@/lib/logger'
 // This is intended to be called by a cron job (e.g., Vercel Cron).
 export async function GET(request: Request) {
     try {
-        // Basic protection: require a CRON_SECRET if one is configured
+        // SECURITY: Always require CRON_SECRET — reject if not configured
+        const cronSecret = process.env.CRON_SECRET
+        if (!cronSecret) {
+            console.error('[CRON] CRON_SECRET env var is not configured — refusing to run.')
+            return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 })
+        }
+
         const authHeader = request.headers.get('authorization')
-        if (
-            process.env.CRON_SECRET && 
-            authHeader !== `Bearer ${process.env.CRON_SECRET}`
-        ) {
+        if (authHeader !== `Bearer ${cronSecret}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 

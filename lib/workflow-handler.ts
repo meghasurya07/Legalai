@@ -21,6 +21,11 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
         // Get user ID early, before consuming the request body
         const userId = await getUserId()
 
+        // SECURITY: Reject unauthenticated requests immediately
+        if (!userId) {
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+        }
+
         let inputData: Record<string, unknown> = {}
         const variables: Record<string, unknown> = {}
 
