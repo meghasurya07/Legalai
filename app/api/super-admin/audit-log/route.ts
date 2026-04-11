@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { requireSuperAdmin } from '@/lib/super-admin'
+import { requireSuperAdmin } from '@/lib/auth/super-admin'
 
 /**
  * GET /api/super-admin/audit-log — Combined audit trail from audit_log + system_logs

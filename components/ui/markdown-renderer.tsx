@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CitationPill, SourceFavicon } from '@/components/chat-interface';
+import { CitationPill } from '@/components/chat/citation-pill';
+import { SourceFavicon } from '@/components/chat/source-favicon';
 import type { ChatCitationSource } from '@/lib/citations';
 import {
     parseSources,

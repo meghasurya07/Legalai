@@ -9,7 +9,7 @@ import {
     isDocumentSource,
     getDocumentRoute,
 } from "@/lib/citations"
-import { SourceFavicon } from "@/components/chat-interface"
+import { SourceFavicon } from "@/components/chat/source-favicon"
 
 interface ActivitySidebarProps {
     isOpen: boolean

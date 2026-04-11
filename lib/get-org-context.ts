@@ -9,7 +9,7 @@
  */
 
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 import { logger } from '@/lib/logger'
 
 export interface OrgContext {
@@ -90,7 +90,7 @@ export async function getOrgContext(): Promise<OrgContext | null> {
         // 5. SSO JIT Provisioning: if user has no org, try to match by SSO domain
         if (!membership || !orgId) {
             try {
-                const session = await (await import('@/lib/auth0')).auth0.getSession()
+                const session = await (await import('@/lib/auth/auth0')).auth0.getSession()
                 const email = session?.user?.email
                 if (email && email.includes('@')) {
                     const emailDomain = email.split('@')[1].toLowerCase()
@@ -232,7 +232,7 @@ export async function autoProvisionOrg(userId: string, userName?: string): Promi
 
         // Check if this is an SSO user (has a matching sso_domain) — DON'T create a personal org
         try {
-            const session = await (await import('@/lib/auth0')).auth0.getSession()
+            const session = await (await import('@/lib/auth/auth0')).auth0.getSession()
             const email = session?.user?.email
             if (email && email.includes('@')) {
                 const emailDomain = email.split('@')[1].toLowerCase()

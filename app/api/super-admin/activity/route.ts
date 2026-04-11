@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { requireSuperAdmin } from '@/lib/super-admin'
+import { requireSuperAdmin } from '@/lib/auth/super-admin'
 
 export async function GET() {
     const admin = await requireSuperAdmin()

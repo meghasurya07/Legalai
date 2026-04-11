@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
-import { getUserId } from '@/lib/get-user-id'
-import { canManage } from '@/lib/permissions'
+import { getUserId } from '@/lib/auth/get-user-id'
+import { canManage } from '@/lib/auth/rbac'
 
 // GET /api/org — Get current organization details
 export async function GET() {

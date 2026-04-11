@@ -1,4 +1,4 @@
-import { auth0 } from '@/lib/auth0';
+import { auth0 } from '@/lib/auth/auth0';
 
 const ROLE_NAMESPACE = 'https://askwesley.com/roles';
 

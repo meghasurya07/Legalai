@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { useParams } from "next/navigation"
-import { ToolPageLayout } from "@/components/ui/tool-page-layout"
+import { ToolPageLayout } from "@/components/tool-page-layout"
 
 interface LegalCompanyProfile {
     company: {

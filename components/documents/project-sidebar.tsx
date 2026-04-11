@@ -4,14 +4,14 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 // import { ScrollArea } from "@/components/ui/scroll-area" 
 import { Upload, Trash2, Search, Loader2, FileText, Table } from "lucide-react"
-import { FileIcon } from "@/components/ui/file-icon"
-import { FilePreviewContent } from "@/components/ui/file-preview-content"
+import { FileIcon } from "@/components/documents/file-icon"
+import { FilePreviewContent } from "@/components/documents/file-preview-content"
 import { useDocuments } from "@/context/vault-context"
 import { Project, Attachment } from "@/types"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
+import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
 
 interface ProjectSidebarProps {
     project: Project

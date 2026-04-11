@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
 import { executeWorkflow } from '@/lib/workflow/engine'
 import { PIPELINES } from '@/lib/workflow/pipelines'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 import { logger } from '@/lib/logger'
 
 // POST /api/templates/runs - Create a new workflow run with real AI

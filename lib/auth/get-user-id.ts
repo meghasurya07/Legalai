@@ -1,4 +1,4 @@
-import { auth0 } from '@/lib/auth0'
+import { auth0 } from '@/lib/auth/auth0'
 
 /**
  * Retrieves the Auth0 user ID (sub) from the current session.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { logger } from '@/lib/logger'

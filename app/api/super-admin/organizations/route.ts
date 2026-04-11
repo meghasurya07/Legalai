@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { requireSuperAdmin } from '@/lib/super-admin'
+import { requireSuperAdmin } from '@/lib/auth/super-admin'
 import { getManagementApiToken, getManagementApiBaseUrl } from '@/lib/auth/management-api'
 
 // Resolve an email address to an Auth0 user_id (sub) via Management API

@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai"
 import { streamText } from 'ai'
-import { auth0 } from '@/lib/auth0'
+import { auth0 } from '@/lib/auth/auth0'
 import { AI_MODELS } from "@/lib/ai/config"
 
 export const maxDuration = 60; // 60 seconds is plenty for a quick rewrite

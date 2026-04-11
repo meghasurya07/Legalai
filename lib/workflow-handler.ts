@@ -4,7 +4,7 @@ import { extractText } from '@/lib/ai/extract-text'
 import { UseCase } from '@/lib/ai/prompts'
 import { apiError, parseAIJSON } from './api-utils'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 
 interface WorkflowConfig {
     fileField?: string | string[]

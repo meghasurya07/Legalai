@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlignLeft, Check } from 'lucide-react';
-import { ActivityPhase } from '@/components/chat-interface';
+import { ActivityPhase } from '@/components/chat/activity-timeline';
 
 // Let's broaden the phase type internally since it could also be 'complete' or 'error'
 type TimelinePhase = ActivityPhase | 'complete' | 'error' | null;

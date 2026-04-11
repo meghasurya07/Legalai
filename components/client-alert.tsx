@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useParams } from "next/navigation"
-import { ToolPageLayout } from "@/components/ui/tool-page-layout"
+import { ToolPageLayout } from "@/components/tool-page-layout"
 
 interface ClientAlertResult {
     title: string

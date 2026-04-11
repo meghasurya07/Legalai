@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 
 interface RouteParams {
     params: Promise<{ id: string }>

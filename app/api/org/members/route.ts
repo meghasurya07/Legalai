@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
-import { canManage, outranks } from '@/lib/permissions'
-import { auth0 } from '@/lib/auth0'
+import { canManage, outranks } from '@/lib/auth/rbac'
+import { auth0 } from '@/lib/auth/auth0'
 
 // GET /api/org/members — List org members
 export async function GET() {

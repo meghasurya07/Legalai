@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
-import { canManage } from '@/lib/permissions'
+import { canManage } from '@/lib/auth/rbac'
 
 // GET /api/org/invites — List pending invitations
 export async function GET() {

@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { DuplicateFileModal } from "@/components/ui/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/ui/tool-page-layout"
-import { FileUploadZone } from "@/components/ui/file-upload-zone"
+import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
+import { ToolPageLayout } from "@/components/tool-page-layout"
+import { FileUploadZone } from "@/components/documents/file-upload-zone"
 
 interface ComparisonResult {
     summary: string

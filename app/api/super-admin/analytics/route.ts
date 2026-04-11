@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { requireSuperAdmin } from '@/lib/super-admin'
+import { requireSuperAdmin } from '@/lib/auth/super-admin'
 
 const PRICING: Record<string, { input: number; output: number }> = {
     'gpt-4o-mini': { input: 0.150, output: 0.600 },

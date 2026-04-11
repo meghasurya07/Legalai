@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/get-user-id'
+import { getUserId } from '@/lib/auth/get-user-id'
 import { getOrgContext } from '@/lib/get-org-context'
 
 // GET /api/chat/conversations - List conversations for current user

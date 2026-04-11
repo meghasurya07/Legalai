@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth0 } from "./lib/auth0";
+import { auth0 } from "./lib/auth/auth0";
 import { checkRateLimit, RATE_LIMIT_AUTH, RATE_LIMIT_GLOBAL } from "./lib/rate-limit";
 
 const protectedRoutes = ['/documents', '/templates', '/recent-chats', '/settings', '/help', '/super-admin', '/organization'];

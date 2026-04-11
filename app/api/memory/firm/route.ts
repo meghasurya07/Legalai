@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
+import { auth0 } from '@/lib/auth/auth0'
 import { apiError } from '@/lib/api-utils'
 import { getFirmDashboard, detectFirmPatterns } from '@/lib/memory/firm-intelligence'
 

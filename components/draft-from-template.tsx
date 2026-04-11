@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { ToolPageLayout } from "@/components/ui/tool-page-layout"
+import { ToolPageLayout } from "@/components/tool-page-layout"
 import { downloadTextFile } from "@/lib/download"
 
 interface TemplateField {
