@@ -198,7 +198,7 @@ export function AppHeader() {
     const ctx = getContext()
 
     // Hide Recents on listing/index pages where there's no active chat context
-    const hideRecents = pathname === '/documents' || pathname === '/templates' || pathname === '/recent-chats'
+    const hideRecents = pathname === '/documents' || pathname === '/templates' || pathname === '/recent-chats' || pathname?.startsWith('/calendar')
 
     return (
         <>

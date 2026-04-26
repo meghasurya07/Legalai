@@ -12,6 +12,187 @@ const DB_TYPE_MAP: Record<string, string> = {
     'assistant': 'assistant',
 }
 
+type AddFilesMessage = string | ((count: number) => string)
+
+interface AddFilesOptions {
+    successMessage?: AddFilesMessage
+}
+
+interface QueuedFileSplit {
+    uniqueFiles: File[]
+    duplicateFiles: File[]
+}
+
+interface ChatUploadPayload {
+    id?: string
+    name: string
+    type: Attachment['type']
+    source: Attachment['source']
+    url?: string
+    storageUrl?: string
+    mimeType?: string
+    size?: string | number
+    content?: string | null
+}
+
+export function getAttachmentType(file: File): Attachment['type'] {
+    const fileName = file.name.toLowerCase()
+
+    if (file.type.startsWith('image/')) return 'image'
+    if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) return 'pdf'
+    if (fileName.endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx'
+    if (fileName.endsWith('.csv') || file.type === 'text/csv') return 'csv'
+    if (
+        file.type.startsWith('text/') ||
+        fileName.endsWith('.txt') ||
+        fileName.endsWith('.md') ||
+        fileName.endsWith('.ts') ||
+        fileName.endsWith('.tsx') ||
+        fileName.endsWith('.js') ||
+        fileName.endsWith('.json')
+    ) return 'text'
+
+    return 'other'
+}
+
+export function splitDuplicateFiles(files: File[], existingAttachments: Attachment[]): QueuedFileSplit {
+    const seenNames = new Set(existingAttachments.map((file) => file.name))
+    const uniqueFiles: File[] = []
+    const duplicateFiles: File[] = []
+
+    for (const file of files) {
+        if (seenNames.has(file.name)) {
+            duplicateFiles.push(file)
+            continue
+        }
+
+        uniqueFiles.push(file)
+        seenNames.add(file.name)
+    }
+
+    return { uniqueFiles, duplicateFiles }
+}
+
+export function createAttachmentFromFile(file: File, objectUrl = URL.createObjectURL(file)): Attachment {
+    return {
+        name: file.name,
+        url: objectUrl,
+        type: getAttachmentType(file),
+        source: 'upload',
+        file,
+        mimeType: file.type || undefined,
+        size: file.size,
+    }
+}
+
+export function revokeAttachmentObjectUrl(attachment: Attachment) {
+    if (
+        attachment.url?.startsWith('blob:') &&
+        typeof URL !== 'undefined' &&
+        typeof URL.revokeObjectURL === 'function'
+    ) {
+        URL.revokeObjectURL(attachment.url)
+    }
+}
+
+function revokeAttachmentObjectUrls(attachments: Attachment[]) {
+    attachments.forEach(revokeAttachmentObjectUrl)
+}
+
+async function uploadAttachmentForChat(attachment: Attachment): Promise<ChatUploadPayload> {
+    if (attachment.source === 'drive' || !attachment.file) {
+        return {
+            id: attachment.id,
+            name: attachment.name,
+            type: attachment.type,
+            source: attachment.source,
+            url: attachment.url,
+            storageUrl: attachment.storageUrl,
+            mimeType: attachment.mimeType,
+            size: attachment.size,
+            content: attachment.extractedText,
+        }
+    }
+
+    try {
+        const formData = new FormData()
+        formData.append('file', attachment.file)
+        const res = await fetch('/api/documents/upload', { method: 'POST', body: formData })
+
+        if (!res.ok) {
+            throw new Error('Upload failed')
+        }
+
+        const data = await res.json()
+        return {
+            id: data.id,
+            name: data.name || attachment.name,
+            type: attachment.type,
+            source: 'upload',
+            url: data.url,
+            storageUrl: data.storageUrl,
+            mimeType: data.mimeType || data.type || attachment.file.type || attachment.mimeType,
+            size: data.size || attachment.size,
+            content: attachment.type === 'image' ? null : data.content,
+        }
+    } catch (error) {
+        if (attachment.type === 'image') {
+            throw error
+        }
+
+        let content = ''
+        if (attachment.type === 'text' || attachment.type === 'csv' || attachment.type === 'other') {
+            content = await attachment.file.text()
+        }
+
+        return {
+            name: attachment.name,
+            type: attachment.type,
+            source: attachment.source,
+            url: attachment.url,
+            storageUrl: attachment.storageUrl,
+            mimeType: attachment.file.type || attachment.mimeType,
+            size: attachment.size,
+            content,
+        }
+    }
+}
+
+function toDisplayAttachment(original: Attachment, processed: ChatUploadPayload): Attachment {
+    return {
+        ...original,
+        id: processed.id,
+        name: processed.name || original.name,
+        type: processed.type,
+        source: processed.source,
+        url: processed.url || original.url,
+        storageUrl: processed.storageUrl || original.storageUrl,
+        mimeType: processed.mimeType || original.mimeType,
+        size: processed.size || original.size,
+        extractedText: processed.content ?? original.extractedText,
+        file: undefined,
+    }
+}
+
+function toPersistedAttachment(file: ChatUploadPayload): Attachment {
+    return {
+        id: file.id,
+        name: file.name,
+        type: file.type,
+        source: file.source,
+        url: file.url,
+        storageUrl: file.storageUrl,
+        mimeType: file.mimeType,
+        size: file.size,
+    }
+}
+
+function getAddFilesSuccessMessage(message: AddFilesMessage | undefined, count: number): string {
+    if (typeof message === 'function') return message(count)
+    if (message) return message
+    return `Uploaded ${count} file(s)`
+}
+
 interface UseChatStreamOptions {
     projectId?: string
     workflowId?: string
@@ -59,6 +240,34 @@ export function useChatStream({
 
     // ─── Abort Controller ────────────────────────────────────────
     const abortControllerRef = React.useRef<AbortController | null>(null)
+    const uploadedFilesRef = React.useRef<Attachment[]>([])
+
+    React.useEffect(() => {
+        uploadedFilesRef.current = uploadedFiles
+    }, [uploadedFiles])
+
+    React.useEffect(() => {
+        return () => revokeAttachmentObjectUrls(uploadedFilesRef.current)
+    }, [])
+
+    const addFilesToUploadQueue = React.useCallback((files: File[] | FileList, options?: AddFilesOptions) => {
+        const incomingFiles = Array.from(files)
+        if (incomingFiles.length === 0) return 0
+
+        const { uniqueFiles, duplicateFiles } = splitDuplicateFiles(incomingFiles, uploadedFiles)
+
+        if (duplicateFiles.length > 0) {
+            setIsDuplicateModalOpen(true)
+        }
+
+        if (uniqueFiles.length === 0) return 0
+
+        const newAttachments = uniqueFiles.map((file) => createAttachmentFromFile(file))
+        setUploadedFiles(prev => [...prev, ...newAttachments])
+        toast.success(getAddFilesSuccessMessage(options?.successMessage, uniqueFiles.length))
+
+        return uniqueFiles.length
+    }, [uploadedFiles])
 
     // ─── Load Existing Conversation ──────────────────────────────
     React.useEffect(() => {
@@ -69,7 +278,8 @@ export function useChatStream({
                     const res = await fetch(`/api/chat/conversations/${initialConversationId}/messages`)
                     if (res.ok) {
                         const data = await res.json()
-                        const loadedMessages = data.map((msg: { role: 'user' | 'assistant', content: string, attachments?: Attachment[] }) => ({
+                        const loadedMessages = data.map((msg: { id: string, role: 'user' | 'assistant', content: string, attachments?: Attachment[] }) => ({
+                            id: msg.id,
                             role: msg.role,
                             content: msg.content,
                             files: msg.attachments || []
@@ -172,7 +382,9 @@ export function useChatStream({
 
         const userMessage = inputValue.trim()
         const currentFiles = [...uploadedFiles]
-        setMessages(prev => [...prev, { role: 'user', content: userMessage || (currentFiles.length > 0 ? `Sent ${currentFiles.length} file(s)` : ""), files: currentFiles }])
+        const localUserMessageId = `local-user-${Date.now()}`
+        const userDisplayContent = userMessage || (currentFiles.length > 0 ? `Sent ${currentFiles.length} file(s)` : "")
+        setMessages(prev => [...prev, { id: localUserMessageId, role: 'user', content: userDisplayContent, files: currentFiles }])
         setInputValue("")
 
         isAtBottomRef.current = true
@@ -214,42 +426,43 @@ export function useChatStream({
                 }
             }
 
-            // Persist user message to database
+            // Process files for extraction and storage
+            const processedFiles = await Promise.all(currentFiles.map(uploadAttachmentForChat))
+            const displayFiles = processedFiles.map((file, index) => toDisplayAttachment(currentFiles[index], file))
+
+            if (displayFiles.length > 0) {
+                setMessages(prev => prev.map(msg => (
+                    msg.id === localUserMessageId ? { ...msg, files: displayFiles } : msg
+                )))
+
+                displayFiles.forEach((displayFile, index) => {
+                    if (displayFile.url && displayFile.url !== currentFiles[index].url) {
+                        revokeAttachmentObjectUrl(currentFiles[index])
+                    }
+                })
+            }
+
+            // Persist user message to database after upload so reloads can re-sign previews.
             if (currentConversationId) {
-                await fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
+                const savedUserMessage = await fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         role: 'user',
-                        content: userMessage || `Sent ${currentFiles.length} file(s)`,
-                        attachments: currentFiles.map(f => ({ name: f.name, type: f.type }))
+                        content: userDisplayContent,
+                        attachments: processedFiles.map(toPersistedAttachment)
                     })
                 })
-            }
 
-            // Process files for extraction and storage
-            const processedFiles = await Promise.all(currentFiles.map(async (file) => {
-                if (file.source === 'drive' || !file.file) {
-                    return { name: file.name, type: file.type }
-                }
-                try {
-                    const formData = new FormData()
-                    formData.append('file', file.file)
-                    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData })
-                    if (res.ok) {
-                        const data = await res.json()
-                        return { id: data.id, name: file.name, type: file.type, content: data.content }
-                    } else {
-                        throw new Error('Upload failed')
+                if (savedUserMessage.ok) {
+                    const saved = await savedUserMessage.json()
+                    if (saved?.id) {
+                        setMessages(prev => prev.map(msg => (
+                            msg.id === localUserMessageId ? { ...msg, id: saved.id } : msg
+                        )))
                     }
-                } catch {
-                    let content = ''
-                    if (file.type === 'text' || file.type === 'csv' || file.type === 'other') {
-                        content = await file.file.text()
-                    }
-                    return { name: file.name, type: file.type, content }
                 }
-            }))
+            }
 
             // Stream response from API
             const controller = new AbortController()
@@ -349,6 +562,18 @@ export function useChatStream({
                                         }
                                     }
                                     scrollToBottom(false, 'auto')
+                                } else if (currentEvent === 'messageId') {
+                                    // Store the DB message ID on the last assistant message
+                                    const { messageId: msgId } = parsed
+                                    if (msgId) {
+                                        setMessages(prev => {
+                                            const updated = [...prev]
+                                            if (updated.length > 0 && updated[updated.length - 1].role === 'assistant') {
+                                                updated[updated.length - 1] = { ...updated[updated.length - 1], id: msgId }
+                                            }
+                                            return updated
+                                        })
+                                    }
                                 } else if (parsed.content) {
                                     if (!assistantMsgAdded) {
                                         setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch }])
@@ -396,40 +621,17 @@ export function useChatStream({
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (files && files.length > 0) {
-            const incomingFiles = Array.from(files)
-            const duplicates = incomingFiles.filter(f => uploadedFiles.some(existing => existing.name === f.name))
-
-            if (duplicates.length > 0) {
-                setIsDuplicateModalOpen(true)
-            }
-
-            const uniqueFiles = incomingFiles.filter(f => !uploadedFiles.some(existing => existing.name === f.name))
-
-            if (uniqueFiles.length === 0) return
-
-            const newAttachments: Attachment[] = uniqueFiles.map(f => {
-                let type: Attachment['type'] = 'other'
-                if (f.type.startsWith('image/')) type = 'image'
-                else if (f.type === 'application/pdf') type = 'pdf'
-                else if (f.name.endsWith('.docx') || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') type = 'docx'
-                else if (f.name.endsWith('.csv') || f.type === 'text/csv') type = 'csv'
-                else if (f.type.startsWith('text/') || f.name.endsWith('.txt') || f.name.endsWith('.md') || f.name.endsWith('.ts') || f.name.endsWith('.tsx') || f.name.endsWith('.js') || f.name.endsWith('.json')) type = 'text'
-
-                return {
-                    name: f.name,
-                    url: URL.createObjectURL(f),
-                    type,
-                    source: 'upload',
-                    file: f
-                }
-            })
-            setUploadedFiles(prev => [...prev, ...newAttachments])
-            toast.success(`Uploaded ${uniqueFiles.length} file(s)`)
+            addFilesToUploadQueue(files)
+            e.target.value = ''
         }
     }
 
     const removeFile = (fileName: string) => {
-        setUploadedFiles(prev => prev.filter(f => f.name !== fileName))
+        setUploadedFiles(prev => {
+            const removedFiles = prev.filter(f => f.name === fileName)
+            revokeAttachmentObjectUrls(removedFiles)
+            return prev.filter(f => f.name !== fileName)
+        })
     }
 
     return {
@@ -461,6 +663,7 @@ export function useChatStream({
         handleStop,
         handleImprovePrompt,
         handleFileUpload,
+        addFilesToUploadQueue,
         removeFile,
     }
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Sparkles, FileText } from "lucide-react"
+import { Sparkles, FileText, Check } from "lucide-react"
 import { CopyButton } from "@/components/ui/copy-button"
 import { ConfidenceBadge, ConfidenceLevel } from "@/components/chat/confidence-badge"
 import { CitationPill } from "@/components/chat/citation-pill"
@@ -14,6 +14,7 @@ import {
     stripSourcesBlock,
     escapeCitationMarkers,
 } from "@/lib/citations"
+import { parseCalendarAction, CalendarActionCard } from "@/components/chat/calendar-action-card"
 import type { Attachment, Message } from "@/types"
 
 import ReactMarkdown from "react-markdown"
@@ -26,6 +27,7 @@ interface MessageBubbleProps {
     activityPhase: ActivityPhase
     thinkingDuration: number | null
     isThinking: boolean
+    conversationId?: string | null
     onOpenCitations: (index: number) => void
     onOpenPdfViewer: (source: ChatCitationSource, citationNum: string) => void
     onPreviewAttachment: (attachment: Attachment) => void
@@ -39,6 +41,7 @@ export function MessageBubble({
     activityPhase,
     thinkingDuration,
     isThinking,
+    conversationId,
     onOpenCitations,
     onOpenPdfViewer,
     onPreviewAttachment,
@@ -79,31 +82,34 @@ export function MessageBubble({
                     {msg.files && msg.files.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-2">
                             {msg.files.map((file: Attachment, idx: number) => (
-                                <div
-                                    key={idx}
-                                    className={`flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-black/10 transition-colors ${msg.role === 'user' ? 'bg-white/10 border-white/20' : 'bg-muted border-border'}`}
-                                    onClick={() => onPreviewAttachment(file)}
-                                >
-                                    {file.type === 'image' ? (
-                                        <div className="h-8 w-8 rounded overflow-hidden bg-white/20 flex-shrink-0 relative">
-                                            {file.url ? (
-                                                <Image
-                                                    src={file.url}
-                                                    alt={file.name || "Preview"}
-                                                    fill
-                                                    className="object-cover"
-                                                    unoptimized
-                                                />
-                                            ) : <FileText />}
-                                        </div>
-                                    ) : (
-                                        <FileText className="h-4 w-4" />
-                                    )}
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="text-xs font-medium truncate max-w-[150px]">{file.name}</span>
-                                        <span className="text-[10px] opacity-70 uppercase">{file.type}</span>
+                                file.type === 'image' && file.url ? (
+                                    <div
+                                        key={idx}
+                                        className={`rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative ${msg.role === 'user' ? 'border border-white/20' : 'border border-border'}`}
+                                        onClick={() => onPreviewAttachment(file)}
+                                        style={{ width: 120, height: 80 }}
+                                    >
+                                        <Image
+                                            src={file.url}
+                                            alt="Attached image"
+                                            fill
+                                            className="object-cover"
+                                            unoptimized
+                                        />
                                     </div>
-                                </div>
+                                ) : (
+                                    <div
+                                        key={idx}
+                                        className={`flex items-center gap-2 p-2 rounded border cursor-pointer hover:bg-black/10 transition-colors ${msg.role === 'user' ? 'bg-white/10 border-white/20' : 'bg-muted border-border'}`}
+                                        onClick={() => onPreviewAttachment(file)}
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-medium truncate max-w-[150px]">{file.name}</span>
+                                            <span className="text-[10px] opacity-70 uppercase">{file.type}</span>
+                                        </div>
+                                    </div>
+                                )
                             ))}
                         </div>
                     )}
@@ -113,6 +119,8 @@ export function MessageBubble({
                     ) : (
                         <AssistantContent
                             content={msg.content}
+                            messageId={msg.id}
+                            conversationId={conversationId || undefined}
                             messageIndex={i}
                             onOpenCitations={onOpenCitations}
                             onOpenPdfViewer={onOpenPdfViewer}
@@ -128,14 +136,19 @@ export function MessageBubble({
 
 interface AssistantContentProps {
     content: string
+    messageId?: string
+    conversationId?: string
     messageIndex: number
     onOpenCitations: (index: number) => void
     onOpenPdfViewer: (source: ChatCitationSource, citationNum: string) => void
 }
 
-function AssistantContent({ content, messageIndex: i, onOpenCitations, onOpenPdfViewer }: AssistantContentProps) {
+function AssistantContent({ content, messageId, conversationId, messageIndex: i, onOpenCitations, onOpenPdfViewer }: AssistantContentProps) {
     const sources = parseSources(content)
-    const displayContent = escapeCitationMarkers(stripSourcesBlock(content))
+    // Parse and strip calendar action blocks
+    const { cleanMessage: contentNoCalendar, calendarItems, alreadyAdded } = parseCalendarAction(content)
+    const [calendarDismissed, setCalendarDismissed] = React.useState(false)
+    const displayContent = escapeCitationMarkers(stripSourcesBlock(contentNoCalendar))
     const sourcesMap = new Map(sources.map((src) => [src.num, src]))
 
     const processConfidenceBadges = (nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] => {
@@ -290,6 +303,34 @@ function AssistantContent({ content, messageIndex: i, onOpenCitations, onOpenPdf
                             <span className="font-medium">Sources</span>
                         </button>
                     )}
+                </div>
+            )}
+            {/* Calendar Action Card — active */}
+            {calendarItems && calendarItems.length > 0 && !calendarDismissed && (
+                <CalendarActionCard
+                    items={calendarItems}
+                    onDismiss={() => {
+                        setCalendarDismissed(true)
+                        // Replace with CALENDAR_ADDED marker on dismiss
+                        if (messageId && conversationId && content) {
+                            const updatedContent = content.replace(/<!--CALENDAR_ACTION:[\s\S]*?-->/g, "<!--CALENDAR_ADDED-->").trim()
+                            fetch(`/api/chat/conversations/${conversationId}/messages`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ messageId, content: updatedContent }),
+                            }).catch(() => { /* silent */ })
+                        }
+                    }}
+                    messageId={messageId}
+                    conversationId={conversationId}
+                    rawContent={content}
+                />
+            )}
+            {/* Calendar Added badge — shown on reload after items were added */}
+            {alreadyAdded && (
+                <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/15 rounded-lg px-3 py-2 mt-2">
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Added to your calendar</span>
                 </div>
             )}
         </>

@@ -101,7 +101,9 @@ export async function POST(request: NextRequest) {
             name: fileRecord.name,
             size: fileRecord.size,
             type: fileRecord.type,
+            mimeType: fileRecord.type,
             url: signedData?.signedUrl || filePath,
+            storageUrl: filePath,
             uploadedAt: fileRecord.uploaded_at,
             status: fileRecord.status,
             content: sanitizedText // We return the text so the frontend can immediately inject it into the prompt if needed

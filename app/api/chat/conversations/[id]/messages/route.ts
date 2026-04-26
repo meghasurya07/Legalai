@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/server'
 import { getUserId } from '@/lib/auth/get-user-id'
 import { AI_MODELS } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
+import type { Attachment } from '@/types'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -158,17 +159,96 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
         }
 
-        const messages = data.map(m => ({
+        const messages = await Promise.all(data.map(async (m) => ({
             id: m.id,
             role: m.role,
             content: m.content,
-            attachments: m.attachments,
+            attachments: await resignUploadAttachments(m.attachments),
             createdAt: m.created_at
-        }))
+        })))
 
         return NextResponse.json(messages)
     } catch (error) {
         console.error('Error in GET /api/chat/conversations/[id]/messages:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+}
+
+async function resignUploadAttachments(attachments: unknown): Promise<Attachment[]> {
+    if (!Array.isArray(attachments)) return []
+
+    const normalized = attachments
+        .filter((attachment): attachment is Attachment => (
+            !!attachment &&
+            typeof attachment === 'object' &&
+            typeof (attachment as Attachment).name === 'string'
+        ))
+        .map((attachment) => ({ ...attachment }))
+
+    const storagePaths = normalized
+        .map((attachment) => attachment.storageUrl)
+        .filter((path): path is string => typeof path === 'string' && path.length > 0 && !path.startsWith('http'))
+
+    if (storagePaths.length === 0) return normalized
+
+    const { data } = await supabase.storage
+        .from('documents')
+        .createSignedUrls(storagePaths, 3600)
+
+    const signedUrlByPath = new Map<string, string>()
+    data?.forEach((item, index) => {
+        if (item.signedUrl) {
+            signedUrlByPath.set(storagePaths[index], item.signedUrl)
+        }
+    })
+
+    return normalized.map((attachment) => {
+        const signedUrl = attachment.storageUrl ? signedUrlByPath.get(attachment.storageUrl) : undefined
+        return signedUrl ? { ...attachment, url: signedUrl } : attachment
+    })
+}
+
+// PATCH /api/chat/conversations/[id]/messages - Update a specific message's content
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+    try {
+        const userId = await getUserId()
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const { id } = await params
+        const body = await request.json()
+        const { messageId, content } = body
+
+        if (!messageId || typeof content !== 'string') {
+            return NextResponse.json({ error: 'messageId and content are required' }, { status: 400 })
+        }
+
+        // Verify the user owns this conversation
+        const { data: conv, error: convError } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single()
+
+        if (convError || !conv) {
+            return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+        }
+
+        // Update the message content
+        const { error: updateError } = await supabase
+            .from('messages')
+            .update({ content })
+            .eq('id', messageId)
+            .eq('conversation_id', id)
+
+        if (updateError) {
+            console.error('Error updating message:', updateError)
+            return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        console.error('Error in PATCH /api/chat/conversations/[id]/messages:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

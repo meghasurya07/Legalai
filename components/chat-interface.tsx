@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -54,7 +53,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         isActivitySidebarOpen, setIsActivitySidebarOpen,
         chatContainerRef, messagesEndRef, handleScroll,
         handleSend, handleStop, handleImprovePrompt,
-        handleFileUpload, removeFile,
+        handleFileUpload, addFilesToUploadQueue, removeFile,
     } = useChatStream({
         projectId,
         workflowId,
@@ -115,17 +114,23 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
                     {/* Preview Dialog */}
                     <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && setPreviewAttachment(null)}>
-                        <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-full h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
-                            <DialogHeader className="p-3 sm:p-4 border-b bg-muted/20">
-                                <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
-                                    {previewAttachment?.type === 'docx' ? <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" /> :
-                                        previewAttachment?.type === 'csv' ? <Table className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" /> :
-                                            previewAttachment?.type === 'pdf' ? <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" /> :
-                                                previewAttachment?.type === 'image' ? <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" /> :
+                        <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-full h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-background" aria-describedby={undefined}>
+                            {previewAttachment?.type !== 'image' && (
+                                <DialogHeader className="p-3 sm:p-4 border-b bg-muted/20">
+                                    <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+                                        {previewAttachment?.type === 'docx' ? <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" /> :
+                                            previewAttachment?.type === 'csv' ? <Table className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" /> :
+                                                previewAttachment?.type === 'pdf' ? <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" /> :
                                                     <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />}
-                                    <span className="truncate">{previewAttachment?.name}</span>
-                                </DialogTitle>
-                            </DialogHeader>
+                                        <span className="truncate">{previewAttachment?.name}</span>
+                                    </DialogTitle>
+                                </DialogHeader>
+                            )}
+                            {previewAttachment?.type === 'image' && (
+                                <DialogHeader className="sr-only">
+                                    <DialogTitle>Image preview</DialogTitle>
+                                </DialogHeader>
+                            )}
                             <div className="flex-1 min-h-0 bg-muted/10 relative overflow-auto">
                                 {previewAttachment && <FilePreviewContent attachment={previewAttachment} />}
                             </div>
@@ -160,6 +165,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                         activityPhase={activityPhase}
                                         thinkingDuration={thinkingDuration}
                                         isThinking={isThinking}
+                                        conversationId={_convId}
                                         onOpenCitations={openCitations}
                                         onOpenPdfViewer={openPdfViewer}
                                         onPreviewAttachment={setPreviewAttachment}
@@ -197,6 +203,9 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         onStop={handleStop}
                         onImprovePrompt={handleImprovePrompt}
                         onFileUpload={handleFileUpload}
+                        onPasteFiles={(files) => addFilesToUploadQueue(files, {
+                            successMessage: (count) => `Added ${count} image${count === 1 ? '' : 's'} from clipboard`
+                        })}
                         onRemoveFile={removeFile}
                         onPreviewAttachment={setPreviewAttachment}
                         isImprovingPrompt={isImprovingPrompt}

@@ -10,6 +10,13 @@ import { logger } from '@/lib/logger'
 import { phaseEvent, extractCitationsFromResponse } from '@/lib/ai/citation-extractor'
 import { buildChatContext } from '@/lib/ai/context-builder'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
+import {
+    buildChatCompletionUserContent,
+    buildResponsesUserContent,
+    getImageInputsFromFiles,
+    prepareFilesForTextContext,
+    type ChatImageInput,
+} from '@/lib/ai/chat-file-inputs'
 
 export async function POST(request: NextRequest) {
     try {
@@ -22,10 +29,12 @@ export async function POST(request: NextRequest) {
         const { sanitizeText, validateUUID } = await import('@/lib/validation')
         const message = sanitizeText(body.message, 100000)
         const { customization, files, queryMode, webSearch, thinking, deepResearch, confidenceMode } = body
+        const attachedFiles = Array.isArray(files) ? files : []
+        const effectiveMessage = message || (attachedFiles.length > 0 ? 'Please analyze the attached image(s).' : '')
         const projectId = validateUUID(body.projectId)
         const conversationId = validateUUID(body.conversationId)
 
-        if (!message) {
+        if (!effectiveMessage) {
             return apiError('Message is required', 400)
         }
 
@@ -74,7 +83,8 @@ export async function POST(request: NextRequest) {
         }
 
         // ─── Build Chat Context (RAG + Memory + Files) ───────────────
-        const ctx = await buildChatContext(message, projectId, userId, files)
+        const imageInputs = getImageInputsFromFiles(attachedFiles)
+        const ctx = await buildChatContext(effectiveMessage, projectId, userId, prepareFilesForTextContext(attachedFiles))
         const { userContent, ragSourcesBlock } = ctx
         const { ragContext, ragSystemMessage, ragChunks, memoryContextText, memoryAttributionText, usedMemories } = ctx
 
@@ -146,6 +156,7 @@ export async function POST(request: NextRequest) {
                         await streamResponsesAPI({
                             controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
                             webSearch, thinking, deepResearch, ragChunks, sourcesBlock,
+                            imageInputs,
                             conversationId, projectId, orgId, userId, usedMemories,
                             streamStartTime, chatMode,
                         })
@@ -156,6 +167,7 @@ export async function POST(request: NextRequest) {
                         await streamChatCompletions({
                             controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
                             ragChunks, sourcesBlock,
+                            imageInputs,
                             conversationId, projectId, orgId, userId, usedMemories,
                             streamStartTime,
                         })
@@ -199,6 +211,7 @@ interface StreamParams {
     finalUserPrompt: string
     ragChunks: RetrievedChunk[]
     sourcesBlock: string
+    imageInputs: ChatImageInput[]
     conversationId: string | null | undefined
     projectId: string | null | undefined
     orgId?: string
@@ -243,6 +256,7 @@ async function streamResponsesAPI(params: ResponsesAPIParams) {
     const {
         controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
         webSearch, thinking, deepResearch, ragChunks,
+        imageInputs,
         conversationId, projectId, orgId, userId, usedMemories,
         streamStartTime, chatMode,
     } = params
@@ -262,7 +276,7 @@ async function streamResponsesAPI(params: ResponsesAPIParams) {
     // Build Responses API input
     const input: OpenAI.Responses.ResponseInput = [
         { role: 'system', content: fullSystemPrompt },
-        { role: 'user', content: finalUserPrompt }
+        { role: 'user', content: buildResponsesUserContent(finalUserPrompt, imageInputs) }
     ]
 
     const responsesOptions = {
@@ -399,7 +413,11 @@ async function streamResponsesAPI(params: ResponsesAPIParams) {
 
     // Save assistant message
     if (conversationId && streamedContent) {
-        await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        // Send the message ID back to the client so it can be stored for later updates
+        if (savedMsgId && !safe.isClosed) {
+            safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
+        }
     }
 
     if (!safe.isClosed) {
@@ -430,7 +448,7 @@ async function streamResponsesAPI(params: ResponsesAPIParams) {
 async function streamChatCompletions(params: StreamParams) {
     const {
         controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
-        ragChunks,
+        ragChunks, imageInputs,
         conversationId, projectId, orgId, userId, usedMemories,
         streamStartTime,
     } = params
@@ -441,7 +459,7 @@ async function streamChatCompletions(params: StreamParams) {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: fullSystemPrompt }
     ]
-    messages.push({ role: 'user', content: finalUserPrompt })
+    messages.push({ role: 'user', content: buildChatCompletionUserContent(finalUserPrompt, imageInputs) })
 
     const stream = await client.chat.completions.create({
         model,
@@ -487,7 +505,10 @@ async function streamChatCompletions(params: StreamParams) {
 
     // Save assistant message
     if (conversationId && streamedContent) {
-        await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        if (savedMsgId && !safe.isClosed) {
+            safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
+        }
     }
 
     if (!safe.isClosed) {

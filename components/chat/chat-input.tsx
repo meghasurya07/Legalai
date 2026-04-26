@@ -14,6 +14,44 @@ import { FileIcon } from "@/components/documents/file-icon"
 import { toast } from "sonner"
 import type { Attachment } from "@/types"
 
+const SUPPORTED_CLIPBOARD_IMAGE_EXTENSIONS: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+}
+
+export function getSupportedClipboardImageExtension(mimeType: string): string | null {
+    return SUPPORTED_CLIPBOARD_IMAGE_EXTENSIONS[mimeType] || null
+}
+
+function padTimestampPart(value: number): string {
+    return String(value).padStart(2, '0')
+}
+
+export function getScreenshotFileName(mimeType: string, index = 0, date = new Date()): string {
+    const extension = getSupportedClipboardImageExtension(mimeType) || 'png'
+    const timestamp = [
+        date.getFullYear(),
+        padTimestampPart(date.getMonth() + 1),
+        padTimestampPart(date.getDate()),
+    ].join('')
+    const time = [
+        padTimestampPart(date.getHours()),
+        padTimestampPart(date.getMinutes()),
+        padTimestampPart(date.getSeconds()),
+    ].join('')
+    const suffix = index > 0 ? `-${index + 1}` : ''
+
+    return `screenshot-${timestamp}-${time}${suffix}.${extension}`
+}
+
+export function createScreenshotFile(file: File, index = 0, date = new Date()): File {
+    return new File([file], getScreenshotFileName(file.type, index, date), {
+        type: file.type,
+        lastModified: date.getTime(),
+    })
+}
+
 interface ChatInputProps {
     inputValue: string
     onInputChange: (value: string) => void
@@ -24,6 +62,7 @@ interface ChatInputProps {
     onStop: () => void
     onImprovePrompt: () => void
     onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
+    onPasteFiles: (files: File[]) => void
     onRemoveFile: (fileName: string) => void
     onPreviewAttachment: (attachment: Attachment) => void
     isImprovingPrompt: boolean
@@ -50,6 +89,7 @@ export function ChatInput({
     onStop,
     onImprovePrompt,
     onFileUpload,
+    onPasteFiles,
     onRemoveFile,
     onPreviewAttachment,
     isImprovingPrompt,
@@ -65,6 +105,42 @@ export function ChatInput({
     isFileDialogOpen,
     onFileDialogChange,
 }: ChatInputProps) {
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const clipboardItems = Array.from(e.clipboardData?.items || [])
+        const fileItems = clipboardItems.filter((item) => item.kind === 'file')
+        if (fileItems.length === 0) return
+
+        const pastedImages: File[] = []
+        let unsupportedFileCount = 0
+        const pasteDate = new Date()
+
+        fileItems.forEach((item) => {
+            const file = item.getAsFile()
+            if (!file) return
+
+            if (!getSupportedClipboardImageExtension(file.type)) {
+                unsupportedFileCount += 1
+                return
+            }
+
+            pastedImages.push(createScreenshotFile(file, pastedImages.length, pasteDate))
+        })
+
+        if (pastedImages.length === 0) {
+            if (unsupportedFileCount > 0) {
+                toast.error("Only PNG, JPG, or WebP images can be pasted into Wesley.")
+            }
+            return
+        }
+
+        e.preventDefault()
+        onPasteFiles(pastedImages)
+
+        if (unsupportedFileCount > 0) {
+            toast.error("Some pasted files were not supported.")
+        }
+    }
+
     return (
         <div className={`w-full z-20 pb-6 pt-2 px-2 md:px-8 bg-transparent ${!hasMessages ? "mt-4 max-w-4xl mx-auto" : "mt-auto max-w-5xl mx-auto"}`}>
             <div className="relative rounded-[2rem] border border-border/60 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-border overflow-hidden">
@@ -77,37 +153,57 @@ export function ChatInput({
                 {uploadedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 px-4 py-2 border-b bg-muted/5">
                         {uploadedFiles.map((file, idx) => (
-                            <div
-                                key={idx}
-                                onClick={() => onPreviewAttachment(file)}
-                                className="relative group flex items-center gap-2.5 p-2 pr-3 rounded-xl border bg-background/50 hover:bg-background hover:border-primary/30 transition-all duration-200 min-w-[140px] max-w-[200px] cursor-pointer"
-                            >
-                                <div className="h-8 w-8 shrink-0 rounded-lg bg-muted/50 flex items-center justify-center relative overflow-hidden">
-                                    {file.type === 'image' && file.url ? (
-                                        <Image
-                                            src={file.url}
-                                            alt={file.name}
-                                            fill
-                                            className="object-cover"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        <FileIcon filename={file.name} className="h-5 w-5" />
-                                    )}
-                                </div>
-                                <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-xs font-medium truncate leading-none mb-1">{file.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">{file.type}</span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => onRemoveFile(file.name)}
-                                    aria-label={`Remove ${file.name}`}
-                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-muted border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                            file.type === 'image' && file.url ? (
+                                <div
+                                    key={idx}
+                                    onClick={() => onPreviewAttachment(file)}
+                                    className="relative group rounded-xl border bg-background/50 hover:border-primary/30 transition-all duration-200 cursor-pointer overflow-hidden h-16 w-16"
                                 >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </div>
+                                    <Image
+                                        src={file.url}
+                                        alt="Pasted image"
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onRemoveFile(file.name)
+                                        }}
+                                        aria-label="Remove image"
+                                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-muted border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div
+                                    key={idx}
+                                    onClick={() => onPreviewAttachment(file)}
+                                    className="relative group flex items-center gap-2.5 p-2 pr-3 rounded-xl border bg-background/50 hover:bg-background hover:border-primary/30 transition-all duration-200 min-w-[140px] max-w-[200px] cursor-pointer"
+                                >
+                                    <div className="h-8 w-8 shrink-0 rounded-lg bg-muted/50 flex items-center justify-center relative overflow-hidden">
+                                        <FileIcon filename={file.name} className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                        <span className="text-xs font-medium truncate leading-none mb-1">{file.name}</span>
+                                        <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">{file.type}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onRemoveFile(file.name)
+                                        }}
+                                        aria-label={`Remove ${file.name}`}
+                                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-muted border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            )
                         ))}
                     </div>
                 )}
@@ -119,6 +215,7 @@ export function ChatInput({
                     className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                     value={inputValue}
                     onChange={(e) => onInputChange(e.target.value)}
+                    onPaste={handlePaste}
                     disabled={isLoading}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {

@@ -59,6 +59,7 @@ export interface Conversation {
     messageCount?: number
 }
 export interface Message {
+    id?: string
     role: 'user' | 'assistant'
     content: string
     files?: Attachment[]
@@ -66,10 +67,101 @@ export interface Message {
 }
 
 export interface Attachment {
+    id?: string
     name: string
     url?: string
+    storageUrl?: string
+    mimeType?: string
+    size?: string | number
     type: 'image' | 'pdf' | 'docx' | 'csv' | 'text' | 'other'
     source: 'upload' | 'drive'
     file?: File
     extractedText?: string | null
+}
+
+// ============================================
+// Calendar Types
+// ============================================
+
+export type CalendarEventType = 'meeting' | 'hearing' | 'deposition' | 'filing' | 'consultation' | 'internal' | 'other'
+export type DeadlineType = 'filing' | 'statute_of_limitations' | 'discovery' | 'motion' | 'response' | 'compliance' | 'custom'
+export type DeadlinePriority = 'critical' | 'high' | 'medium' | 'low'
+export type DeadlineStatus = 'pending' | 'in_progress' | 'completed' | 'missed'
+export type CalendarView = 'month' | 'week' | 'day' | 'agenda'
+
+export interface CalendarEvent {
+    id: string
+    userId: string
+    orgId?: string
+    projectId?: string | null
+    projectTitle?: string
+    title: string
+    description?: string
+    eventType: CalendarEventType
+    startAt: string
+    endAt?: string
+    allDay: boolean
+    location?: string
+    recurrenceRule?: string
+    recurrenceEnd?: string
+    color?: string
+    caseNumber?: string | null
+    courtName?: string | null
+    judgeName?: string | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Deadline {
+    id: string
+    userId: string
+    orgId?: string
+    projectId?: string | null
+    projectTitle?: string
+    title: string
+    description?: string
+    deadlineType: DeadlineType
+    dueAt: string
+    priority: DeadlinePriority
+    status: DeadlineStatus
+    remindBeforeMinutes: number
+    completedAt?: string
+    caseNumber?: string | null
+    courtName?: string | null
+    judgeName?: string | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface CalendarItem {
+    id: string
+    kind: 'event' | 'deadline'
+    title: string
+    date: string
+    startAt: string
+    endAt?: string
+    allDay: boolean
+    type: string
+    priority?: DeadlinePriority
+    status?: DeadlineStatus
+    color: string
+    projectTitle?: string
+    projectId?: string | null
+    location?: string
+    description?: string
+    caseNumber?: string | null
+    courtName?: string | null
+    judgeName?: string | null
+}
+
+export interface DeadlineAuditEntry {
+    id: string
+    deadlineId: string
+    userId: string
+    userName?: string
+    action: 'created' | 'status_changed' | 'field_updated' | 'deleted'
+    fieldChanged?: string
+    oldValue?: string
+    newValue?: string
+    createdAt: string
 }

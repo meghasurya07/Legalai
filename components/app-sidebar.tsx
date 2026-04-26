@@ -7,16 +7,20 @@ import { useUserSettings } from "@/context/user-settings-context"
 import {
     BookOpen,
     Building2,
+    Calendar,
+    CalendarClock,
     History,
     LayoutGrid,
     Library,
     Settings,
     HelpCircle,
     ChevronDown,
+    ChevronRight,
     LogOut,
     MessageSquarePlus,
     ShieldAlert
 } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 import {
     Sidebar,
@@ -113,6 +117,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <span>Documents</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+
+                            {/* Calendar — Collapsible section */}
+                            <Collapsible defaultOpen={pathname?.startsWith('/calendar')} className="group/calendar">
+                                <SidebarMenuItem>
+                                    <CollapsibleTrigger asChild>
+                                        <SidebarMenuButton
+                                            isActive={pathname?.startsWith('/calendar')}
+                                            tooltip="Calendar"
+                                        >
+                                            <Calendar />
+                                            <span>Calendar</span>
+                                            <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/calendar:rotate-90" />
+                                        </SidebarMenuButton>
+                                    </CollapsibleTrigger>
+                                </SidebarMenuItem>
+                                <CollapsibleContent className="pl-4 group-data-[collapsible=icon]:hidden">
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            isActive={pathname === '/calendar/schedule'}
+                                            tooltip="Schedule"
+                                            onClick={() => router.push('/calendar/schedule')}
+                                            className="h-8"
+                                        >
+                                            <Calendar className="h-4 w-4" />
+                                            <span className="text-[13px]">Schedule</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton
+                                            isActive={pathname === '/calendar/deadlines'}
+                                            tooltip="Deadlines"
+                                            onClick={() => router.push('/calendar/deadlines')}
+                                            className="h-8"
+                                        >
+                                            <CalendarClock className="h-4 w-4" />
+                                            <span className="text-[13px]">Deadlines</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </CollapsibleContent>
+                            </Collapsible>
 
                             <SidebarMenuItem>
                                 <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => router.push('/templates')}>

@@ -7,8 +7,7 @@ import { logger } from '@/lib/logger'
 interface AttachedFile {
     id?: string
     name: string
-    content?: string
-    [key: string]: unknown
+    content?: string | null
 }
 
 export interface ChatContext {

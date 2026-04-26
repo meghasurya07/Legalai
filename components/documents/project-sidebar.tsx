@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-// import { ScrollArea } from "@/components/ui/scroll-area" 
-import { Upload, Trash2, Search, Loader2, FileText, Table } from "lucide-react"
+import { Upload, Trash2, Search, Loader2, FileText, Table, Sparkles } from "lucide-react"
 import { FileIcon } from "@/components/documents/file-icon"
 import { FilePreviewContent } from "@/components/documents/file-preview-content"
+import { AIDateExtractor } from "@/components/calendar/ai-date-extractor"
 import { useDocuments } from "@/context/vault-context"
 import { Project, Attachment } from "@/types"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,8 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [previewFile, setPreviewFile] = useState<{ id: string, name: string, size: string, type: string, url?: string, extracted_text?: string | null } | null>(null)
     const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false)
+    const [extractorOpen, setExtractorOpen] = useState(false)
+    const [extractorFile, setExtractorFile] = useState<{ name: string; text: string } | null>(null)
 
     // Real file upload
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +149,7 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
 
             {/* File Preview Dialog */}
             <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-                <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-full h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+                <DialogContent className="max-w-full sm:max-w-4xl w-[95vw] sm:w-full h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-background" aria-describedby={undefined}>
                     <DialogHeader className="p-3 sm:p-4 border-b bg-muted/20">
                         <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
                             {(() => {
@@ -166,6 +168,24 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
                             })()}
                             <span className="truncate">{previewFile?.name}</span>
                         </DialogTitle>
+                        {/* Extract Dates button */}
+                        {previewFile?.extracted_text && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1.5 mt-1"
+                                onClick={() => {
+                                    setExtractorFile({
+                                        name: previewFile.name,
+                                        text: previewFile.extracted_text || "",
+                                    })
+                                    setExtractorOpen(true)
+                                }}
+                            >
+                                <Sparkles className="h-3 w-3" />
+                                Extract Dates
+                            </Button>
+                        )}
                     </DialogHeader>
                     <div className="flex-1 min-h-0 bg-muted/10 relative overflow-auto">
                         {previewFile ? (
@@ -197,6 +217,33 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
                 isOpen={isDuplicateModalOpen}
                 onOpenChange={setIsDuplicateModalOpen}
             />
+
+            {/* AI Date Extractor */}
+            {extractorFile && (
+                <AIDateExtractor
+                    open={extractorOpen}
+                    onOpenChange={setExtractorOpen}
+                    documentName={extractorFile.name}
+                    documentText={extractorFile.text}
+                    projectId={project.id}
+                    onAddDeadline={async (data) => {
+                        const res = await fetch("/api/calendar/deadlines", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(data),
+                        })
+                        if (!res.ok) throw new Error("Failed")
+                    }}
+                    onAddEvent={async (data) => {
+                        const res = await fetch("/api/calendar/events", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(data),
+                        })
+                        if (!res.ok) throw new Error("Failed")
+                    }}
+                />
+            )}
         </div>
     )
 }

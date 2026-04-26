@@ -25,22 +25,25 @@ export async function saveAssistantMessage({
     orgId,
     userId,
     usedMemories,
-}: SaveAssistantMessageParams): Promise<void> {
+}: SaveAssistantMessageParams): Promise<string | null> {
     try {
         const finalContent = sourcesBlock
             ? `${streamedContent.replace(/\n*<!--SOURCES:\n[\s\S]*?-->/g, '').trim()}\n\n${sourcesBlock}`
             : streamedContent
 
-        const { error: saveError } = await supabase
+        const { data: savedMsg, error: saveError } = await supabase
             .from('messages')
             .insert({
                 conversation_id: conversationId,
                 role: 'assistant',
                 content: finalContent
             })
+            .select('id')
+            .single()
 
         if (saveError) {
             logger.error('save-message', 'Failed to save assistant message', saveError)
+            return null
         } else if (projectId && streamedContent) {
             // Enqueue background jobs
             import('@/lib/jobs').then(j => {
@@ -80,7 +83,9 @@ export async function saveAssistantMessage({
                 ).catch(() => {})
             }
         }
+        return savedMsg?.id || null
     } catch (e) {
         logger.error('save-message', 'Error saving assistant message', e)
+        return null
     }
 }
