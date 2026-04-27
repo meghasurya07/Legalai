@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             .insert({
                 workflow_id: workflowId,
                 status: 'running',
-                input_data: inputData || {},
+                input_payload: inputData || {},
                 user_id: userId
             })
             .select()
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
                         .update({
                             status: 'completed',
                             completed_at: new Date().toISOString(),
-                            output_data: result
+                            output_payload: result
                         })
                         .eq('id', run.id)
                 })
@@ -97,8 +97,7 @@ export async function POST(request: NextRequest) {
                 .from('workflow_runs')
                 .update({
                     status: 'failed',
-                    error_message: aiError,
-                    updated_at: new Date().toISOString()
+                    error_message: aiError
                 })
                 .eq('id', run.id)
 
@@ -117,8 +116,7 @@ export async function POST(request: NextRequest) {
             .update({
                 status: 'completed',
                 completed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                output_data: { message: result }
+                output_payload: { message: result }
             })
             .eq('id', run.id)
 
@@ -166,8 +164,8 @@ export async function GET(request: NextRequest) {
             id: r.id,
             workflowId: r.workflow_id,
             status: r.status,
-            inputData: r.input_data,
-            outputData: r.output_data,
+            inputData: r.input_payload,
+            outputData: r.output_payload,
             errorMessage: r.error_message,
             createdAt: r.created_at,
             completedAt: r.completed_at
