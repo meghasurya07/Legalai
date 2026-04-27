@@ -465,7 +465,22 @@ export function CalendarPage({ tab }: CalendarPageProps) {
                                             <UrgencyBadge countdown={countdown} />
                                         </td>
                                         <td className="px-4 py-3">
-                                            <DeadlineStatusBadge status={d.status as DeadlineStatus} priority={d.priority as DeadlinePriority} />
+                                            <span className={cn(
+                                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium",
+                                                d.priority === "critical" && "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+                                                d.priority === "high" && "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+                                                d.priority === "medium" && "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+                                                d.priority === "low" && "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+                                            )}>
+                                                <span className={cn(
+                                                    "w-1.5 h-1.5 rounded-full",
+                                                    d.priority === "critical" && "bg-red-500",
+                                                    d.priority === "high" && "bg-orange-500",
+                                                    d.priority === "medium" && "bg-amber-500",
+                                                    d.priority === "low" && "bg-emerald-500",
+                                                )} />
+                                                {d.priority ? d.priority.charAt(0).toUpperCase() + d.priority.slice(1) : "Medium"}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             <Select value={d.status} onValueChange={v => handleStatusChange(d, v as DeadlineStatus)}>

@@ -128,6 +128,30 @@ export async function POST(req: NextRequest) {
 
         if (error) throw error;
 
+        // Auto-create a matching deadline for filing-type events
+        if ((body.eventType || "meeting") === "filing") {
+            try {
+                await supabase.from("deadlines").insert({
+                    user_id: userId,
+                    org_id: body.orgId || null,
+                    project_id: body.projectId || null,
+                    title: body.title,
+                    description: body.description || null,
+                    deadline_type: "filing",
+                    due_at: body.startAt,
+                    priority: body.priority || "medium",
+                    status: "pending",
+                    remind_before_minutes: 1440,
+                    case_number: body.caseNumber || null,
+                    court_name: body.courtName || null,
+                    judge_name: body.judgeName || null,
+                });
+            } catch (deadlineErr) {
+                // Non-blocking — the event was already created
+                console.error("[Calendar Events POST] Failed to auto-create deadline:", deadlineErr);
+            }
+        }
+
         return NextResponse.json(mapEvent(data), { status: 201 });
     } catch (err) {
         console.error("[Calendar Events POST]", err);
