@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth0 } from "./lib/auth/auth0";
 import { checkRateLimit, RATE_LIMIT_AUTH, RATE_LIMIT_GLOBAL } from "./lib/rate-limit";
 
-const protectedRoutes = ['/documents', '/templates', '/recent-chats', '/settings', '/help', '/super-admin', '/organization'];
+const protectedRoutes = ['/documents', '/templates', '/recent-chats', '/settings', '/help', '/organization'];
 
 // API routes that require authentication (all except auth callbacks and cron jobs)
 const publicApiPrefixes = ['/api/auth', '/api/cron'];
@@ -99,25 +99,7 @@ export async function proxy(request: NextRequest) {
             return NextResponse.redirect(loginUrl);
         }
 
-        // ── Server-side super-admin page guard ───────────────
-        // Block non-super-admins from even loading the super-admin page
-        if (pathname.startsWith('/super-admin')) {
-            const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS || '')
-                .split(',')
-                .map(e => e.trim().toLowerCase())
-                .filter(Boolean);
-            const userEmail = (session.user.email || '').toLowerCase();
-            if (!userEmail || !superAdminEmails.includes(userEmail)) {
-                console.warn(`[SECURITY] SUPER_ADMIN_BLOCKED | user=${session.user.sub} | email=${userEmail} | ip=${ip}`);
-                logSecurityEvent('SUPER_ADMIN_BLOCKED', {
-                    path: pathname,
-                    ip,
-                    email: userEmail,
-                }, session.user.sub);
-                // Redirect to home — don't reveal that the page exists
-                return NextResponse.redirect(new URL('/', request.url));
-            }
-        }
+
 
         // ── Global API rate limit per user ───────────────────
         if (isProtectedApi) {

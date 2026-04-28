@@ -17,8 +17,7 @@ import {
     ChevronDown,
     ChevronRight,
     LogOut,
-    MessageSquarePlus,
-    ShieldAlert
+    MessageSquarePlus
 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
@@ -62,13 +61,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         .slice(0, 2)
         .toUpperCase()
 
-    // Check if user is a super admin
-    const [isSuperAdmin, setIsSuperAdmin] = React.useState(false)
-    React.useEffect(() => {
-        fetch("/api/super-admin/stats")
-            .then(r => setIsSuperAdmin(r.ok))
-            .catch(() => setIsSuperAdmin(false))
-    }, [])
+
 
     // Extract Auth0 roles from user session
     const roles = user?.['https://askwesley.com/roles'] as string[] | undefined;
@@ -228,17 +221,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         <span>Help</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
-                                {isSuperAdmin && (
-                                    <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuGroup>
-                                            <DropdownMenuItem onClick={() => router.push('/super-admin')}>
-                                                <ShieldAlert className="mr-2 h-4 w-4 text-red-500" />
-                                                <span>Super Admin</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuGroup>
-                                    </>
-                                )}
+
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
