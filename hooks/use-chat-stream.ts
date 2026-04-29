@@ -70,6 +70,14 @@ export function useChatStream({
     const [isConfidenceMode, setIsConfidenceMode] = React.useState(false)
     const queryMode = "ask"
 
+    // ─── Draft Panel State (Harvey-style split-pane) ─────────────
+    const [isDrafting, setIsDrafting] = React.useState(false)
+    const [draftContent, setDraftContent] = React.useState('')
+    const [draftTitle, setDraftTitle] = React.useState('')
+    const [draftType, setDraftType] = React.useState('general')
+    const [isDraftStreaming, setIsDraftStreaming] = React.useState(false)
+    const draftModeRef = React.useRef(false)
+
     // ─── Activity / Thinking State ───────────────────────────────
     const [activityPhase, setActivityPhase] = React.useState<ActivityPhase>(null)
     const [activityEntries, setActivityEntries] = React.useState<{ phase: string; detail: string; time: Date }[]>([])
@@ -174,7 +182,21 @@ export function useChatStream({
         }
         setIsLoading(false)
         setActivityPhase(null)
+        if (draftModeRef.current) {
+            setIsDraftStreaming(false)
+            draftModeRef.current = false
+        }
     }
+
+    // ─── Close Draft Panel ───────────────────────────────────────
+    const closeDraftPanel = React.useCallback(() => {
+        setIsDrafting(false)
+        setDraftContent('')
+        setDraftTitle('')
+        setDraftType('general')
+        setIsDraftStreaming(false)
+        draftModeRef.current = false
+    }, [])
 
     // ─── Improve Prompt ──────────────────────────────────────────
     const handleImprovePrompt = async () => {
@@ -347,6 +369,9 @@ export function useChatStream({
             let fullContent = ''
             let assistantMsgAdded = false
             let buffer = ''
+            // Draft detection state — used to intercept DRAFT_START/DRAFT_END markers
+            let localDraftMode = false
+            let localDraftContent = ''
 
             if (reader) {
                 while (true) {
@@ -433,13 +458,71 @@ export function useChatStream({
                                     } else {
                                         fullContent += parsed.content
                                     }
-                                    setMessages(prev => {
-                                        const updated = [...prev]
-                                        updated[updated.length - 1] = { ...updated[updated.length - 1], content: fullContent }
-                                        return updated
-                                    })
-                                    scrollToBottom(false, 'auto')
-                                }
+
+                                    // ─── Harvey-style Draft Detection ────────────
+                                    // Check for DRAFT_START marker in accumulated content
+                                    const draftStartRegex = /<!--DRAFT_START:(\{[\s\S]*?\})-->/
+                                    const draftEndMarker = '<!--DRAFT_END-->'
+
+                                    if (!localDraftMode) {
+                                        const startMatch = fullContent.match(draftStartRegex)
+                                        if (startMatch) {
+                                            // Extract metadata and switch to draft mode
+                                            try {
+                                                const meta = JSON.parse(startMatch[1])
+                                                setDraftTitle(meta.title || 'Untitled Draft')
+                                                setDraftType(meta.documentType || 'general')
+                                            } catch {
+                                                setDraftTitle('AI Draft')
+                                                setDraftType('general')
+                                            }
+                                            localDraftMode = true
+                                            draftModeRef.current = true
+                                            setIsDrafting(true)
+                                            setIsDraftStreaming(true)
+                                            setDraftContent('')
+
+                                            // Chat message = only the text BEFORE the marker
+                                            const chatPart = fullContent.substring(0, startMatch.index).trim()
+                                            // Draft content = everything AFTER the marker
+                                            const afterMarker = fullContent.substring((startMatch.index || 0) + startMatch[0].length)
+                                            localDraftContent = afterMarker.replace(draftEndMarker, '')
+                                            setDraftContent(localDraftContent)
+
+                                            // Update chat message to just the brief acknowledgment
+                                            setMessages(prev => {
+                                                const updated = [...prev]
+                                                updated[updated.length - 1] = { ...updated[updated.length - 1], content: chatPart || 'Drafting your document...' }
+                                                return updated
+                                            })
+                                            scrollToBottom(false, 'auto')
+                                            continue
+                                        }
+                                    }
+
+                                    if (localDraftMode) {
+                                        // Extract only the new content after the DRAFT_START marker
+                                        const afterStartIdx = fullContent.indexOf('-->', fullContent.indexOf('<!--DRAFT_START'))
+                                        if (afterStartIdx !== -1) {
+                                            localDraftContent = fullContent.substring(afterStartIdx + 3).replace(draftEndMarker, '')
+                                        }
+                                        setDraftContent(localDraftContent)
+
+                                        // Check for DRAFT_END
+                                        if (fullContent.includes(draftEndMarker)) {
+                                            setIsDraftStreaming(false)
+                                            draftModeRef.current = false
+                                            localDraftMode = false
+                                        }
+                                    } else {
+                                        // Normal chat mode — update message as usual
+                                        setMessages(prev => {
+                                            const updated = [...prev]
+                                            updated[updated.length - 1] = { ...updated[updated.length - 1], content: fullContent }
+                                            return updated
+                                        })
+                                        scrollToBottom(false, 'auto')
+                                    }                                }
                             } catch { /* skip malformed */ }
 
                             currentEvent = ''
@@ -498,6 +581,13 @@ export function useChatStream({
         activityEntries,
         thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
+        // Draft panel (Harvey-style)
+        isDrafting,
+        draftContent,
+        draftTitle,
+        draftType,
+        isDraftStreaming,
+        closeDraftPanel,
         // Scroll
         chatContainerRef,
         messagesEndRef,

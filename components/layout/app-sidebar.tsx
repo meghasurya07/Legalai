@@ -5,11 +5,13 @@ import { usePathname, useRouter } from "next/navigation"
 import { useUser } from "@auth0/nextjs-auth0/client"
 import { useUserSettings } from "@/context/user-settings-context"
 import {
+    BookMarked,
     BookOpen,
     Brain,
     Building2,
     Calendar,
     CalendarClock,
+    FileEdit,
     History,
     LayoutGrid,
     Library,
@@ -156,6 +158,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => router.push('/templates')}>
                                     <Library />
                                     <span>Templates</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/prompt-library')} tooltip="Prompt Library" onClick={() => router.push('/prompt-library')}>
+                                    <BookMarked />
+                                    <span>Prompt Library</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/drafts')} tooltip="Drafts" onClick={() => router.push('/drafts')}>
+                                    <FileEdit />
+                                    <span>Drafts</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>

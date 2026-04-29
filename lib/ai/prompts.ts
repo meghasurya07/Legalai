@@ -398,6 +398,27 @@ function buildAssistantSystemPrompt(input: AssistantChatInput): string {
   - Do NOT mention this block in your visible response
   - Calculate dates from today: ${new Date().toISOString().split('T')[0]}`
 
+  // Document Drafting Detection
+  prompt += `\n\n**Document Drafting Detection**
+- TRIGGER: When the user asks you to DRAFT, WRITE, COMPOSE, or CREATE a legal document, clause, memo, brief, letter, motion, contract section, or any substantial written content.
+- FORMAT: You MUST wrap your drafted content with START and END markers. The structure is:
+
+1. First, output a brief 1-sentence acknowledgment (e.g., "I'll draft that NDA for you.")
+2. Then output the START marker on its own line:
+<!--DRAFT_START:{"title":"Brief document title","documentType":"contract|memo|brief|letter|motion|general"}-->
+3. Then output the full professional document using markdown formatting (headings, bold, numbered lists)
+4. End with the END marker on its own line:
+<!--DRAFT_END-->
+
+- RULES:
+  - The START marker MUST appear BEFORE any drafted content
+  - The END marker MUST appear AFTER all drafted content
+  - Only use this for substantial content (more than a paragraph)
+  - Choose the correct documentType based on what was drafted
+  - The title should be a short, descriptive name for the document
+  - Your brief acknowledgment before DRAFT_START should be conversational and short (1-2 sentences max)
+  - Do NOT explain what the markers do — they are invisible to the user`
+
   // For standard chat mode: instruct AI to generate its own sources block
   // For web search/deep research: citations are handled server-side via url_citation annotation post-processing
   // For thinking mode: reasoning models don't have web access, so skip citation instructions

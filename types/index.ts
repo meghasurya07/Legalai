@@ -165,3 +165,39 @@ export interface DeadlineAuditEntry {
     newValue?: string
     createdAt: string
 }
+
+// ============================================
+// Document Drafting Types
+// ============================================
+
+export type DraftDocumentType = 'general' | 'contract' | 'memo' | 'brief' | 'letter' | 'motion'
+export type DraftStatus = 'draft' | 'review' | 'final'
+
+export interface Draft {
+    id: string
+    userId: string
+    orgId?: string
+    projectId?: string | null
+    projectTitle?: string
+    title: string
+    content: unknown[]
+    contentText: string
+    documentType: DraftDocumentType
+    wordCount: number
+    status: DraftStatus
+    isArchived: boolean
+    createdAt: string
+    updatedAt: string
+}
+
+export interface DraftVersion {
+    id: string
+    draftId: string
+    content: unknown[]
+    contentText: string
+    wordCount: number
+    versionNumber: number
+    changeSummary?: string
+    createdBy: string
+    createdAt: string
+}

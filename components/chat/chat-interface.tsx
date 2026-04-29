@@ -23,6 +23,7 @@ import dynamic from "next/dynamic"
 import { useChatStream } from "@/hooks/use-chat-stream"
 import { MessageBubble } from "@/components/chat/message-bubble"
 import { ChatInput } from "@/components/chat/chat-input"
+import { DraftEditorPanel } from "@/components/chat/draft-editor-panel"
 
 interface ChatInterfaceProps {
     onMessageSent?: () => void
@@ -51,6 +52,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         isConfidenceMode, setIsConfidenceMode,
         activityPhase, activityEntries, thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
+        // Draft panel (Harvey-style)
+        isDrafting, draftContent, draftTitle, draftType, isDraftStreaming, closeDraftPanel,
         chatContainerRef, messagesEndRef, handleScroll,
         handleSend, handleStop, handleImprovePrompt,
         handleFileUpload, addFilesToUploadQueue, removeFile,
@@ -109,7 +112,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
     return (
         <div className="flex h-full w-full bg-background relative overflow-hidden">
-            <div className="flex flex-col flex-1 h-full min-w-0 bg-background relative overflow-hidden">
+            <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting ? 'w-[45%]' : 'flex-1'}`}>
                 <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-2 sm:p-3 md:p-4 relative">
 
                     {/* Preview Dialog */}
@@ -227,6 +230,19 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     }
                 </div>
             </div>
+            {/* Draft Editor Panel (Harvey-style split pane) */}
+            {isDrafting && (
+                <div className="w-[55%] h-full shrink-0 transition-all duration-300 ease-in-out">
+                    <DraftEditorPanel
+                        isOpen={isDrafting}
+                        title={draftTitle}
+                        documentType={draftType}
+                        content={draftContent}
+                        isStreaming={isDraftStreaming}
+                        onClose={closeDraftPanel}
+                    />
+                </div>
+            )}
             {/* Activity Sidebar */}
             <ActivitySidebar
                 isOpen={isActivitySidebarOpen}
