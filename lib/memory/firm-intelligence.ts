@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Firm Intelligence Engine — Cross-case aggregation and pattern detection
  *
@@ -161,7 +162,7 @@ export async function detectFirmPatterns(
         }
 
     } catch (err) {
-        console.warn('[FirmIntelligence] Pattern detection failed:', err)
+        logger.warn('[FirmIntelligence] Pattern detection failed:', 'Error occurred', err)
     }
 
     return patterns
@@ -216,7 +217,7 @@ export async function getFirmPatterns(
             updated_at: row.updated_at as string,
         }))
     } catch (err) {
-        console.warn('[FirmIntelligence] getFirmPatterns failed:', err)
+        logger.warn('[FirmIntelligence] getFirmPatterns failed:', 'Error occurred', err)
         return []
     }
 }
@@ -286,7 +287,7 @@ export async function getFirmDashboard(
             practiceAreas,
         }
     } catch (err) {
-        console.warn('[FirmIntelligence] Dashboard failed:', err)
+        logger.warn('[FirmIntelligence] Dashboard failed:', 'Error occurred', err)
         return {
             totalMemories: 0,
             totalArguments: 0,

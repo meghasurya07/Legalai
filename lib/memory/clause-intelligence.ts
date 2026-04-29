@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Clause Intelligence — Clause Pattern Normalization & Cross-Matter Analytics
  *
@@ -164,7 +165,7 @@ export async function storeClausePattern(params: {
         .single()
 
     if (error) {
-        console.warn('[Clause Intelligence] Failed to store pattern:', error.message)
+        logger.warn('[Clause Intelligence] Failed to store pattern:', 'Error occurred', error.message)
         return null
     }
 

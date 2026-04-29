@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Learning Loop — Decay, Reinforcement & Feedback Engine
  *
@@ -50,7 +51,7 @@ export async function applyMemoryDecay(organizationId?: string): Promise<{
 
     if (error) {
         // Fallback: do row-by-row if RPC doesn't exist
-        console.warn('[Learning Loop] Bulk decay failed, using row-by-row:', error.message)
+        logger.warn('[Learning Loop] Bulk decay failed, using row-by-row:', 'Error occurred', error.message)
         return applyDecayRowByRow(organizationId)
     }
 

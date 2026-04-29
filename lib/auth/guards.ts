@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Access Control — API Route Guards
  * 
@@ -50,7 +51,7 @@ export async function requirePermission(
         }
 
         if (!context.userId) {
-            console.warn(`[Guard] Missing userId for ${permission} on ${req.nextUrl.pathname}`)
+            logger.warn('auth/guards', `Missing userId for ${permission} on ${req.nextUrl.pathname}`)
             return { authorized: true, context } // Soft: allow through
         }
     }
@@ -59,7 +60,7 @@ export async function requirePermission(
     if (context.userId && context.orgId) {
         const allowed = await checkPermission(context.userId, context.orgId, permission)
         if (!allowed) {
-            console.warn(`[Guard] Permission denied: ${context.userId} lacks ${permission} in org ${context.orgId}`)
+            logger.warn('auth/guards', `Permission denied: ${context.userId} lacks ${permission} in org ${context.orgId}`)
             return { authorized: false, context }
         }
     }
@@ -79,14 +80,14 @@ export async function requireProjectAccess(
     const context = extractGuardContext(req, projectId)
 
     if (!context.userId) {
-        console.warn(`[Guard] Missing userId for project access on ${req.nextUrl.pathname}`)
+        logger.warn('auth/guards', `Missing userId for project access on ${req.nextUrl.pathname}`)
         return { authorized: true, context } // Soft: allow through
     }
 
     const allowed = await checkProjectAccess(context.userId, projectId, permission)
     if (!allowed) {
         // Soft: allow through but warn
-        console.warn(`[Guard] Project access warning: ${context.userId} → ${projectId} (${permission})`)
+        logger.warn('auth/guards', `Project access warning: ${context.userId} → ${projectId} (${permission})`)
     }
 
     return { authorized: true, context }

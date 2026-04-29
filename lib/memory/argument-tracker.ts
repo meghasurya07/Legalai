@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Argument Tracker — Silent extraction and classification of legal arguments
  *
@@ -125,7 +126,7 @@ Rules:
 
         return records
     } catch (err) {
-        console.warn('[ArgumentTracker] Extraction failed:', err)
+        logger.warn('[ArgumentTracker] Extraction failed:', 'Error occurred', err)
         return []
     }
 }
@@ -182,7 +183,7 @@ export async function persistArguments(args: ArgumentRecord[]): Promise<void> {
                 metadata: arg.metadata || {},
             })
         } catch (err) {
-            console.warn('[ArgumentTracker] Persist failed for argument:', err)
+            logger.warn('[ArgumentTracker] Persist failed for argument:', 'Error occurred', err)
         }
     }
 }
@@ -206,7 +207,7 @@ export async function updateArgumentOutcome(
             })
             .eq('id', argumentId)
     } catch (err) {
-        console.warn('[ArgumentTracker] Outcome update failed:', err)
+        logger.warn('[ArgumentTracker] Outcome update failed:', 'Error occurred', err)
     }
 }
 
@@ -283,7 +284,7 @@ export async function getArgumentPatterns(
             patterns: patterns.sort((a, b) => b.success_rate - a.success_rate),
         }
     } catch (err) {
-        console.warn('[ArgumentTracker] Pattern analysis failed:', err)
+        logger.warn('[ArgumentTracker] Pattern analysis failed:', 'Error occurred', err)
         return { total: 0, accepted: 0, rejected: 0, success_rate: 0, patterns: [] }
     }
 }

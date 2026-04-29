@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Memory Retriever — 3-way parallel hybrid retrieval engine
  *
@@ -151,7 +152,7 @@ async function vectorSearch(
                 metadata: row.metadata as Record<string, unknown> || {},
             }))
     } catch (err) {
-        console.warn('[Memory Retriever] Vector search failed:', err)
+        logger.warn('[Memory Retriever] Vector search failed:', 'Error occurred', err)
         return []
     }
 }
@@ -223,7 +224,7 @@ async function graphSearch(
 
         return results
     } catch (err) {
-        console.warn('[Memory Retriever] Graph search failed:', err)
+        logger.warn('[Memory Retriever] Graph search failed:', 'Error occurred', err)
         return []
     }
 }
@@ -296,7 +297,7 @@ async function structuredSearch(
 
         return results
     } catch (err) {
-        console.warn('[Memory Retriever] Structured search failed:', err)
+        logger.warn('[Memory Retriever] Structured search failed:', 'Error occurred', err)
         return []
     }
 }

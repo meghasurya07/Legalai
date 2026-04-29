@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Session Summarizer — End-of-Conversation Summary Generator
  *
@@ -153,7 +154,7 @@ async function generateSummary(messages: SessionMessage[]): Promise<SessionSumma
             nextSteps: Array.isArray(parsed.next_steps) ? parsed.next_steps : [],
         }
     } catch (err) {
-        console.warn('[Session Summarizer] Summary generation failed:', err)
+        logger.warn('[Session Summarizer] Summary generation failed:', 'Error occurred', err)
         return null
     }
 }

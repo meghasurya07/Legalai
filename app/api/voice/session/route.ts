@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger'
 import { NextResponse } from "next/server"
-import { getUserId } from "@/lib/auth/get-user-id"
+import { requireAuth } from '@/lib/auth/require-auth'
 import { apiError } from "@/lib/api-utils"
 import { buildUserContext } from "@/lib/voice/user-context"
 import { WESLEY_VOICE_SYSTEM_PROMPT } from "@/lib/voice/voice-prompt"
@@ -16,8 +16,9 @@ import { WESLEY_VOICE_TOOLS } from "@/lib/voice/agent-tools"
  */
 export async function POST() {
     try {
-        const userId = await getUserId()
-        if (!userId) return apiError("Unauthorized", 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         // Resolve org context
         let orgId: string | undefined
@@ -100,7 +101,7 @@ export async function POST() {
             },
         })
     } catch (err) {
-        logger.error("Voice Session] Error:", "Error", err)
+        logger.error('voice/session', 'Failed to create voice session', err)
         return apiError("Failed to create voice session", 500, err)
     }
 }

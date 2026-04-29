@@ -10,6 +10,14 @@ vi.mock('@/lib/auth/org', () => ({
     getOrgForProject: vi.fn(),
 }))
 
+vi.mock('@/lib/logger', () => ({
+    logger: {
+        warn: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+    },
+}))
+
 import { extractGuardContext, requirePermission, requireProjectAccess } from '@/lib/auth/guards'
 import { checkPermission } from '@/lib/auth/permissions'
 import { getOrgForProject } from '@/lib/auth/org'
@@ -58,12 +66,10 @@ describe('extractGuardContext', () => {
 describe('requirePermission', () => {
     it('soft-allows when userId is missing (pre-Auth0)', async () => {
         const req = mockRequest({})
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
         const { authorized } = await requirePermission(req, 'org:view')
 
         expect(authorized).toBe(true)
-        warnSpy.mockRestore()
     })
 
     it('checks permission when both userId and orgId are present', async () => {
@@ -80,12 +86,10 @@ describe('requirePermission', () => {
     it('denies access when permission check fails', async () => {
         vi.mocked(checkPermission).mockResolvedValue(false)
         const req = mockRequest({ 'x-user-id': 'u1', 'x-org-id': 'o1' })
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
         const { authorized } = await requirePermission(req, 'admin')
 
         expect(authorized).toBe(false)
-        warnSpy.mockRestore()
     })
 
     it('derives orgId from projectId when orgId is missing', async () => {
@@ -106,24 +110,20 @@ describe('requirePermission', () => {
 describe('requireProjectAccess', () => {
     it('soft-allows when userId is missing', async () => {
         const req = mockRequest({})
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
         const { authorized } = await requireProjectAccess(req, 'proj-1')
 
         expect(authorized).toBe(true)
-        warnSpy.mockRestore()
     })
 
     it('always returns authorized true (soft enforcement)', async () => {
         const { checkProjectAccess } = await import('@/lib/auth/permissions')
         vi.mocked(checkProjectAccess).mockResolvedValue(false)
         const req = mockRequest({ 'x-user-id': 'u1' })
-        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
         // Even when checkProjectAccess returns false, soft enforcement allows through
         const { authorized } = await requireProjectAccess(req, 'proj-1')
 
         expect(authorized).toBe(true)
-        warnSpy.mockRestore()
     })
 })
