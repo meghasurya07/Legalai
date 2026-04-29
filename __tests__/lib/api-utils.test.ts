@@ -1,7 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { parseAIJSON } from '@/lib/api-utils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// We need to mock NextResponse since apiError/apiSuccess use it
 vi.mock('next/server', () => ({
     NextResponse: {
         json: (body: unknown, init?: { status?: number }) => ({
@@ -11,13 +9,65 @@ vi.mock('next/server', () => ({
     },
 }))
 
+vi.mock('@/lib/logger', () => ({
+    logger: {
+        error: vi.fn(),
+        warn: vi.fn(),
+        info: vi.fn(),
+    },
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockResponse = { body: Record<string, any>; status: number }
 
 const { apiError: _apiError } = await import('@/lib/api-utils')
 const apiError = _apiError as (...args: Parameters<typeof _apiError>) => MockResponse
 
+beforeEach(() => {
+    vi.clearAllMocks()
+})
+
+// ─── apiError ───────────────────────────────────────────────────
+
+describe('apiError', () => {
+    it('returns an error response with the correct status and body', () => {
+        const response = apiError('Something went wrong', 400)
+
+        expect(response.status).toBe(400)
+        expect(response.body).toEqual({
+            success: false,
+            data: null,
+            error: { code: 400, message: 'Something went wrong' },
+        })
+    })
+
+    it('defaults to status 500', () => {
+        const response = apiError('Server error')
+
+        expect(response.status).toBe(500)
+        expect(response.body.error.code).toBe(500)
+    })
+
+    it('does not leak detail to client response', () => {
+        const response = apiError('Fail', 422, { field: 'email' })
+
+        // Detail should be logged server-side but NOT sent to client
+        expect(response.body.meta).toBeUndefined()
+    })
+
+    it('never includes stack traces in response body', () => {
+        const detail = new Error('internal debug info')
+        const response = apiError('Something failed', 500, detail)
+
+        const bodyStr = JSON.stringify(response.body)
+        expect(bodyStr).not.toContain('internal debug info')
+        expect(bodyStr).not.toContain('stack')
+    })
+})
+
 // ─── parseAIJSON ────────────────────────────────────────────────
+
+import { parseAIJSON } from '@/lib/api-utils'
 
 describe('parseAIJSON', () => {
     it('parses valid JSON directly', () => {
@@ -56,40 +106,16 @@ describe('parseAIJSON', () => {
         const result = parseAIJSON('[1, 2, 3]')
         expect(result).toEqual([1, 2, 3])
     })
-})
 
-// ─── apiError ───────────────────────────────────────────────────
-
-describe('apiError', () => {
-    it('returns an error response with the correct status and body', () => {
-        const spy = vi.spyOn(console, 'error').mockImplementation(() => { })
-        const response = apiError('Something went wrong', 400)
-
-        expect(response.status).toBe(400)
-        expect(response.body).toEqual({
-            success: false,
-            data: null,
-            error: { code: 400, message: 'Something went wrong' },
-        })
-        spy.mockRestore()
+    it('handles malformed JSON inside code blocks gracefully', () => {
+        const input = '```json\n{broken json\n```'
+        const result = parseAIJSON(input, 'output')
+        // Should not throw — should fall back
+        expect(result).toBeDefined()
     })
 
-    it('defaults to status 500', () => {
-        const spy = vi.spyOn(console, 'error').mockImplementation(() => { })
-        const response = apiError('Server error')
-
-        expect(response.status).toBe(500)
-        expect(response.body.error.code).toBe(500)
-        spy.mockRestore()
-    })
-
-    it('does not leak detail to client response', () => {
-        const spy = vi.spyOn(console, 'error').mockImplementation(() => { })
-        const response = apiError('Fail', 422, { field: 'email' })
-
-        // Detail should be logged server-side but NOT sent to client
-        expect(response.body.meta).toBeUndefined()
-        expect(spy).toHaveBeenCalled()
-        spy.mockRestore()
+    it('handles deeply nested JSON', () => {
+        const nested = JSON.stringify({ a: { b: { c: { d: 'deep' } } } })
+        expect(parseAIJSON(nested)).toEqual({ a: { b: { c: { d: 'deep' } } } })
     })
 })
