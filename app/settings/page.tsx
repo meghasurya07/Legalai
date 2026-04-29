@@ -16,9 +16,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Settings as SettingsIcon, Camera, Brain, ChevronRight, Building2 } from "lucide-react"
-import Link from "next/link"
-import { useUser } from "@auth0/nextjs-auth0/client"
+import { Settings as SettingsIcon, Camera } from "lucide-react"
 
 interface UserSettings {
     user_name?: string;
@@ -30,10 +28,6 @@ export default function SettingsPage() {
     const [userSettings, setUserSettings] = useState<UserSettings>({})
     const [savingUser, setSavingUser] = useState(false)
     const { updateSettings: pushToContext } = useUserSettings()
-    const { user } = useUser()
-
-    const roles = user?.['https://askwesley.com/roles'] as string[] | undefined;
-    const isFirmAdmin = roles?.includes('FIRM_ADMIN') || false;
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -214,48 +208,6 @@ export default function SettingsPage() {
                         </div>
                     </CardContent>
                 </Card>
-
-                <Card className="border-none shadow-none bg-transparent sm:bg-card sm:border-solid sm:border">
-                    <CardHeader className="px-0 sm:px-6">
-                        <CardTitle>AI Memory Settings</CardTitle>
-                        <CardDescription>Manage your AI personalization, tracked facts, and memory storage.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 px-0 sm:px-6">
-                        <Link href="/settings/memory" className="block">
-                            <div className="flex justify-between items-center border p-4 rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors">
-                                <div>
-                                    <h3 className="font-semibold text-base md:text-lg flex items-center gap-2">
-                                        <Brain className="h-5 w-5 text-primary" /> AI Memory System
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground mt-1">Configure exactly what Wesley remembers about you and your preferences.</p>
-                                </div>
-                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                        </Link>
-                    </CardContent>
-                </Card>
-
-                {isFirmAdmin && (
-                    <Card className="border-none shadow-none bg-transparent sm:bg-card sm:border-solid sm:border">
-                        <CardHeader className="px-0 sm:px-6">
-                            <CardTitle>Organization Details</CardTitle>
-                            <CardDescription>Manage Firm-level settings and users.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4 px-0 sm:px-6">
-                            <Link href="/organization" className="block">
-                                <div className="flex justify-between items-center border p-4 rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors">
-                                    <div>
-                                        <h3 className="font-semibold text-base md:text-lg flex items-center gap-2">
-                                            <Building2 className="h-5 w-5 text-primary" /> Organization Configuration
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground mt-1">Access organization dashboard to manage members, billing, and firm-wide configurations.</p>
-                                    </div>
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                            </Link>
-                        </CardContent>
-                    </Card>
-                )}
             </div>
         </div>
     )

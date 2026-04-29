@@ -6,6 +6,7 @@ import { useUser } from "@auth0/nextjs-auth0/client"
 import { useUserSettings } from "@/context/user-settings-context"
 import {
     BookOpen,
+    Brain,
     Building2,
     Calendar,
     CalendarClock,
@@ -155,6 +156,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => router.push('/templates')}>
                                     <Library />
                                     <span>Templates</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/settings/memory')} tooltip="Memory" onClick={() => router.push('/settings/memory')}>
+                                    <Brain />
+                                    <span>Memory</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
