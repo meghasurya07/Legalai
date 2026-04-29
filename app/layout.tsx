@@ -31,9 +31,7 @@ import { OrgProvider } from "@/context/org-context"
 
 import { Toaster } from "@/components/ui/sonner"
 import { VersionWatcher } from "@/components/layout/version-watcher"
-import { VoiceAgentProvider } from "@/context/voice-context"
-import { VoiceOverlay } from "@/components/voice/voice-overlay"
-import { VoiceEnableBanner } from "@/components/voice/voice-enable-banner"
+
 
 export default function RootLayout({
   children,
@@ -51,8 +49,7 @@ export default function RootLayout({
               <UserSettingsProvider>
                 <DocumentsProvider>
                   <RecentChatsProvider>
-                    <VoiceAgentProvider>
-                      <AppSidebar />
+                    <AppSidebar />
                       <SidebarInset className="w-full h-svh flex flex-col overflow-hidden bg-background">
                         <Suspense fallback={<div className="h-14" />}>
                           <AppHeader />
@@ -61,9 +58,6 @@ export default function RootLayout({
                       </SidebarInset>
                       <Toaster />
                       <VersionWatcher />
-                      <VoiceOverlay />
-                      <VoiceEnableBanner />
-                    </VoiceAgentProvider>
                   </RecentChatsProvider>
                 </DocumentsProvider>
               </UserSettingsProvider>
