@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { encryptKey, decryptKey, generateKeyHint } from '@/lib/byok'
 
 // Provide a deterministic 32-byte encryption key for tests
