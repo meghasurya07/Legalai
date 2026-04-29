@@ -1,6 +1,7 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { AI_MODELS } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
 import type { Attachment } from '@/types'
@@ -12,8 +13,9 @@ interface RouteParams {
 // POST /api/chat/conversations/[id]/messages - Add message to conversation
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
         const body = await request.json()
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             .single()
 
         if (msgError) {
-            console.error('Error adding message:', msgError)
+            logger.error("api", "Error adding message:", msgError)
             return NextResponse.json({ error: 'Failed to add message' }, { status: 500 })
         }
 
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         if (role === 'user') {
             // Don't await — let it run in the background
             generateTitleIfNeeded(id, content).catch(err =>
-                console.error('[Title Gen] Background error:', err)
+                logger.error("api", "[Title Gen] Background error:", err)
             )
         }
 
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             createdAt: message.created_at
         }, { status: 201 })
     } catch (error) {
-        console.error('Error in POST /api/chat/conversations/[id]/messages:', error)
+        logger.error("api", "Error in POST /api/chat/conversations/[id]/messages:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -131,8 +133,9 @@ async function generateTitleIfNeeded(conversationId: string, messageContent: str
 // GET /api/chat/conversations/[id]/messages - Get messages for conversation
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 
@@ -155,7 +158,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .order('created_at', { ascending: true })
 
         if (error) {
-            console.error('Error fetching messages:', error)
+            logger.error("api", "Error fetching messages:", error)
             return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 })
         }
 
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         return NextResponse.json(messages)
     } catch (error) {
-        console.error('Error in GET /api/chat/conversations/[id]/messages:', error)
+        logger.error("api", "Error in GET /api/chat/conversations/[id]/messages:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -211,8 +214,9 @@ async function resignUploadAttachments(attachments: unknown): Promise<Attachment
 // PATCH /api/chat/conversations/[id]/messages - Update a specific message's content
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
         const body = await request.json()
@@ -242,13 +246,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             .eq('conversation_id', id)
 
         if (updateError) {
-            console.error('Error updating message:', updateError)
+            logger.error("api", "Error updating message:", updateError)
             return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
         }
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Error in PATCH /api/chat/conversations/[id]/messages:', error)
+        logger.error("api", "Error in PATCH /api/chat/conversations/[id]/messages:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

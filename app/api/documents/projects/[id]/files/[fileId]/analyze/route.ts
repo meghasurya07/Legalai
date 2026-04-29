@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { logger } from '@/lib/logger'
 
@@ -13,8 +13,9 @@ interface RouteParams {
 // Body: { action: 'summarize' | 'analyze', text: string }
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id: projectId, fileId } = await params
 
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         })
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to analyze document'
-        console.error('Document analysis error:', message)
+        logger.error("api", "Document analysis error:", message)
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

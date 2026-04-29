@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { downloadTextFile } from "@/lib/download"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface TemplateField {
     name: string
@@ -35,11 +36,18 @@ const TEMPLATES = [
 ]
 
 export default function DraftFromTemplate() {
+    const {
+        isRunning: isGenerating,
+        result,
+        runWithJson,
+        reset,
+    } = useTemplateWorkflow<DraftResult>({
+        apiEndpoint: '/api/templates/draft-from-template',
+    })
+
     const [selectedTemplate, setSelectedTemplate] = React.useState("")
     const [fields, setFields] = React.useState<TemplateField[]>([{ name: '', value: '' }])
     const [additionalInstructions, setAdditionalInstructions] = React.useState("")
-    const [isGenerating, setIsGenerating] = React.useState(false)
-    const [result, setResult] = React.useState<DraftResult | null>(null)
 
     const handleTemplateChange = (templateId: string) => {
         setSelectedTemplate(templateId)
@@ -58,27 +66,10 @@ export default function DraftFromTemplate() {
         if (!selectedTemplate) { toast.error("Please select a template"); return }
         const validFields = fields.filter(f => f.name && f.value)
         if (validFields.length === 0) { toast.error("Please add at least one field"); return }
-
-        setIsGenerating(true)
-        try {
-            const response = await fetch('/api/templates/draft-from-template', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ template: selectedTemplate, fields: validFields, additionalInstructions })
-            })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to generate document')
-            }
-            const data = await response.json()
-            setResult(data)
-            toast.success("Document generated successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to generate document"
-            toast.error(message)
-        } finally {
-            setIsGenerating(false)
-        }
+        await runWithJson(
+            { template: selectedTemplate, fields: validFields, additionalInstructions },
+            "Document generated successfully!"
+        )
     }
 
     const handleDownload = () => {
@@ -90,7 +81,7 @@ export default function DraftFromTemplate() {
         setSelectedTemplate("")
         setFields([{ name: '', value: '' }])
         setAdditionalInstructions("")
-        setResult(null)
+        reset()
     }
 
     return (

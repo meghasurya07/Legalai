@@ -1,6 +1,7 @@
+import { logger } from '@/lib/logger'
 import { openai } from "@ai-sdk/openai"
 import { streamText } from 'ai'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { AI_MODELS } from "@/lib/ai/config"
 
 export const maxDuration = 60; // 60 seconds is plenty for a quick rewrite
@@ -24,10 +25,8 @@ You: "Act as an expert commercial attorney. Please review the provided contract 
 
 export async function POST(req: Request) {
     try {
-        const session = await auth0.getSession()
-        if (!session?.user) {
-            return new Response('Unauthorized', { status: 401 })
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
 
         const { prompt } = await req.json()
 
@@ -45,7 +44,7 @@ export async function POST(req: Request) {
         return result.toTextStreamResponse()
 
     } catch (error) {
-        console.error('Error improving prompt:', error)
+        logger.error('Error improving prompt:', 'Error', error)
         return new Response(JSON.stringify({ error: 'Failed to improve prompt' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },

@@ -1,12 +1,15 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 // GET /api/recent-chats - List all history items for current user
 export async function GET(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { searchParams } = new URL(request.url)
@@ -48,7 +51,9 @@ export async function GET(request: NextRequest) {
 // POST /api/recent-chats - Create a history item
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const body = await request.json()
@@ -98,7 +103,9 @@ export async function POST(request: NextRequest) {
 // DELETE /api/recent-chats - Clear all history for current user
 export async function DELETE() {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { error } = await supabase
@@ -107,13 +114,13 @@ export async function DELETE() {
             .eq('user_id', userId)
 
         if (error) {
-            console.error('Error clearing history:', error)
+            logger.error('Error clearing history:', 'Error', error)
             return NextResponse.json({ error: 'Failed to clear history' }, { status: 500 })
         }
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Error in DELETE /api/recent-chats:', error)
+        logger.error('Error in DELETE /api/recent-chats:', 'Error', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

@@ -1,14 +1,15 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { getOrgContext } from '@/lib/get-org-context'
 
 // GET /api/chat/conversations - List conversations for current user
 export async function GET(request: NextRequest) {
     try {
-        const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type') // 'assistant' | 'vault' | 'workflow'
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await query
 
         if (error) {
-            console.error('Error fetching conversations:', error)
+            logger.error('Error fetching conversations:', 'Error', error)
             return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
         }
 
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(conversations)
     } catch (error) {
-        console.error('Error in GET /api/chat/conversations:', error)
+        logger.error("GET /api/chat/conversations:", "Request failed", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -87,8 +88,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const body = await request.json()
         const { sanitizeShortText, validateUUID, validateEnum } = await import('@/lib/validation')
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (error) {
-            console.error('Error creating conversation:', error)
+            logger.error('Error creating conversation:', 'Error', error)
             return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
         }
 
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
             updatedAt: data.updated_at
         }, { status: 201 })
     } catch (error) {
-        console.error('Error in POST /api/chat/conversations:', error)
+        logger.error("POST /api/chat/conversations:", "Request failed", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

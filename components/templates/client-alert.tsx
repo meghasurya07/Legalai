@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -10,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { useParams } from "next/navigation"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface ClientAlertResult {
     title: string
@@ -32,68 +31,29 @@ const ALERT_TYPES = [
 ]
 
 export default function ClientAlert() {
-    const params = useParams()
-    const chatIdParam = params.chatId as string[] | undefined
-    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
+    const {
+        isRunning: isGenerating,
+        result,
+        runWithJson,
+        reset,
+    } = useTemplateWorkflow<ClientAlertResult>({
+        apiEndpoint: '/api/templates/client-alert',
+    })
 
     const [alertType, setAlertType] = React.useState("")
     const [topic, setTopic] = React.useState("")
     const [context, setContext] = React.useState("")
     const [targetAudience, setTargetAudience] = React.useState("")
-    const [isGenerating, setIsGenerating] = React.useState(false)
-    const [result, setResult] = React.useState<ClientAlertResult | null>(null)
-
-    React.useEffect(() => {
-        if (!chatId) return
-        const loadHistory = async () => {
-            setIsGenerating(true)
-            try {
-                const res = await fetch(`/api/chat/conversations/${chatId}/messages`)
-                if (res.ok) {
-                    const messages = await res.json()
-                    const assistantMsg = messages.find((m: { role: string; content: string }) => m.role === 'assistant')
-                    if (assistantMsg) {
-                        try {
-                            const parsedData = JSON.parse(assistantMsg.content)
-                            setResult(parsedData)
-                        } catch (e) {
-                            toast.error("Failed to load past result")
-                        }
-                    }
-                }
-            } catch (error) {
-            } finally {
-                setIsGenerating(false)
-            }
-        }
-        loadHistory()
-    }, [chatId])
 
     const handleGenerate = async () => {
         if (!alertType || !topic) {
             toast.error("Please select alert type and provide a topic")
             return
         }
-        setIsGenerating(true)
-        try {
-            const response = await fetch('/api/templates/client-alert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ alertType, topic, context, targetAudience })
-            })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to generate client alert')
-            }
-            const data = await response.json()
-            setResult(data)
-            toast.success("Client alert generated successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to generate client alert"
-            toast.error(message)
-        } finally {
-            setIsGenerating(false)
-        }
+        await runWithJson(
+            { alertType, topic, context, targetAudience },
+            "Client alert generated successfully!"
+        )
     }
 
     const handleDownload = () => {
@@ -116,7 +76,7 @@ export default function ClientAlert() {
         setTopic("")
         setContext("")
         setTargetAudience("")
-        setResult(null)
+        reset()
     }
 
     return (

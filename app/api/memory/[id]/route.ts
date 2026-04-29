@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 
@@ -11,8 +11,8 @@ interface RouteParams {
  * PATCH /api/memory/[id] — Update a memory (edit content, pin, change importance)
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
 
     const { id } = await params
     const body = await request.json()
@@ -41,8 +41,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/memory/[id] — Soft-delete a memory
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
 
     const { id } = await params
 

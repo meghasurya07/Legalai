@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { auth0 } from '@/lib/auth/auth0';
 
 const ROLE_NAMESPACE = 'https://askwesley.com/roles';
@@ -27,7 +28,7 @@ export async function getUserRoles(): Promise<string[]> {
     if (error instanceof Error && 'digest' in error && error.digest === 'DYNAMIC_SERVER_USAGE') {
       throw error;
     }
-    console.error('Error fetching user roles:', error);
+    logger.error('Error fetching user roles:', 'Error occurred', error);
     return [];
   }
 }

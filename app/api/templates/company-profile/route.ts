@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callAISafe } from '@/lib/ai/client'
 import { apiError, parseAIJSON } from '@/lib/api-utils'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { AI_MODELS } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const inputData = await request.json()
         const company = inputData.company
         const userPrompt = inputData.prompt
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
                     })
                 }
             } catch (e) {
-                console.error('Failed to persist company profile:', e)
+                logger.error('Failed to persist company profile:', 'Error', e)
             }
         }
 

@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // PATCH /api/calendar/deadlines/[id]
@@ -8,12 +9,10 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
         const { id } = await params;
-        const userId = session.user.sub;
-        const userName = session.user.name || session.user.email || "Unknown";
+        const { userId, userName } = auth
         const body = await req.json();
 
         // Fetch current state for audit logging
@@ -105,7 +104,7 @@ export async function PATCH(
             updatedAt: data.updated_at,
         });
     } catch (err) {
-        console.error("[Deadlines PATCH]", err);
+        logger.error("api", "[Deadlines PATCH]", err);
         return NextResponse.json({ error: "Failed to update deadline" }, { status: 500 });
     }
 }
@@ -116,12 +115,10 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
         const { id } = await params;
-        const userId = session.user.sub;
-        const userName = session.user.name || session.user.email || "Unknown";
+        const { userId, userName } = auth
 
         // Audit log: deleted (before actual delete, since CASCADE will remove logs)
         // Fetch title first
@@ -143,11 +140,11 @@ export async function DELETE(
         // Note: audit entry is cascade-deleted with the deadline.
         // For true deletion auditing, you'd use a separate audit table not linked by FK.
         // For now, the audit trail covers all changes BEFORE deletion.
-        console.log(`[Audit] Deadline "${existing?.title}" (${id}) deleted by ${userName}`);
+        logger.info("audit", `Deadline "${existing?.title}" (${id}) deleted by ${userName}`);
 
         return NextResponse.json({ success: true });
     } catch (err) {
-        console.error("[Deadlines DELETE]", err);
+        logger.error("api", "[Deadlines DELETE]", err);
         return NextResponse.json({ error: "Failed to delete deadline" }, { status: 500 });
     }
 }

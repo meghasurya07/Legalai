@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
-import { auth0 } from "@/lib/auth/auth0"
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server"
 
 /**
@@ -18,10 +19,8 @@ export async function GET(
 ) {
     try {
         // Authenticate
-        const session = await auth0.getSession()
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
 
         const { fileId } = await params
         if (!fileId) {
@@ -36,7 +35,7 @@ export async function GET(
             .single()
 
         if (fileError || !file) {
-            console.error('[PDF Route] DB error:', fileError)
+            logger.error("api", "[PDF Route] DB error:", fileError)
             return NextResponse.json({ error: "File not found" }, { status: 404 })
         }
 
@@ -80,10 +79,10 @@ export async function GET(
             }
         }
 
-        console.error('[PDF Route] Could not download file:', file.url, downloadError)
+        logger.error("pdf", `Could not download file: ${file.url}`, downloadError)
         return NextResponse.json({ error: "PDF not available" }, { status: 404 })
     } catch (error) {
-        console.error("[PDF Route] Error:", error)
+        logger.error("pdf", "PDF route error", error)
         return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

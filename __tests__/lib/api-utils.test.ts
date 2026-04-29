@@ -14,10 +14,8 @@ vi.mock('next/server', () => ({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockResponse = { body: Record<string, any>; status: number }
 
-// Re-import after mock setup — cast since our mock returns plain objects, not real NextResponse
-const { apiError: _apiError, apiSuccess: _apiSuccess } = await import('@/lib/api-utils')
+const { apiError: _apiError } = await import('@/lib/api-utils')
 const apiError = _apiError as (...args: Parameters<typeof _apiError>) => MockResponse
-const apiSuccess = _apiSuccess as (...args: Parameters<typeof _apiSuccess>) => MockResponse
 
 // ─── parseAIJSON ────────────────────────────────────────────────
 
@@ -93,32 +91,5 @@ describe('apiError', () => {
         expect(response.body.meta).toBeUndefined()
         expect(spy).toHaveBeenCalled()
         spy.mockRestore()
-    })
-})
-
-// ─── apiSuccess ─────────────────────────────────────────────────
-
-describe('apiSuccess', () => {
-    it('returns a success response with given data', () => {
-        const response = apiSuccess({ items: [1, 2] })
-
-        expect(response.status).toBe(200)
-        expect(response.body).toEqual({
-            success: true,
-            data: { items: [1, 2] },
-            error: null,
-        })
-    })
-
-    it('includes meta when provided', () => {
-        const response = apiSuccess('ok', { page: 1, total: 50 })
-
-        expect(response.body.meta).toEqual({ page: 1, total: 50 })
-    })
-
-    it('omits meta when not provided', () => {
-        const response = apiSuccess({ id: 1 })
-
-        expect(response.body.meta).toBeUndefined()
     })
 })

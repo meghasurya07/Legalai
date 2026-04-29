@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { isFirmAdmin as checkFirmAdmin } from '@/lib/auth/get-user-role'
 
 /**
  * GET /api/memory/org — List all memories across the organization (admin only)
  * Supports filtering by user, type, sorting, and pagination.
  */
 export async function GET(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
+    const { userId } = auth
 
     // Get org ID
     const { data: userData } = await supabase
@@ -22,10 +23,9 @@ export async function GET(request: NextRequest) {
     const orgId = userData?.default_org_id || '00000000-0000-0000-0000-000000000001'
 
     // Verify admin access
-    const roles = session.user['https://askwesley.com/roles'] as string[] | undefined
-    const isFirmAdmin = roles?.includes('FIRM_ADMIN') || false
+    const adminByRole = await checkFirmAdmin()
 
-    if (!isFirmAdmin) {
+    if (!adminByRole) {
         const { data: membership } = await supabase
             .from('organization_members')
             .select('role')

@@ -80,7 +80,7 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
         return count
 
     } catch (error) {
-        console.error('[Trust] Insight generation failed:', error)
+        logger.error('[Trust] Insight generation failed:', 'Error occurred', error)
         return 0
     }
 }

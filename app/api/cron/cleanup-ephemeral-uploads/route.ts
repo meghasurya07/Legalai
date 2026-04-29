@@ -10,7 +10,7 @@ export async function GET(request: Request) {
         // SECURITY: Always require CRON_SECRET — reject if not configured
         const cronSecret = process.env.CRON_SECRET
         if (!cronSecret) {
-            console.error('[CRON] CRON_SECRET env var is not configured — refusing to run.')
+            logger.error('api', '[CRON] CRON_SECRET env var is not configured — refusing to run.')
             return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 })
         }
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
             .lt('uploaded_at', fortyEightHoursAgo)
 
         if (fetchError) {
-            console.error('[CRON] Failed to fetch old ephemeral files:', fetchError)
+            logger.error('CRON] Failed to fetch old ephemeral files:', 'Error', fetchError)
             return NextResponse.json({ error: 'Failed to fetch files to clean up' }, { status: 500 })
         }
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
                 .remove(fileUrls)
             
             if (storageError) {
-                console.error('[CRON] Supabase Storage deletion failed for some or all files:', storageError)
+                logger.error('CRON] Supabase Storage deletion failed for some or all files:', 'Error', storageError)
                 // Proceeding to delete DB rows even if storage deletion partially fails, 
                 // but this could leave orphaned storage objects. 
                 // For a robust system, you might want to only delete from DB if storage succeeds.
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
             .in('id', fileIds)
 
         if (dbError) {
-            console.error('[CRON] Database records deletion failed:', dbError)
+            logger.error('CRON] Database records deletion failed:', 'Error', dbError)
             return NextResponse.json({ error: 'Failed to delete file records' }, { status: 500 })
         }
 
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         })
 
     } catch (error) {
-        console.error('[CRON] Unhandled error during cleanup:', error)
+        logger.error('CRON] Unhandled error during cleanup:', 'Error', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

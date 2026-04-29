@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { canManage } from '@/lib/auth/rbac'
 
 // GET /api/org — Get current organization details
@@ -11,8 +11,8 @@ export async function GET() {
 
         // If no org context (pre-migration or no org), return a placeholder
         if (!ctx) {
-            const userId = await getUserId()
-            if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+            const auth = await requireAuth()
+            if (auth instanceof Response) return auth
 
             // Return a virtual org response so the UI doesn't break
             return NextResponse.json({

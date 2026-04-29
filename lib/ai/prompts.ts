@@ -345,7 +345,17 @@ Rules:
 
 // ─── Helper ──────────────────────────────────────────────────────────
 
-function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
+export interface AssistantChatInput {
+  message?: string
+  webSearch?: boolean
+  deepResearch?: boolean
+  thinking?: boolean
+  hasRagContext?: boolean
+  customization?: { length?: string; tone?: string; jurisdiction?: string }
+  queryMode?: string
+}
+
+function buildAssistantSystemPrompt(input: AssistantChatInput): string {
   let prompt = `You are Wesley, an enterprise-grade legal assistant designed for lawyers and professionals.
 
 **Core Principles**
@@ -404,7 +414,7 @@ function buildAssistantSystemPrompt(input: Record<string, unknown>): string {
 - When applicable, consider multiple perspectives before arriving at a conclusion.`
   }
 
-  const hasRagContext = input.hasRagContext as boolean | undefined
+  const hasRagContext = input.hasRagContext
 
   if (!isSearchMode && !isThinking && !hasRagContext) {
     prompt += `\n\n**MANDATORY CITATION RULE:** For EVERY response where you reference external legal sources (statutes, cases, regulations, legal principles, authoritative guidelines, government publications, or any factual claim that originates from an external source), you MUST:
@@ -425,7 +435,7 @@ Rules for the SOURCES block:
 - Even for well-known legal principles, cite the authoritative source.`
   }
 
-  const customization = input.customization as Record<string, string> | undefined
+  const customization = input.customization
   if (customization?.length === 'Concise') {
     prompt += '\n\n**Constraint:** Keep responses brief and to the point.'
   } else if (customization?.length === 'Detailed') {
@@ -440,7 +450,7 @@ Rules for the SOURCES block:
     prompt += `\n\n**Constraint:** Focus strictly on ${customization.jurisdiction} law.`
   }
 
-  const queryMode = input.queryMode as string | undefined
+  const queryMode = input.queryMode
   if (queryMode === 'review') {
     prompt += `\n\n**REVIEW MODE**
 You are acting as a Senior Partner reviewing this document. Conduct a rigorous legal audit.

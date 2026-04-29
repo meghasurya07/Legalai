@@ -1,12 +1,15 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 // GET /api/templates/list - Fetch all workflows from DB
 export async function GET() {
     try {
         // SECURITY: Require authentication
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) {
             return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
         }
@@ -18,7 +21,7 @@ export async function GET() {
             .order('created_at', { ascending: true })
 
         if (error) {
-            console.error('Error fetching workflows:', error)
+            logger.error('Error fetching workflows:', 'Error', error)
             return NextResponse.json({ error: 'Failed to fetch workflows' }, { status: 500 })
         }
 
@@ -32,7 +35,7 @@ export async function GET() {
 
         return NextResponse.json(workflows)
     } catch (error) {
-        console.error('Error in GET /api/templates/list:', error)
+        logger.error('Error in GET /api/templates/list:', 'Error', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

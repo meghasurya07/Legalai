@@ -1,5 +1,5 @@
 import { auth0 } from "@/lib/auth/auth0";
-import { ChatInterface } from "@/components/chat-interface";
+import { ChatInterface } from "@/components/chat/chat-interface";
 import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/get-org-context";
 

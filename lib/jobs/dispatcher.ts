@@ -33,14 +33,14 @@ export async function enqueueJob(
             .single()
 
         if (error) {
-            console.error(`[Jobs] Failed to enqueue ${type}:`, error)
+            logger.error('lib', `[Jobs] Failed to enqueue ${type}:`, error)
             return null
         }
 
         logger.info("jobs/dispatcher", `[Jobs] Enqueued ${type} job: ${data.id}`)
         return data.id
     } catch (err) {
-        console.error(`[Jobs] Dispatch error for ${type}:`, err)
+        logger.error('lib', `[Jobs] Dispatch error for ${type}:`, err)
         return null
     }
 }

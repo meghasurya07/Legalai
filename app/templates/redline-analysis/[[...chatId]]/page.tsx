@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import RedlineAnalysis from '@/components/redline-analysis'
+import RedlineAnalysis from '@/components/templates/redline-analysis'
 
 export const metadata: Metadata = {
     title: 'Redline Analysis | Wesley',

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Document Intelligence — Metadata Extraction
  * 
@@ -68,7 +69,7 @@ export async function extractMetadata(text: string): Promise<ExtractedMetadata> 
             })) : []
         }
     } catch (error) {
-        console.error('[DocIntel] Metadata extraction failed:', error)
+        logger.error('[DocIntel] Metadata extraction failed:', 'Error occurred', error)
         return defaults
     }
 }

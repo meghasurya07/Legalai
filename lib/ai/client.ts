@@ -126,7 +126,7 @@ export async function callAI(
                 })
             }
         } catch (ragError) {
-            console.error('[AI] Context injection failed, continuing:', ragError)
+            logger.error('[AI] Context injection failed, continuing:', 'Error occurred', ragError)
         }
     }
 
@@ -198,7 +198,7 @@ export async function callAISafe(
         // Mask specific provider names in logs and error displays
         message = message.replace(/openai/gi, 'Wesley')
 
-        console.error(`[AI ERROR] use_case=${useCase} | error=${message}`)
+        logger.error('lib', `[AI ERROR] use_case=${useCase} | error=${message}`)
 
         import('@/lib/logger').then(({ logEvent }) => {
             logEvent('AI_CALL', {

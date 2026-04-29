@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2, Brain } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { Project } from "@/types"
-import MemoryPanel from "@/components/memory-panel"
+import MemoryPanel from "@/components/sidebar-panels/memory-panel"
 import { Separator } from "@/components/ui/separator"
 
 function MemoryContent() {

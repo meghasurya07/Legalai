@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -7,10 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { useParams } from "next/navigation"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface ContractAnalysisResult {
     summary: string
@@ -44,53 +43,17 @@ interface ContractAnalysisResult {
 }
 
 export default function ContractAnalysis() {
-    const params = useParams()
-    const chatIdParam = params.chatId as string[] | undefined
-    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
-
-    const [contractFile, setContractFile] = React.useState<File | null>(null)
-    const [isAnalyzing, setIsAnalyzing] = React.useState(false)
-    const [analysis, setAnalysis] = React.useState<ContractAnalysisResult | null>(null)
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false)
-
-    // Load history if chatId is present
-    React.useEffect(() => {
-        if (!chatId) return
-
-        const loadHistory = async () => {
-            setIsAnalyzing(true)
-            try {
-                const res = await fetch(`/api/chat/conversations/${chatId}/messages`)
-                if (res.ok) {
-                    const messages = await res.json()
-                    // Find the assistant message with the JSON result
-                    const assistantMsg = messages.find((m: { role: string; content: string }) => m.role === 'assistant')
-                    if (assistantMsg) {
-                        try {
-                            const parsedData = JSON.parse(assistantMsg.content)
-                            setAnalysis(parsedData)
-                        } catch (e) {
-                            toast.error("Failed to load past result")
-                        }
-                    }
-                }
-            } catch (error) {
-            } finally {
-                setIsAnalyzing(false)
-            }
-        }
-
-        loadHistory()
-    }, [chatId])
-
-    const handleFileSelect = (file: File) => {
-        if (contractFile && contractFile.name === file.name) {
-            setIsDuplicateModalOpen(true)
-            return
-        }
-        setContractFile(file)
-        toast.success("Contract uploaded")
-    }
+    const {
+        file: contractFile,
+        handleFileSelect,
+        isDuplicateModalOpen, setIsDuplicateModalOpen,
+        isRunning: isAnalyzing,
+        result: analysis,
+        runWithFile,
+        reset: resetAnalysis,
+    } = useTemplateWorkflow<ContractAnalysisResult>({
+        apiEndpoint: '/api/templates/contract-analysis',
+    })
 
     const handleAnalyze = async () => {
         if (!contractFile) {
@@ -98,35 +61,9 @@ export default function ContractAnalysis() {
             return
         }
 
-        setIsAnalyzing(true)
         const formData = new FormData()
         formData.append('contract', contractFile)
-
-        try {
-            const response = await fetch('/api/templates/contract-analysis', {
-                method: 'POST',
-                body: formData
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to analyze contract')
-            }
-
-            const data = await response.json()
-            setAnalysis(data)
-            toast.success("Contract analyzed successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to analyze contract"
-            toast.error(message)
-        } finally {
-            setIsAnalyzing(false)
-        }
-    }
-
-    const resetAnalysis = () => {
-        setContractFile(null)
-        setAnalysis(null)
+        await runWithFile(formData, "Contract analyzed successfully!")
     }
 
 

@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import Translation from '@/components/translation'
+import Translation from '@/components/templates/translation'
 
 export const metadata: Metadata = {
     title: 'Translation | Wesley',

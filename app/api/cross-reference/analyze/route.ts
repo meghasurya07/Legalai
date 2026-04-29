@@ -3,7 +3,7 @@ import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { AI_MODELS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
@@ -11,7 +11,9 @@ import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { allowed } = checkRateLimit(userId, RATE_LIMIT_HEAVY)

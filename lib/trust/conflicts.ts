@@ -101,7 +101,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
         return count
 
     } catch (error) {
-        console.error('[Trust] Conflict detection failed:', error)
+        logger.error('[Trust] Conflict detection failed:', 'Error occurred', error)
         return 0
     }
 }

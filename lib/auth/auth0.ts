@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { Auth0Client } from '@auth0/nextjs-auth0/server';
 import { decodeJwt } from 'jose';
 
@@ -17,7 +18,7 @@ export const auth0 = new Auth0Client({
             Object.assign(session.user, { [`${namespace}/debug`]: decoded[`${namespace}/debug`] });
         }
       } catch (e) {
-        console.error("Auth0 Claim Restore Failed", e);
+        logger.error('Auth0 Claim Restore Failed', 'Error occurred', e);
       }
     }
     return session;

@@ -4,7 +4,7 @@
 import * as React from "react"
 import { X, FileText, ZoomIn, ZoomOut, Maximize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { PdfViewer } from "@/components/pdf-viewer"
+import { PdfViewer } from "@/components/pdf/pdf-viewer"
 import type { ChatCitationSource } from "@/lib/citations"
 
 // ─── Types ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import CompanyProfile from '@/components/company-profile'
+import CompanyProfile from '@/components/templates/company-profile'
 import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 

@@ -96,7 +96,7 @@ export async function embedChunks(chunks: ChunkInput[]): Promise<EmbeddingResult
                 })
             }
         } catch (error) {
-            console.error(`[RAG Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, error)
+            logger.error('lib', `[RAG Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, error)
             // Continue with remaining batches — partial results are better than none
         }
     }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Knowledge Graph — Relationship Manager
  * 
@@ -49,7 +50,7 @@ export async function addRelationship(params: {
         .single()
 
     if (error) {
-        console.error('[Graph] Failed to add relationship:', error)
+        logger.error('[Graph] Failed to add relationship:', 'Error occurred', error)
         throw error
     }
 
@@ -69,7 +70,7 @@ export async function findRelationships(projectId: string, entityId: string): Pr
         .limit(20)
 
     if (error) {
-        console.error('[Graph] Failed to find relationships:', error)
+        logger.error('[Graph] Failed to find relationships:', 'Error occurred', error)
         return []
     }
 

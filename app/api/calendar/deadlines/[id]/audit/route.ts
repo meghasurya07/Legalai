@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // GET /api/calendar/deadlines/[id]/audit
@@ -8,8 +9,8 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
 
         const { id } = await params;
 
@@ -36,7 +37,7 @@ export async function GET(
 
         return NextResponse.json(entries);
     } catch (err) {
-        console.error("[Deadline Audit GET]", err);
+        logger.error("api", "[Deadline Audit GET]", err);
         return NextResponse.json({ error: "Failed to fetch audit log" }, { status: 500 });
     }
 }

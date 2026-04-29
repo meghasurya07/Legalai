@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import ContractAnalysis from '@/components/contract-analysis'
+import ContractAnalysis from '@/components/templates/contract-analysis'
 import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 

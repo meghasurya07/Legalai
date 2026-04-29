@@ -84,7 +84,7 @@ export async function retrieveRelevantChunks(
         })
 
         if (error) {
-            console.error('[RAG Retrieve] RPC error:', error)
+            logger.error('[RAG Retrieve] RPC error:', 'Error occurred', error)
             return { chunks: [], totalTokens: 0, fileIds: [] }
         }
 
@@ -171,7 +171,7 @@ export async function retrieveRelevantChunks(
 
         return { chunks: diverseChunks, totalTokens, fileIds }
     } catch (error) {
-        console.error('[RAG Retrieve] Error:', error)
+        logger.error('[RAG Retrieve] Error:', 'Error occurred', error)
         return { chunks: [], totalTokens: 0, fileIds: [] }
     }
 }
@@ -528,7 +528,7 @@ async function detectFileReference(
 
         return null
     } catch (err) {
-        console.error('[RAG Retrieve] File reference detection error:', err)
+        logger.error('[RAG Retrieve] File reference detection error:', 'Error occurred', err)
         return null
     }
 }

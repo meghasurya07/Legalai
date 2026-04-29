@@ -1,4 +1,5 @@
 import { auth0 } from '@/lib/auth/auth0'
+import { logger } from '@/lib/logger'
 
 /**
  * Retrieves the Auth0 user ID (sub) from the current session.
@@ -9,7 +10,7 @@ export async function getUserId(): Promise<string | null> {
         const session = await auth0.getSession()
         return session?.user?.sub || null
     } catch (error) {
-        console.error('[getUserId] Error getting session:', error)
+        logger.error('auth', 'Error getting session', error)
         return null
     }
 }

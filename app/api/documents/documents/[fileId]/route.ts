@@ -1,7 +1,8 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 interface RouteParams {
     params: Promise<{ fileId: string }>
@@ -10,7 +11,9 @@ interface RouteParams {
 // GET /api/documents/documents/[fileId] - Get document content for viewer
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { fileId } = await params
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .createSignedUrl(file.url, 3600)
 
         if (urlError) {
-            console.error('Failed to generate signed URL for document:', urlError)
+            logger.error("api", "Failed to generate signed URL for document:", urlError)
         }
 
         // Fetch analysis and clauses

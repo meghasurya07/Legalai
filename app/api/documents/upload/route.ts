@@ -1,13 +1,16 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { checkRateLimit, RATE_LIMIT_UPLOAD } from '@/lib/rate-limit'
 
 // POST /api/documents/upload - Upload ephemeral file to project-less storage
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         // Rate limit uploads
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
             const { extractText } = await import('@/lib/ai/extract-text')
             extractedText = await extractText(file) // Extract uses local processing for standard docs
         } catch (extractError) {
-            console.error('Text extraction error:', extractError)
+            logger.error('Text extraction error:', 'Error', extractError)
             
             // Fallback for plain text files if AI extraction fails
             if (file.type.startsWith('text/') || file.name.endsWith('.csv')) {

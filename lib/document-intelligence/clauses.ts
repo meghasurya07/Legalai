@@ -105,7 +105,7 @@ export async function extractClauses(
                 .insert(records)
 
             if (error) {
-                console.error(`[DocIntel] Failed to insert clauses for file ${fileId}:`, error)
+                logger.error('lib', `[DocIntel] Failed to insert clauses for file ${fileId}:`, error)
                 return []
             }
 
@@ -114,7 +114,7 @@ export async function extractClauses(
 
         return clauses
     } catch (error) {
-        console.error(`[DocIntel] Clause extraction failed for file ${fileId}:`, error)
+        logger.error('lib', `[DocIntel] Clause extraction failed for file ${fileId}:`, error)
         return []
     }
 }
@@ -140,7 +140,7 @@ export async function retrieveClauses(
         const { data, error } = await query
 
         if (error) {
-            console.error('[DocIntel] Failed to retrieve clauses:', error)
+            logger.error('[DocIntel] Failed to retrieve clauses:', 'Error occurred', error)
             return []
         }
 
@@ -156,7 +156,7 @@ export async function retrieveClauses(
             createdAt: c.created_at
         }))
     } catch (error) {
-        console.error('[DocIntel] Clause retrieval error:', error)
+        logger.error('[DocIntel] Clause retrieval error:', 'Error occurred', error)
         return []
     }
 }

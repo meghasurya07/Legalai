@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import DraftFromTemplate from '@/components/draft-from-template'
+import DraftFromTemplate from '@/components/templates/draft-from-template'
 
 export const metadata: Metadata = {
     title: 'Draft from Template | Wesley',

@@ -82,7 +82,7 @@ export async function generateProjectSummary(projectId: string): Promise<boolean
         return true
 
     } catch (error) {
-        console.error('[Trust] Summary generation failed:', error)
+        logger.error('trust/summary', 'Summary generation failed', error)
         return false
     }
 }

@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // Helper: map DB row to camelCase
@@ -31,10 +32,9 @@ function mapEvent(e: Record<string, unknown>) {
 // GET /api/calendar/events?start=ISO&end=ISO&scope=personal|firm&orgId=xxx
 export async function GET(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const { searchParams } = new URL(req.url);
         const start = searchParams.get("start");
         const end = searchParams.get("end");
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json((data || []).map(mapEvent));
     } catch (err) {
-        console.error("[Calendar Events GET]", err);
+        logger.error("Calendar Events GET", "Request failed", err);
         return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 });
     }
 }
@@ -69,10 +69,9 @@ export async function GET(req: NextRequest) {
 // POST /api/calendar/events
 export async function POST(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const body = await req.json();
 
         // --- Conflict Detection ---
@@ -148,13 +147,13 @@ export async function POST(req: NextRequest) {
                 });
             } catch (deadlineErr) {
                 // Non-blocking — the event was already created
-                console.error("[Calendar Events POST] Failed to auto-create deadline:", deadlineErr);
+                logger.error("Calendar Events POST] Failed to auto-create deadline:", "Error", deadlineErr);
             }
         }
 
         return NextResponse.json(mapEvent(data), { status: 201 });
     } catch (err) {
-        console.error("[Calendar Events POST]", err);
+        logger.error("Calendar Events POST", "Request failed", err);
         return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
     }
 }

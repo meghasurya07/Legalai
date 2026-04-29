@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // PATCH /api/calendar/events/[id]
@@ -8,11 +9,10 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const { id } = await params;
-        const userId = session.user.sub;
         const body = await req.json();
 
         const updateFields: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -62,7 +62,7 @@ export async function PATCH(
             updatedAt: data.updated_at,
         });
     } catch (err) {
-        console.error("[Calendar Events PATCH]", err);
+        logger.error("api", "[Calendar Events PATCH]", err);
         return NextResponse.json({ error: "Failed to update event" }, { status: 500 });
     }
 }
@@ -73,11 +73,10 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const { id } = await params;
-        const userId = session.user.sub;
 
         const { error } = await supabase
             .from("calendar_events")
@@ -89,7 +88,7 @@ export async function DELETE(
 
         return NextResponse.json({ success: true });
     } catch (err) {
-        console.error("[Calendar Events DELETE]", err);
+        logger.error("api", "[Calendar Events DELETE]", err);
         return NextResponse.json({ error: "Failed to delete event" }, { status: 500 });
     }
 }

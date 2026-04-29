@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 
@@ -11,11 +12,12 @@ import { apiError } from '@/lib/api-utils'
  * Falls back gracefully if the column hasn't been added yet.
  */
 export async function PATCH(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
 
-    const body = await request.json()
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
+const body = await request.json()
     const { enabled } = body
 
     if (typeof enabled !== 'boolean') {
@@ -66,7 +68,7 @@ export async function PATCH(request: NextRequest) {
         if (error) {
             // Column might not exist yet — check for schema cache error
             if (error.message.includes('ai_memory_persistence') || error.message.includes('schema cache')) {
-                console.warn('[Memory Toggle] Column ai_memory_persistence not found in user_settings. Run migration 020_add_user_memory_toggle.sql')
+                logger.warn("api", "[Memory Toggle] Column ai_memory_persistence not found in user_settings. Run migration 020_add_user_memory_toggle.sql")
                 // Still return success — the preference won't persist but the UI should work
                 return NextResponse.json({
                     success: true,
@@ -80,7 +82,7 @@ export async function PATCH(request: NextRequest) {
             return apiError('Failed to update setting', 500)
         }
     } catch (err) {
-        console.error('[Memory Toggle] Unexpected error:', err)
+        logger.error('Memory Toggle] Unexpected error:', 'Error', err)
         return apiError('Failed to update setting', 500)
     }
 
@@ -98,11 +100,12 @@ export async function PATCH(request: NextRequest) {
  * Also returns org-level override status.
  */
 export async function GET() {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
 
-    // Get user-level setting
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
+// Get user-level setting
     let userMemoryEnabled = true
     let orgId = '00000000-0000-0000-0000-000000000001'
 

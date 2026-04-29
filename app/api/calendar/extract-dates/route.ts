@@ -1,13 +1,13 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { resolveOpenAIClient } from "@/lib/byok";
 
 // POST /api/calendar/extract-dates — AI-powered date extraction from legal text
 export async function POST(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
         const body = await req.json();
         const { text, projectId } = body;
 
@@ -103,7 +103,7 @@ Return a JSON object with this structure:
 
         return NextResponse.json({ dates, documentLength: truncated.length });
     } catch (err) {
-        console.error("[Extract Dates]", err);
+        logger.error("Extract Dates", "Request failed", err);
         return NextResponse.json({ error: "Failed to extract dates" }, { status: 500 });
     }
 }

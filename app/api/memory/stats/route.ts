@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 
@@ -8,11 +9,12 @@ import { apiError } from '@/lib/api-utils'
  * Handles missing table gracefully.
  */
 export async function GET(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
 
-    const { searchParams } = new URL(request.url)
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
+const { searchParams } = new URL(request.url)
     const projectId = searchParams.get('projectId')
 
     const emptyStats = {
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
             }
         })
     } catch (err) {
-        console.error('[Memory Stats] Error:', err)
+        logger.error('Memory Stats] Error:', 'Error', err)
         return NextResponse.json(emptyStats)
     }
 }

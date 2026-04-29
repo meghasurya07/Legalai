@@ -6,4 +6,7 @@ export type { OrgRole, Action } from './rbac'
 export { getUserOrgs, getOrgForProject, getOrgMembers, bootstrapDefaultOrg } from './org'
 export { requirePermission, requireProjectAccess, extractGuardContext } from './guards'
 export type { GuardContext } from './guards'
+export { requireAuth } from './require-auth'
+export type { AuthResult } from './require-auth'
+export { getUserRoles, isFirmAdmin } from './get-user-role'
 

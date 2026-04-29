@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callAISafe } from '@/lib/ai/client'
 import { extractText } from '@/lib/ai/extract-text'
 import { UseCase } from '@/lib/ai/prompts'
-import { apiError, parseAIJSON } from './api-utils'
+import { apiError, parseAIJSON } from '@/lib/api-utils'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
+import { logger } from '@/lib/logger'
 
 interface WorkflowConfig {
     fileField?: string | string[]
@@ -18,13 +19,9 @@ interface WorkflowConfig {
 
 export async function handleWorkflowRequest(request: NextRequest, config: WorkflowConfig) {
     try {
-        // Get user ID early, before consuming the request body
-        const userId = await getUserId()
-
-        // SECURITY: Reject unauthenticated requests immediately
-        if (!userId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         let inputData: Record<string, unknown> = {}
         const variables: Record<string, unknown> = {}
@@ -106,15 +103,14 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
                     })
                 }
             } catch (persistError) {
-                console.error('[WorkflowHandler] Failed to persist workflow execution:', persistError)
+                logger.error('workflow', 'Failed to persist workflow execution', persistError)
             }
         }
 
         return NextResponse.json(parsedResult)
 
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Workflow execution failed'
-        console.error('[WorkflowHandler] Error:', message)
+        logger.error('workflow', 'Workflow execution failed', error)
         return apiError('Workflow execution failed. Please try again.', 500)
     }
 }

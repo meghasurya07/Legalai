@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server"
-import { auth0 } from "@/lib/auth/auth0"
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server"
 
 /**
@@ -16,10 +17,8 @@ export async function GET(
 ) {
     try {
         // Authenticate
-        const session = await auth0.getSession()
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
 
         const { fileId } = await params
         if (!fileId) {
@@ -34,7 +33,7 @@ export async function GET(
             .single()
 
         if (error || !file) {
-            console.error('[Text API] File not found:', error)
+            logger.error("api", "[Text API] File not found:", error)
             return NextResponse.json({ error: "File not found" }, { status: 404 })
         }
 
@@ -43,7 +42,7 @@ export async function GET(
             fileName: file.name,
         })
     } catch (err) {
-        console.error('[Text API] Error:', err)
+        logger.error("api", "[Text API] Error:", err)
         return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 }

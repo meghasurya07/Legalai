@@ -32,7 +32,7 @@ export async function extractText(file: File): Promise<string> {
                 logger.info("ai/extract-text", `[extractText] PDF extracted: ${data.text.length} chars`)
                 return data.text
             } catch (pdfError) {
-                console.error(`[extractText] PDF extraction error:`, pdfError)
+                logger.error('lib', `[extractText] PDF extraction error:`, pdfError)
                 throw pdfError
             }
         }
@@ -102,7 +102,7 @@ export async function extractText(file: File): Promise<string> {
         logger.info("ai/extract-text", `[extractText] Could not extract text from binary file`)
         return `[File: ${file.name} - Binary content not extractable]`
     } catch (error) {
-        console.error('[extractText] Error extracting text:', error)
+        logger.error('[extractText] Error extracting text:', 'Error occurred', error)
         return `[Error extracting text from ${file.name}]`
     }
 }

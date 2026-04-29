@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getOrgContext } from '@/lib/get-org-context'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { getBlockedProjectIds } from '@/lib/ethical-walls'
 
 // GET /api/documents/projects - List all projects for the current user/org
 export async function GET() {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return apiError('Unauthorized', 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         let query = supabase
             .from('projects')
@@ -57,8 +58,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return apiError('Unauthorized', 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const body = await request.json()
         const { sanitizeShortText } = await import('@/lib/validation')

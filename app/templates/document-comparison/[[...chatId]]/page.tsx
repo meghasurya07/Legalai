@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import DocumentComparison from '@/components/document-comparison'
+import DocumentComparison from '@/components/templates/document-comparison'
 
 export const metadata: Metadata = {
     title: 'Document Comparison | Wesley',

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Ethical Walls — Enforcement Library
  *
@@ -86,7 +87,7 @@ export async function getBlockedProjectIds(
         blockedCache.set(cacheKey, { ids: blockedIds, expiry: Date.now() + CACHE_TTL_MS })
         return blockedIds
     } catch (err) {
-        console.error('[EthicalWalls] Error checking walls:', err)
+        logger.error('[EthicalWalls] Error checking walls:', 'Error occurred', err)
         // Fail CLOSED — if we can't check, block nothing (safe default for availability)
         return []
     }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -97,7 +96,7 @@ export default function WorkflowsPage() {
                 if (!workflowsRes.ok) throw new Error('Failed to fetch workflows')
                 const workflowsData = await workflowsRes.json()
                 setWorkflows(workflowsData)
-            } catch (err) {
+            } catch {
                 setError('Failed to load workflows')
             } finally {
                 setIsLoading(false)
@@ -174,7 +173,7 @@ export default function WorkflowsPage() {
                                         const res = await fetch('/api/admin/seed', { method: 'POST' })
                                         if (!res.ok) throw new Error('Failed to seed')
                                         window.location.reload()
-                                    } catch (error) {
+                                    } catch {
                                         toast.error('Failed to initialize workflows')
                                         setIsLoading(false)
                                     }

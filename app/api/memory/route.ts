@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 
@@ -10,11 +11,12 @@ import { apiError } from '@/lib/api-utils'
  *   2. (no projectId)  — List the current user's memories across all projects
  */
 export async function GET(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
 
-    const { searchParams } = new URL(request.url)
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
+const { searchParams } = new URL(request.url)
     const projectId = searchParams.get('projectId')
     const memoryType = searchParams.get('type')
     const sortBy = searchParams.get('sortBy') || 'created_at'
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
         if (error) {
             // Handle missing table gracefully
             if (error.message.includes('schema cache') || error.message.includes('memories')) {
-                console.warn('[Memory] Table "memories" not found. Run migration 018_memory_layer.sql')
+                logger.warn('memory', 'Table "memories" not found. Run migration 018_memory_layer.sql')
                 return NextResponse.json({
                     memories: [],
                     total: 0,
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
             totalPages: Math.ceil((count || 0) / limit),
         })
     } catch (err) {
-        console.error('[Memory] Unexpected error:', err)
+        logger.error('Memory] Unexpected error:', 'Error', err)
         return NextResponse.json({
             memories: [],
             total: 0,
@@ -96,11 +98,12 @@ export async function GET(request: NextRequest) {
  * Accepts both memoryType and memory_type for compatibility.
  */
 export async function POST(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
 
-    // Get org ID
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
+// Get org ID
     let orgId = '00000000-0000-0000-0000-000000000001'
     try {
         const { data: userSettings } = await supabase
@@ -169,7 +172,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ memory }, { status: 201 })
     } catch (err) {
-        console.error('[Memory] POST error:', err)
+        logger.error('Memory] POST error:', 'Error', err)
         return apiError('Failed to save memory. The memories table may not exist yet.', 500)
     }
 }

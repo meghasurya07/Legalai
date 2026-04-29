@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from 'next/server';
 import { getManagementApiToken, getManagementApiBaseUrl } from '@/lib/auth/management-api';
 import { isFirmAdmin } from '@/lib/auth/get-user-role';
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     
     if (!res.ok) {
       const errorBody = await res.text();
-      console.error("[SSO GET] Management API error:", res.status, errorBody);
+      logger.error("sso", `Management API error: ${res.status}`, errorBody);
       return NextResponse.json({ error: 'Failed to query SSO status' }, { status: 502 });
     }
     
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ exists: true, connection: connections[0] });
   } catch (error) {
-    console.error("SSO GET Error:", error);
+    logger.error("sso", "SSO GET failed", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     const clientId = process.env.AUTH0_CLIENT_ID;
 
     if (!clientId) {
-      console.error("[SSO POST] AUTH0_CLIENT_ID is missing from environment variables");
+      logger.error("api", "[SSO POST] AUTH0_CLIENT_ID is missing from environment variables");
       return NextResponse.json({ error: 'Server configuration error: missing AUTH0_CLIENT_ID' }, { status: 500 });
     }
 
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
 
     if (!getRes.ok) {
       const errorBody = await getRes.text();
-      console.error("[SSO POST] Failed to check existing connection:", errorBody);
+      logger.error("sso", "Failed to check existing connection", errorBody);
       return NextResponse.json({ error: 'Failed to check existing SSO configuration' }, { status: 502 });
     }
 
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       });
       if (!patchRes.ok) {
         const errorBody = await patchRes.text();
-        console.error("[SSO POST] Failed to update connection:", errorBody);
+        logger.error("sso", "Failed to update connection", errorBody);
         return NextResponse.json({ error: 'Failed to update SSO connection' }, { status: 502 });
       }
       return NextResponse.json({ success: true, action: 'updated' });
@@ -123,13 +124,13 @@ export async function POST(request: Request) {
       });
       if (!postRes.ok) {
         const errorBody = await postRes.text();
-        console.error("[SSO POST] Auth0 Create Connection Error:", errorBody);
+        logger.error("sso", "Auth0 Create Connection Error", errorBody);
         return NextResponse.json({ error: 'Failed to create SSO connection' }, { status: 502 });
       }
       return NextResponse.json({ success: true, action: 'created' });
     }
   } catch (error) {
-    console.error("SSO POST Error:", error);
+    logger.error("sso", "SSO POST failed", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -155,7 +156,7 @@ export async function DELETE(request: Request) {
 
     if (!getRes.ok) {
       const errorBody = await getRes.text();
-      console.error("[SSO DELETE] Failed to fetch connection:", errorBody);
+      logger.error("sso", "Failed to fetch connection", errorBody);
       return NextResponse.json({ error: 'Failed to query SSO connection' }, { status: 502 });
     }
 
@@ -169,14 +170,14 @@ export async function DELETE(request: Request) {
       });
       if (!delRes.ok) {
         const errorBody = await delRes.text();
-        console.error("[SSO DELETE] Failed to delete connection:", errorBody);
+        logger.error("sso", "Failed to delete connection", errorBody);
         return NextResponse.json({ error: 'Failed to delete SSO connection' }, { status: 502 });
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("SSO DELETE Error:", error);
+    logger.error("sso", "SSO DELETE failed", error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

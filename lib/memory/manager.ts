@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Memory Manager — CRUD operations for the intelligent memory store
  *
@@ -120,13 +121,13 @@ export async function addMemory(
             .single()
 
         if (error) {
-            console.error('[Memory] Insert failed:', error.message)
+            logger.error('[Memory] Insert failed:', error.message)
             return null
         }
 
         return data.id
     } catch (err) {
-        console.error('[Memory] addMemory error:', err)
+        logger.error('[Memory] addMemory error:', 'Error occurred', err)
         return null
     }
 }
@@ -182,7 +183,7 @@ export async function getMemories(params: GetMemoriesParams): Promise<MemoryItem
     const { data, error } = await query
 
     if (error) {
-        console.error('[Memory] getMemories error:', error.message)
+        logger.error('[Memory] getMemories error:', error.message)
         return []
     }
 
@@ -216,7 +217,7 @@ export async function updateMemory(params: UpdateMemoryParams): Promise<boolean>
             const embedding = await embedMemory(content)
             updates.embedding = JSON.stringify(embedding)
         } catch {
-            console.warn('[Memory] Re-embedding failed on update')
+            logger.warn('lib', '[Memory] Re-embedding failed on update')
         }
     }
 
@@ -229,7 +230,7 @@ export async function updateMemory(params: UpdateMemoryParams): Promise<boolean>
         .eq('id', id)
 
     if (error) {
-        console.error('[Memory] updateMemory error:', error.message)
+        logger.error('[Memory] updateMemory error:', error.message)
         return false
     }
 
@@ -250,7 +251,7 @@ export async function deleteMemory(id: string): Promise<boolean> {
         .eq('id', id)
 
     if (error) {
-        console.error('[Memory] deleteMemory error:', error.message)
+        logger.error('[Memory] deleteMemory error:', error.message)
         return false
     }
 
@@ -288,7 +289,7 @@ export async function reinforceMemory(memoryId: string): Promise<void> {
             .eq('id', memoryId)
     } catch (err) {
         // Non-critical — log and continue
-        console.warn('[Memory] reinforceMemory warning:', err)
+        logger.warn('[Memory] reinforceMemory warning:', 'Error occurred', err)
     }
 }
 
@@ -370,7 +371,7 @@ export async function getMemoryStats(projectId: string): Promise<MemoryStats> {
             by_source: bySource as Record<MemorySource, number>,
         }
     } catch (err) {
-        console.error('[Memory] getMemoryStats error:', err)
+        logger.error('[Memory] getMemoryStats error:', 'Error occurred', err)
         return defaultStats
     }
 }

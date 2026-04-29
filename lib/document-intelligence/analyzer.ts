@@ -69,7 +69,7 @@ export async function analyzeDocument(
             const parsed = JSON.parse(result)
             summary = parsed.summary || result
         } catch (err) {
-            console.error(`[DocIntel] Summary generation failed for file ${fileId}:`, err)
+            logger.error('lib', `[DocIntel] Summary generation failed for file ${fileId}:`, err)
             summary = 'Summary generation failed — document may require manual review.'
         }
 
@@ -92,7 +92,7 @@ export async function analyzeDocument(
             })
 
         if (insertError) {
-            console.error(`[DocIntel] Failed to persist analysis for file ${fileId}:`, insertError)
+            logger.error('lib', `[DocIntel] Failed to persist analysis for file ${fileId}:`, insertError)
             return { success: false, error: insertError.message }
         }
 
@@ -107,7 +107,7 @@ export async function analyzeDocument(
                 source: 'doc',
                 refId: fileId
             }, projectId)
-        }).catch(err => console.error('[DocIntel] Graph job enqueue failed:', err))
+        }).catch(err => logger.error('[DocIntel] Graph job enqueue failed:', err))
 
         const duration = Date.now() - startTime
         logger.info("document-intelligence/analyzer", 
@@ -120,7 +120,7 @@ export async function analyzeDocument(
         return { success: true }
     } catch (error) {
         const duration = Date.now() - startTime
-        console.error(`[DocIntel] Fatal error for file ${fileId} (${duration}ms):`, error)
+        logger.error('lib', `[DocIntel] Fatal error for file ${fileId} (${duration}ms):`, error)
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
 }
@@ -136,7 +136,7 @@ export async function retrieveProjectAnalysis(projectId: string): Promise<Array<
             .eq('project_id', projectId)
 
         if (error) {
-            console.error('[DocIntel] Failed to retrieve project analysis:', error)
+            logger.error('[DocIntel] Failed to retrieve project analysis:', 'Error occurred', error)
             return []
         }
 
@@ -145,7 +145,7 @@ export async function retrieveProjectAnalysis(projectId: string): Promise<Array<
             summary: d.summary
         }))
     } catch (error) {
-        console.error('[DocIntel] Project analysis retrieval error:', error)
+        logger.error('[DocIntel] Project analysis retrieval error:', 'Error occurred', error)
         return []
     }
 }

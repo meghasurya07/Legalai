@@ -42,7 +42,7 @@ export async function executeWorkflow(
             context.documentAnalysis = analysis
             context.clauses = clauses
         } catch (error) {
-            console.error('[WorkflowEngine] Failed to hydrate context:', error)
+            logger.error('workflow/engine', 'Failed to hydrate context', error)
         }
     }
 
@@ -111,7 +111,7 @@ export async function executeWorkflow(
                 source: 'workflow',
                 refId: workflowRunId
             }, projectId)
-        }).catch(err => console.error('[WorkflowEngine] Job enqueue failed:', err))
+        }).catch(err => logger.error('workflow/engine', 'Job enqueue failed', err))
     }
 
     return finalResult

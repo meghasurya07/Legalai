@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * BYOK (Bring Your Own Key) — Encryption, Decryption & Key Resolution
  *
@@ -228,7 +229,7 @@ export async function resolveOpenAIClient(
     try {
         decryptedKey = decryptKey(config.encrypted_api_key)
     } catch {
-        console.error(`[BYOK] CRITICAL: Failed to decrypt key for org ${orgId}`)
+        logger.error('lib', `[BYOK] CRITICAL: Failed to decrypt key for org ${orgId}`)
         throw new Error(
             'Your organization\'s API key could not be decrypted. ' +
             'Please contact your administrator to re-enter the API key in Organization Settings → API Keys.'

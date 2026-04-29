@@ -1,6 +1,5 @@
 "use client"
 
-import "./not-found.css"
 import Link from "next/link"
 import { Home, ArrowLeft, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,7 +9,13 @@ export default function NotFound() {
         <div className="flex flex-col items-center justify-center min-h-full h-full w-full bg-background text-foreground p-4 relative overflow-hidden">
             {/* Animated background grid */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="not-found-grid absolute inset-0 opacity-[0.03]" />
+                <div
+                    className="absolute inset-0 opacity-[0.03]"
+                    style={{
+                        backgroundImage: 'linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)',
+                        backgroundSize: '60px 60px',
+                    }}
+                />
                 {/* Radial glow */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-primary/5 blur-3xl" />
             </div>

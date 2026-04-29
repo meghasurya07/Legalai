@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -11,8 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { useParams } from "next/navigation"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface LegalCompanyProfile {
     company: {
@@ -57,72 +56,33 @@ interface LegalCompanyProfile {
 }
 
 export default function CompanyProfile() {
-    const params = useParams()
-    const chatIdParam = params.chatId as string[] | undefined
-    const chatId = chatIdParam && chatIdParam[0] === 'chat' && chatIdParam[1] ? chatIdParam[1] : undefined
+    const {
+        isRunning: isGenerating,
+        result: profile,
+        runWithJson,
+        reset,
+    } = useTemplateWorkflow<LegalCompanyProfile>({
+        apiEndpoint: '/api/templates/company-profile',
+    })
 
     const [companyInput, setCompanyInput] = React.useState("")
     const [companyPrompt, setCompanyPrompt] = React.useState("")
-    const [isGenerating, setIsGenerating] = React.useState(false)
-    const [profile, setProfile] = React.useState<LegalCompanyProfile | null>(null)
-
-    React.useEffect(() => {
-        if (!chatId) return
-        const loadHistory = async () => {
-            setIsGenerating(true)
-            try {
-                const res = await fetch(`/api/chat/conversations/${chatId}/messages`)
-                if (res.ok) {
-                    const messages = await res.json()
-                    const assistantMsg = messages.find((m: { role: string; content: string }) => m.role === 'assistant')
-                    if (assistantMsg) {
-                        try {
-                            const parsedData = JSON.parse(assistantMsg.content)
-                            setProfile(parsedData)
-                        } catch (e) {
-                            toast.error("Failed to load past result")
-                        }
-                    }
-                }
-            } catch (error) {
-            } finally {
-                setIsGenerating(false)
-            }
-        }
-        loadHistory()
-    }, [chatId])
 
     const handleGenerate = async () => {
         if (!companyInput.trim()) {
             toast.error("Please enter a company name or ticker symbol")
             return
         }
-        setIsGenerating(true)
-        try {
-            const response = await fetch('/api/templates/company-profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ company: companyInput, prompt: companyPrompt })
-            })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to generate profile')
-            }
-            const data = await response.json()
-            setProfile(data)
-            toast.success("Legal company research profile generated!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to generate company research profile"
-            toast.error(message)
-        } finally {
-            setIsGenerating(false)
-        }
+        await runWithJson(
+            { company: companyInput, prompt: companyPrompt },
+            "Legal company research profile generated!"
+        )
     }
 
     const resetSearch = () => {
         setCompanyInput("")
         setCompanyPrompt("")
-        setProfile(null)
+        reset()
     }
 
     return (

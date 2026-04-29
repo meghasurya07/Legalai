@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -9,8 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface ComparisonResult {
     summary: string
@@ -28,11 +28,18 @@ interface ComparisonResult {
 }
 
 export default function RedlineAnalysis() {
+    const {
+        isDuplicateModalOpen, setIsDuplicateModalOpen,
+        isRunning: isProcessing,
+        result,
+        runWithFile,
+        reset,
+    } = useTemplateWorkflow<ComparisonResult>({
+        apiEndpoint: '/api/templates/redline-analysis',
+    })
+
     const [originalFile, setOriginalFile] = React.useState<File | null>(null)
     const [revisedFile, setRevisedFile] = React.useState<File | null>(null)
-    const [isProcessing, setIsProcessing] = React.useState(false)
-    const [result, setResult] = React.useState<ComparisonResult | null>(null)
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false)
     const [question, setQuestion] = React.useState("")
     const [conversation, setConversation] = React.useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
     const [isAsking, setIsAsking] = React.useState(false)
@@ -59,31 +66,10 @@ export default function RedlineAnalysis() {
             return
         }
 
-        setIsProcessing(true)
         const formData = new FormData()
         formData.append('original', originalFile)
         formData.append('revised', revisedFile)
-
-        try {
-            const response = await fetch('/api/templates/redline-analysis', {
-                method: 'POST',
-                body: formData
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to process documents')
-            }
-
-            const data = await response.json()
-            setResult(data)
-            toast.success("Documents compared successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to compare documents"
-            toast.error(message)
-        } finally {
-            setIsProcessing(false)
-        }
+        await runWithFile(formData, "Documents compared successfully!")
     }
 
     const handleAskQuestion = async () => {
@@ -110,7 +96,7 @@ export default function RedlineAnalysis() {
 
             const data = await response.json()
             setConversation(prev => [...prev, { role: 'assistant', content: data.answer }])
-        } catch (error) {
+        } catch {
             toast.error("Failed to get answer")
         } finally {
             setIsAsking(false)
@@ -120,9 +106,9 @@ export default function RedlineAnalysis() {
     const resetAnalysis = () => {
         setOriginalFile(null)
         setRevisedFile(null)
-        setResult(null)
         setConversation([])
         setQuestion("")
+        reset()
     }
 
     return (

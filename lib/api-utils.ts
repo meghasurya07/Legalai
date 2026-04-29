@@ -1,32 +1,25 @@
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 /**
- * Normalized API response envelope.
- * All API responses share this shape.
+ * Standardized API Response Helpers
+ *
+ * Error responses use a consistent shape:
+ *   { success: false, data: null, error: { code: number, message: string } }
+ *
+ * Success responses use `NextResponse.json(data)` directly.
  */
 
 /**
  * Standardized API error response
  */
 export function apiError(message: string, status: number = 500, detail?: unknown) {
-    console.error(`[API ERROR] status=${status} | message=${message}`, detail || '')
+    logger.error('api', `[${status}] ${message}`, detail)
     return NextResponse.json({
         success: false,
         data: null,
         error: { code: status, message }
     }, { status })
-}
-
-/**
- * Standardized API success response (JSON)
- */
-export function apiSuccess(data: unknown, meta?: Record<string, unknown>) {
-    return NextResponse.json({
-        success: true,
-        data,
-        error: null,
-        ...(meta ? { meta } : {})
-    })
 }
 
 /**

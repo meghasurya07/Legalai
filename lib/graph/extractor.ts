@@ -58,7 +58,7 @@ export async function extractAndPersistGraph(params: {
                 })
                 entityMap.set(entity.name.toLowerCase().trim(), id)
             } catch (err) {
-                console.error(`[Graph] Failed to upsert entity "${entity.name}":`, err)
+                logger.error('lib', `[Graph] Failed to upsert entity "${entity.name}":`, err)
             }
         }
 
@@ -81,13 +81,13 @@ export async function extractAndPersistGraph(params: {
                     relCount++
                 }
             } catch (err) {
-                console.error(`[Graph] Failed to add relationship:`, err)
+                logger.error('lib', `[Graph] Failed to add relationship:`, err)
             }
         }
 
         logger.info("graph/extractor", `[Graph] Extracted ${entityMap.size} entities, ${relCount} relationships.`)
 
     } catch (error) {
-        console.error('[Graph] Extraction failed:', error)
+        logger.error('[Graph] Extraction failed:', 'Error occurred', error)
     }
 }

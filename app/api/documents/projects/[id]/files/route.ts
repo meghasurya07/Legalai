@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { checkRateLimit, RATE_LIMIT_UPLOAD } from '@/lib/rate-limit'
 import { ingestFile } from '@/lib/rag'
 import { analyzeDocument } from '@/lib/document-intelligence'
@@ -14,7 +14,9 @@ interface RouteParams {
 // GET /api/documents/projects/[id]/files - List files in project
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .createSignedUrls(filePaths, 3600)
 
             if (signedError) {
-                console.error('Failed to generate signed URLs:', signedError)
+                logger.error("api", "Failed to generate signed URLs:", signedError)
             }
             signedUrls = signed
         }
@@ -76,7 +78,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/documents/projects/[id]/files - Add file to project
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { id } = await params
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             const { extractText } = await import('@/lib/ai/extract-text')
             extractedText = await extractText(file)
         } catch (extractError) {
-            console.error('Text extraction error:', extractError)
+            logger.error("api", "Text extraction error:", extractError)
         }
 
         const hasText = extractedText.trim().length > 0
@@ -176,7 +180,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                     logger.info("files/route", `[RAG] File ${fileRecord.id} ingestion complete: ${chunksCreated} chunks, success=${success}`)
                 })
                 .catch(err => {
-                    console.error(`[RAG] File ${fileRecord.id} ingestion failed:`, err)
+                    logger.error("rag", `File ${fileRecord.id} ingestion failed`, err)
                 })
 
             // 5. Fire-and-forget Document Intelligence
@@ -185,7 +189,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                     logger.info("files/route", `[DocIntel] File ${fileRecord.id} analysis complete, success=${success}`)
                 })
                 .catch(err => {
-                    console.error(`[DocIntel] File ${fileRecord.id} analysis failed:`, err)
+                    logger.error("doc-intel", `File ${fileRecord.id} analysis failed`, err)
                 })
         }
 

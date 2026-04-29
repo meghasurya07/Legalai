@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface ComparisonResult {
     summary: string
@@ -24,11 +25,18 @@ interface ComparisonResult {
 }
 
 export default function DocumentComparison() {
+    const {
+        isDuplicateModalOpen, setIsDuplicateModalOpen,
+        isRunning: isComparing,
+        result,
+        runWithFile,
+        reset,
+    } = useTemplateWorkflow<ComparisonResult>({
+        apiEndpoint: '/api/templates/document-comparison',
+    })
+
     const [document1, setDocument1] = React.useState<File | null>(null)
     const [document2, setDocument2] = React.useState<File | null>(null)
-    const [isComparing, setIsComparing] = React.useState(false)
-    const [result, setResult] = React.useState<ComparisonResult | null>(null)
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false)
 
     const handleFileSelect = (position: 1 | 2, file: File) => {
         if ((position === 1 && document2 && document2.name === file.name) ||
@@ -52,37 +60,16 @@ export default function DocumentComparison() {
             return
         }
 
-        setIsComparing(true)
         const formData = new FormData()
         formData.append('document1', document1)
         formData.append('document2', document2)
-
-        try {
-            const response = await fetch('/api/templates/document-comparison', {
-                method: 'POST',
-                body: formData
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to compare documents')
-            }
-
-            const data = await response.json()
-            setResult(data)
-            toast.success("Documents compared successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to compare documents"
-            toast.error(message)
-        } finally {
-            setIsComparing(false)
-        }
+        await runWithFile(formData, "Documents compared successfully!")
     }
 
     const resetComparison = () => {
         setDocument1(null)
         setDocument2(null)
-        setResult(null)
+        reset()
     }
 
     return (

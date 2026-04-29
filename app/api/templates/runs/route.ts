@@ -3,14 +3,15 @@ import { supabase } from '@/lib/supabase/server'
 import { callAISafe } from '@/lib/ai/client'
 import { executeWorkflow } from '@/lib/workflow/engine'
 import { PIPELINES } from '@/lib/workflow/pipelines'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { logger } from '@/lib/logger'
 
 // POST /api/templates/runs - Create a new workflow run with real AI
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const body = await request.json()
         const { workflowId, inputData } = body
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (error) {
-            console.error('Error creating workflow run:', error)
+            logger.error('Error creating workflow run:', 'Error', error)
             return NextResponse.json({ error: 'Failed to create workflow run' }, { status: 500 })
         }
 
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
                         .eq('id', run.id)
                 })
                 .catch(async (err) => {
-                    console.error(`Pipeline ${workflowId} failed:`, err)
+                    logger.error("workflow", `Pipeline ${workflowId} failed`, err)
                     await supabase
                         .from('workflow_runs')
                         .update({
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
             createdAt: run.created_at
         }, { status: 201 })
     } catch (error) {
-        console.error('Error in POST /api/templates/runs:', error)
+        logger.error('Error in POST /api/templates/runs:', 'Error', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -136,8 +137,9 @@ export async function POST(request: NextRequest) {
 // GET /api/templates/runs - List workflow runs for current user
 export async function GET(request: NextRequest) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { searchParams } = new URL(request.url)
         const workflowId = searchParams.get('workflowId')
@@ -156,7 +158,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await query
 
         if (error) {
-            console.error('Error fetching workflow runs:', error)
+            logger.error('Error fetching workflow runs:', 'Error', error)
             return NextResponse.json({ error: 'Failed to fetch workflow runs' }, { status: 500 })
         }
 
@@ -173,7 +175,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(runs)
     } catch (error) {
-        console.error('Error in GET /api/templates/runs:', error)
+        logger.error('Error in GET /api/templates/runs:', 'Error', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

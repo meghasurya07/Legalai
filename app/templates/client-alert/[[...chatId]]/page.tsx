@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import ClientAlert from '@/components/client-alert'
+import ClientAlert from '@/components/templates/client-alert'
 import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 

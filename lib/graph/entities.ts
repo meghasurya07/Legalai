@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Knowledge Graph — Entity Manager
  * 
@@ -62,7 +63,7 @@ export async function upsertEntity(params: {
         .single()
 
     if (error) {
-        console.error('[Graph] Failed to upsert entity:', error)
+        logger.error('[Graph] Failed to upsert entity:', 'Error occurred', error)
         throw error
     }
 
@@ -87,7 +88,7 @@ export async function findEntities(projectId: string, type?: EntityType, limit: 
         .limit(limit)
 
     if (error) {
-        console.error('[Graph] Failed to find entities:', error)
+        logger.error('[Graph] Failed to find entities:', 'Error occurred', error)
         return []
     }
 

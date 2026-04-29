@@ -106,7 +106,7 @@ export async function getOrgContext(): Promise<OrgContext | null> {
                     if (ssoOrg) {
                         // Check org is active
                         if (ssoOrg.status !== 'active') {
-                            console.warn(`[SSO JIT] Org ${ssoOrg.name} is ${ssoOrg.status}. Denying SSO user: ${email}`)
+                            logger.warn('lib', `[SSO JIT] Org ${ssoOrg.name} is ${ssoOrg.status}. Denying SSO user: ${email}`)
                             return {
                                 userId,
                                 orgId: '',
@@ -119,7 +119,7 @@ export async function getOrgContext(): Promise<OrgContext | null> {
                         const currentMembers = ssoOrg.member_count || 0
                         const maxSeats = ssoOrg.licensed_seats || 10
                         if (currentMembers >= maxSeats) {
-                            console.warn(`[SSO JIT] Seat limit reached for org ${ssoOrg.name} (${currentMembers}/${maxSeats}). Denying SSO user: ${email}`)
+                            logger.warn('lib', `[SSO JIT] Seat limit reached for org ${ssoOrg.name} (${currentMembers}/${maxSeats}). Denying SSO user: ${email}`)
                             return {
                                 userId,
                                 orgId: '',
@@ -178,11 +178,11 @@ export async function getOrgContext(): Promise<OrgContext | null> {
                         }
                     } else {
                         // Domain doesn't match any org — redirect to denied page
-                        console.warn(`[SSO JIT] No org found for domain: ${emailDomain} (user: ${email})`)
+                        logger.warn('lib', `[SSO JIT] No org found for domain: ${emailDomain} (user: ${email})`)
                     }
                 }
             } catch (ssoErr) {
-                console.warn('[SSO JIT] Auto-provision failed:', ssoErr)
+                logger.warn('[SSO JIT] Auto-provision failed:', 'Error occurred', ssoErr)
             }
         }
 
@@ -197,13 +197,6 @@ export async function getOrgContext(): Promise<OrgContext | null> {
         // Gracefully handle any errors (e.g., table doesn't exist)
         return null
     }
-}
-
-/**
- * Helper: get org context or return null.
- */
-export async function requireOrgContext(): Promise<OrgContext | null> {
-    return getOrgContext()
 }
 
 /**
@@ -268,7 +261,7 @@ export async function autoProvisionOrg(userId: string, userName?: string): Promi
 
         if (orgError || !org) {
             // Table doesn't exist yet — not an error, just pre-migration state
-            console.warn('[autoProvisionOrg] Org tables not ready:', orgError?.message)
+            logger.warn('autoProvisionOrg', 'Org tables not ready', orgError?.message)
             return null
         }
 

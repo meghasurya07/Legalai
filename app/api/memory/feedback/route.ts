@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { apiError } from '@/lib/api-utils'
 import { processFeedback } from '@/lib/memory/learning-loop'
 
@@ -14,8 +15,8 @@ import { processFeedback } from '@/lib/memory/learning-loop'
  * }
  */
 export async function POST(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
 
     const body = await request.json()
     const { conversationId, messageId, rating, memoryIds } = body
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
                 : 'Memory confidence reduced — flagged for review if below threshold',
         })
     } catch (err) {
-        console.error('[Memory Feedback] Error:', err)
+        logger.error('Memory Feedback] Error:', 'Error', err)
         return apiError('Failed to process feedback', 500)
     }
 }

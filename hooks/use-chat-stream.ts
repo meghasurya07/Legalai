@@ -4,6 +4,19 @@ import * as React from "react"
 import { toast } from "sonner"
 import type { Attachment, Message } from "@/types"
 import type { ActivityPhase } from "@/components/chat/activity-timeline"
+import {
+    getAttachmentType,
+    splitDuplicateFiles,
+    createAttachmentFromFile,
+    revokeAttachmentObjectUrl,
+    revokeAttachmentObjectUrls,
+    uploadAttachmentForChat,
+    toDisplayAttachment,
+    toPersistedAttachment,
+} from "@/lib/chat/attachment-utils"
+
+// Re-export for consumers that import from this file
+export { getAttachmentType, splitDuplicateFiles, createAttachmentFromFile, revokeAttachmentObjectUrl }
 
 // Map UI conversation types to database types
 const DB_TYPE_MAP: Record<string, string> = {
@@ -16,175 +29,6 @@ type AddFilesMessage = string | ((count: number) => string)
 
 interface AddFilesOptions {
     successMessage?: AddFilesMessage
-}
-
-interface QueuedFileSplit {
-    uniqueFiles: File[]
-    duplicateFiles: File[]
-}
-
-interface ChatUploadPayload {
-    id?: string
-    name: string
-    type: Attachment['type']
-    source: Attachment['source']
-    url?: string
-    storageUrl?: string
-    mimeType?: string
-    size?: string | number
-    content?: string | null
-}
-
-export function getAttachmentType(file: File): Attachment['type'] {
-    const fileName = file.name.toLowerCase()
-
-    if (file.type.startsWith('image/')) return 'image'
-    if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) return 'pdf'
-    if (fileName.endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx'
-    if (fileName.endsWith('.csv') || file.type === 'text/csv') return 'csv'
-    if (
-        file.type.startsWith('text/') ||
-        fileName.endsWith('.txt') ||
-        fileName.endsWith('.md') ||
-        fileName.endsWith('.ts') ||
-        fileName.endsWith('.tsx') ||
-        fileName.endsWith('.js') ||
-        fileName.endsWith('.json')
-    ) return 'text'
-
-    return 'other'
-}
-
-export function splitDuplicateFiles(files: File[], existingAttachments: Attachment[]): QueuedFileSplit {
-    const seenNames = new Set(existingAttachments.map((file) => file.name))
-    const uniqueFiles: File[] = []
-    const duplicateFiles: File[] = []
-
-    for (const file of files) {
-        if (seenNames.has(file.name)) {
-            duplicateFiles.push(file)
-            continue
-        }
-
-        uniqueFiles.push(file)
-        seenNames.add(file.name)
-    }
-
-    return { uniqueFiles, duplicateFiles }
-}
-
-export function createAttachmentFromFile(file: File, objectUrl = URL.createObjectURL(file)): Attachment {
-    return {
-        name: file.name,
-        url: objectUrl,
-        type: getAttachmentType(file),
-        source: 'upload',
-        file,
-        mimeType: file.type || undefined,
-        size: file.size,
-    }
-}
-
-export function revokeAttachmentObjectUrl(attachment: Attachment) {
-    if (
-        attachment.url?.startsWith('blob:') &&
-        typeof URL !== 'undefined' &&
-        typeof URL.revokeObjectURL === 'function'
-    ) {
-        URL.revokeObjectURL(attachment.url)
-    }
-}
-
-function revokeAttachmentObjectUrls(attachments: Attachment[]) {
-    attachments.forEach(revokeAttachmentObjectUrl)
-}
-
-async function uploadAttachmentForChat(attachment: Attachment): Promise<ChatUploadPayload> {
-    if (attachment.source === 'drive' || !attachment.file) {
-        return {
-            id: attachment.id,
-            name: attachment.name,
-            type: attachment.type,
-            source: attachment.source,
-            url: attachment.url,
-            storageUrl: attachment.storageUrl,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-            content: attachment.extractedText,
-        }
-    }
-
-    try {
-        const formData = new FormData()
-        formData.append('file', attachment.file)
-        const res = await fetch('/api/documents/upload', { method: 'POST', body: formData })
-
-        if (!res.ok) {
-            throw new Error('Upload failed')
-        }
-
-        const data = await res.json()
-        return {
-            id: data.id,
-            name: data.name || attachment.name,
-            type: attachment.type,
-            source: 'upload',
-            url: data.url,
-            storageUrl: data.storageUrl,
-            mimeType: data.mimeType || data.type || attachment.file.type || attachment.mimeType,
-            size: data.size || attachment.size,
-            content: attachment.type === 'image' ? null : data.content,
-        }
-    } catch (error) {
-        if (attachment.type === 'image') {
-            throw error
-        }
-
-        let content = ''
-        if (attachment.type === 'text' || attachment.type === 'csv' || attachment.type === 'other') {
-            content = await attachment.file.text()
-        }
-
-        return {
-            name: attachment.name,
-            type: attachment.type,
-            source: attachment.source,
-            url: attachment.url,
-            storageUrl: attachment.storageUrl,
-            mimeType: attachment.file.type || attachment.mimeType,
-            size: attachment.size,
-            content,
-        }
-    }
-}
-
-function toDisplayAttachment(original: Attachment, processed: ChatUploadPayload): Attachment {
-    return {
-        ...original,
-        id: processed.id,
-        name: processed.name || original.name,
-        type: processed.type,
-        source: processed.source,
-        url: processed.url || original.url,
-        storageUrl: processed.storageUrl || original.storageUrl,
-        mimeType: processed.mimeType || original.mimeType,
-        size: processed.size || original.size,
-        extractedText: processed.content ?? original.extractedText,
-        file: undefined,
-    }
-}
-
-function toPersistedAttachment(file: ChatUploadPayload): Attachment {
-    return {
-        id: file.id,
-        name: file.name,
-        type: file.type,
-        source: file.source,
-        url: file.url,
-        storageUrl: file.storageUrl,
-        mimeType: file.mimeType,
-        size: file.size,
-    }
 }
 
 function getAddFilesSuccessMessage(message: AddFilesMessage | undefined, count: number): string {

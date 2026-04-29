@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Job Queue — Worker
  * 
@@ -92,7 +93,7 @@ export async function processNextJob(): Promise<boolean> {
         return true
 
     } catch (err) {
-        console.error('[Jobs] Worker error:', err)
+        logger.error('[Jobs] Worker error:', 'Error occurred', err)
         return false
     }
 }

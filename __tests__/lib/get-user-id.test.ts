@@ -10,9 +10,11 @@ vi.mock('@/lib/auth/auth0', () => ({
 }))
 
 import { getUserId } from '@/lib/auth/get-user-id'
+import { logger } from '@/lib/logger'
 
 beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
 })
 
 describe('getUserId', () => {

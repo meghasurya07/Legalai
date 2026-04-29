@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { searchParams } = new URL(request.url)
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
             .order('order', { ascending: true })
 
         if (colError) {
-            console.error('[Tabular Review Load] Column load error:', colError)
+            logger.error('Tabular Review Load] Column load error:', 'Error', colError)
             return apiError('Failed to load columns', 500, colError)
         }
 
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
             .eq('project_id', projectId)
 
         if (cellError) {
-            console.error('[Tabular Review Load] Cell load error:', cellError)
+            logger.error('Tabular Review Load] Cell load error:', 'Error', cellError)
             return apiError('Failed to load cells', 500, cellError)
         }
 
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ columns, cells, chatMessages })
     } catch (error) {
-        console.error('[Tabular Review Load] Error:', error)
+        logger.error('Tabular Review Load] Error:', 'Error', error)
         return apiError('Load failed', 500, error)
     }
 }

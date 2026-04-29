@@ -1,15 +1,19 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { isFirmAdmin as checkFirmAdmin } from '@/lib/auth/get-user-role'
 
 /**
  * GET /api/memory/toggle/org — Get org-level memory toggle state
  */
 export async function GET() {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
+
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
 
     const { data: userData } = await supabase
         .from('user_settings')
@@ -36,15 +40,16 @@ export async function GET() {
  * Body: { enabled: boolean }
  */
 export async function PATCH(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
-    const userId = session.user.sub
+    const auth = await requireAuth()
+
+    if (auth instanceof Response) return auth
+
+    const { userId } = auth
 
     // Verify FIRM_ADMIN role
-    const roles = session.user['https://askwesley.com/roles'] as string[] | undefined
-    const isFirmAdmin = roles?.includes('FIRM_ADMIN') || false
+    const adminByRole = await checkFirmAdmin()
 
-    if (!isFirmAdmin) {
+    if (!adminByRole) {
         // Also check org membership role
         const { data: userData } = await supabase
             .from('user_settings')
@@ -94,7 +99,7 @@ export async function PATCH(request: NextRequest) {
         )
 
     if (error) {
-        console.error('[Org Memory Toggle] Failed:', error.message)
+        logger.error('Org Memory Toggle] Failed:', 'Error', error.message)
         return apiError('Failed to update organization setting', 500)
     }
 

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ answer: result })
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to process question'
-        console.error('Query error:', message)
+        logger.error('Query error:', 'Error', message)
         return NextResponse.json({ error: message }, { status: 500 })
     }
 }

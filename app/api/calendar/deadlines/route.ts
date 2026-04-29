@@ -1,5 +1,6 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // Helper: map DB row to camelCase
@@ -29,10 +30,9 @@ function mapDeadline(d: Record<string, unknown>) {
 // GET /api/calendar/deadlines?start=ISO&end=ISO&status=pending&priority=high&scope=personal|firm&orgId=xxx
 export async function GET(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const { searchParams } = new URL(req.url);
         const start = searchParams.get("start");
         const end = searchParams.get("end");
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json((data || []).map(mapDeadline));
     } catch (err) {
-        console.error("[Deadlines GET]", err);
+        logger.error("Deadlines GET", "Request failed", err);
         return NextResponse.json({ error: "Failed to fetch deadlines" }, { status: 500 });
     }
 }
@@ -71,11 +71,9 @@ export async function GET(req: NextRequest) {
 // POST /api/calendar/deadlines
 export async function POST(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
-        const userName = session.user.name || session.user.email || "Unknown";
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId, userName } = auth
         const body = await req.json();
 
         const { data, error } = await supabase
@@ -111,7 +109,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(mapDeadline(data), { status: 201 });
     } catch (err) {
-        console.error("[Deadlines POST]", err);
+        logger.error("Deadlines POST", "Request failed", err);
         return NextResponse.json({ error: "Failed to create deadline" }, { status: 500 });
     }
 }

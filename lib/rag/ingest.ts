@@ -63,7 +63,7 @@ export async function ingestFile(
         )
 
         if (embeddedChunks.length === 0) {
-            console.error(`[RAG Ingest] File ${fileId}: embedding generation failed completely`)
+            logger.error('lib', `[RAG Ingest] File ${fileId}: embedding generation failed completely`)
             await updateFileStatus(fileId, 'ready') // Don't block — file is still usable
             return { chunksCreated: 0, success: false }
         }
@@ -91,7 +91,7 @@ export async function ingestFile(
                 .insert(batch)
 
             if (error) {
-                console.error(`[RAG Ingest] Batch insert error for file ${fileId}:`, error)
+                logger.error('lib', `[RAG Ingest] Batch insert error for file ${fileId}:`, error)
                 // Continue with remaining batches
             } else {
                 inserted += batch.length
@@ -106,7 +106,7 @@ export async function ingestFile(
 
         return { chunksCreated: inserted, success: true }
     } catch (error) {
-        console.error(`[RAG Ingest] Fatal error for file ${fileId}:`, error)
+        logger.error('lib', `[RAG Ingest] Fatal error for file ${fileId}:`, error)
         await updateFileStatus(fileId, 'ready') // Don't leave file stuck in "processing"
         return { chunksCreated: 0, success: false }
     }
@@ -122,7 +122,7 @@ async function updateFileStatus(fileId: string, status: string): Promise<void> {
         .eq('id', fileId)
 
     if (error) {
-        console.error(`[RAG Ingest] Failed to update file ${fileId} status to ${status}:`, error)
+        logger.error('lib', `[RAG Ingest] Failed to update file ${fileId} status to ${status}:`, error)
     }
 }
 
@@ -137,7 +137,7 @@ export async function deleteFileChunks(fileId: string): Promise<void> {
         .eq('file_id', fileId)
 
     if (error) {
-        console.error(`[RAG Ingest] Failed to delete chunks for file ${fileId}:`, error)
+        logger.error('lib', `[RAG Ingest] Failed to delete chunks for file ${fileId}:`, error)
     } else {
         logger.info("rag/ingest", `[RAG Ingest] Deleted ${count ?? 'all'} chunks for file ${fileId}`)
     }

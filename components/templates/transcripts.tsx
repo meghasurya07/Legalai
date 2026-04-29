@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import * as React from "react"
@@ -9,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface TranscriptAnalysis {
     summary: string
@@ -34,46 +34,30 @@ interface TranscriptAnalysis {
 }
 
 export default function Transcripts() {
-    const [transcriptFile, setTranscriptFile] = React.useState<File | null>(null)
-    const [isAnalyzing, setIsAnalyzing] = React.useState(false)
-    const [analysis, setAnalysis] = React.useState<TranscriptAnalysis | null>(null)
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false)
+    const {
+        file: transcriptFile,
+        handleFileSelect,
+        isDuplicateModalOpen, setIsDuplicateModalOpen,
+        isRunning: isAnalyzing,
+        result: analysis,
+        runWithFile,
+        reset,
+    } = useTemplateWorkflow<TranscriptAnalysis>({
+        apiEndpoint: '/api/templates/transcripts',
+    })
+
     const [question, setQuestion] = React.useState("")
     const [conversation, setConversation] = React.useState<Array<{ role: 'user' | 'assistant', content: string }>>([])
     const [isAsking, setIsAsking] = React.useState(false)
-
-    const handleFileSelect = (file: File) => {
-        if (transcriptFile && transcriptFile.name === file.name) {
-            setIsDuplicateModalOpen(true)
-            return
-        }
-        setTranscriptFile(file)
-        toast.success("Transcript uploaded")
-    }
 
     const handleAnalyze = async () => {
         if (!transcriptFile) {
             toast.error("Please upload a transcript file")
             return
         }
-        setIsAnalyzing(true)
         const formData = new FormData()
         formData.append('transcript', transcriptFile)
-        try {
-            const response = await fetch('/api/templates/transcripts', { method: 'POST', body: formData })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to analyze transcript')
-            }
-            const data = await response.json()
-            setAnalysis(data)
-            toast.success("Transcript analyzed successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to analyze transcript"
-            toast.error(message)
-        } finally {
-            setIsAnalyzing(false)
-        }
+        await runWithFile(formData, "Transcript analyzed successfully!")
     }
 
     const handleAskQuestion = async () => {
@@ -91,7 +75,7 @@ export default function Transcripts() {
             if (!response.ok) throw new Error('Failed to get answer')
             const data = await response.json()
             setConversation(prev => [...prev, { role: 'assistant', content: data.answer }])
-        } catch (error) {
+        } catch {
             toast.error("Failed to get answer")
         } finally {
             setIsAsking(false)
@@ -99,10 +83,9 @@ export default function Transcripts() {
     }
 
     const resetAnalysis = () => {
-        setTranscriptFile(null)
-        setAnalysis(null)
         setConversation([])
         setQuestion("")
+        reset()
     }
 
     const importanceBorderColor = (importance: string) => {

@@ -81,7 +81,7 @@ export async function bootstrapDefaultOrg(userId: string, orgName: string = 'My 
         .single()
 
     if (orgErr || !org) {
-        console.error('[Auth] Failed to create org:', orgErr)
+        logger.error('[Auth] Failed to create org:', 'Error occurred', orgErr)
         return null
     }
 

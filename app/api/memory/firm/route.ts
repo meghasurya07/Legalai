@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { apiError } from '@/lib/api-utils'
 import { getFirmDashboard, detectFirmPatterns } from '@/lib/memory/firm-intelligence'
 
@@ -7,8 +7,8 @@ import { getFirmDashboard, detectFirmPatterns } from '@/lib/memory/firm-intellig
  * GET /api/memory/firm?organizationId=xxx — Get firm intelligence dashboard
  */
 export async function GET(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
 
     const { searchParams } = new URL(request.url)
     const organizationId = searchParams.get('organizationId')
@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
  * POST /api/memory/firm — Trigger firm pattern detection
  */
 export async function POST(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
 
     const body = await request.json()
     const { organizationId } = body

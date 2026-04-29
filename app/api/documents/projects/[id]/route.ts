@@ -1,8 +1,9 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getOrgContext } from '@/lib/get-org-context'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { isProjectBlocked } from '@/lib/ethical-walls'
 
 interface RouteParams {
@@ -13,8 +14,9 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return apiError('Unauthorized', 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .order('uploaded_at', { ascending: false })
 
         if (filesError) {
-            console.error('Error fetching files:', filesError)
+            logger.error("api", "Error fetching files:", filesError)
         }
 
         // Generate signed URLs for all files (only if there are files)
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .createSignedUrls(filePaths, 3600)
 
             if (signedError) {
-                console.error('Failed to generate signed URLs for project:', signedError)
+                logger.error("api", "Failed to generate signed URLs for project:", signedError)
             }
             signedUrls = data
         }
@@ -92,8 +94,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return apiError('Unauthorized', 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 
@@ -161,8 +164,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const ctx = await getOrgContext()
-        const userId = ctx?.userId || await getUserId()
-        if (!userId) return apiError('Unauthorized', 401)
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 

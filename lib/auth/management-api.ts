@@ -2,6 +2,8 @@
  * Server-side utility to interact with the Auth0 Management API.
  * This securely exchanges your M2M credentials for an access token.
  */
+import { logger } from '@/lib/logger'
+
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 
@@ -37,7 +39,7 @@ export async function getManagementApiToken(): Promise<string> {
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error("Management API Token Error:", errorBody);
+    logger.error('Management API Token Error:', 'Error occurred', errorBody);
     throw new Error(`Failed to obtain Management API token: ${response.statusText}`);
   }
 

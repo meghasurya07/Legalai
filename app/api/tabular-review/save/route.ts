@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const body = await request.json()
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
                 .upsert(columnRows, { onConflict: 'project_id,column_id' })
 
             if (colError) {
-                console.error('[Tabular Review Save] Column save error:', colError)
+                logger.error('Tabular Review Save] Column save error:', 'Error', colError)
                 return apiError('Failed to save columns', 500, colError)
             }
 
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
                     .upsert(cellRows, { onConflict: 'project_id,file_id,column_id' })
 
                 if (cellError) {
-                    console.error('[Tabular Review Save] Cell save error:', cellError)
+                    logger.error('Tabular Review Save] Cell save error:', 'Error', cellError)
                     return apiError('Failed to save cells', 500, cellError)
                 }
             }
@@ -117,14 +119,14 @@ export async function POST(request: NextRequest) {
                 .insert(msgRows)
 
             if (msgError) {
-                console.error('[Tabular Review Save] Message save error:', msgError)
+                logger.error('Tabular Review Save] Message save error:', 'Error', msgError)
             }
         }
 
         logger.info("save/route", `[Tabular Review] Saved ${columns.length} columns, ${cells?.length || 0} cells, ${chatMessages?.length || 0} messages for project ${projectId}`)
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('[Tabular Review Save] Error:', error)
+        logger.error('Tabular Review Save] Error:', 'Error', error)
         return apiError('Save failed', 500, error)
     }
 }

@@ -1,8 +1,9 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
 import { canManage, outranks } from '@/lib/auth/rbac'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 // GET /api/org/members — List org members
 export async function GET() {
@@ -22,20 +23,20 @@ export async function GET() {
         }
 
         // Sync current user's profile from user_settings (Wesley profile) or Auth0
-        const session = await auth0.getSession();
-        if (session?.user && data) {
-            const currentMember = data.find(m => m.user_id === session.user.sub)
+        const auth = await requireAuth()
+        if (!(auth instanceof Response) && data) {
+            const currentMember = data.find(m => m.user_id === auth.userId)
             
             if (currentMember) {
                 // Fetch the user's explicit Wesley settings
                 const { data: userSettings } = await supabase
                     .from('user_settings')
                     .select('user_name, profile_image')
-                    .eq('user_id', session.user.sub)
+                    .eq('user_id', auth.userId)
                     .single();
 
-                const bestName = userSettings?.user_name || session.user.name;
-                const bestImage = userSettings?.profile_image || session.user.picture;
+                const bestName = userSettings?.user_name || auth.userName;
+                const bestImage = userSettings?.profile_image;
 
                 // If DB lacks the best name/image or it's different
                 if (bestName && (currentMember.user_name !== bestName || currentMember.profile_image !== bestImage)) {
@@ -48,9 +49,9 @@ export async function GET() {
                             profile_image: bestImage
                         })
                         .eq('org_id', ctx.orgId)
-                        .eq('user_id', session.user.sub)
+                        .eq('user_id', auth.userId)
                         .then(({ error }) => {
-                            if (error) console.error("Failed to sync profile:", error);
+                            if (error) logger.error("members", "Failed to sync profile", error);
                         });
                     
                     // Update the returned data immediately for the UI

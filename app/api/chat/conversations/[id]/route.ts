@@ -1,6 +1,7 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -9,8 +10,9 @@ interface RouteParams {
 // GET /api/chat/conversations/[id] - Get conversation with messages
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .order('created_at', { ascending: true })
 
         if (msgError) {
-            console.error('Error fetching messages:', msgError)
+            logger.error("api", "Error fetching messages:", msgError)
         }
 
         return NextResponse.json({
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             }))
         })
     } catch (error) {
-        console.error('Error in GET /api/chat/conversations/[id]:', error)
+        logger.error("api", "Error in GET /api/chat/conversations/[id]:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -61,8 +63,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/chat/conversations/[id] - Update conversation (title, pinned)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
         const body = await request.json()
@@ -89,7 +92,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             .single()
 
         if (error) {
-            console.error('Error updating conversation:', error)
+            logger.error("api", "Error updating conversation:", error)
             return NextResponse.json({ error: 'Failed to update conversation' }, { status: 500 })
         }
 
@@ -101,7 +104,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             updatedAt: data.updated_at
         })
     } catch (error) {
-        console.error('Error in PATCH /api/chat/conversations/[id]:', error)
+        logger.error("api", "Error in PATCH /api/chat/conversations/[id]:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -109,8 +112,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/chat/conversations/[id] - Delete conversation
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id } = await params
 
@@ -129,7 +133,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .eq('user_id', userId)
 
         if (error) {
-            console.error('Error deleting conversation:', error)
+            logger.error("api", "Error deleting conversation:", error)
             return NextResponse.json({ error: 'Failed to delete conversation' }, { status: 500 })
         }
 
@@ -156,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Error in DELETE /api/chat/conversations/[id]:', error)
+        logger.error("api", "Error in DELETE /api/chat/conversations/[id]:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

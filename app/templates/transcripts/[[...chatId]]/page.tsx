@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import Transcripts from '@/components/transcripts'
+import Transcripts from '@/components/templates/transcripts'
 
 export const metadata: Metadata = {
     title: 'Transcripts | Wesley',

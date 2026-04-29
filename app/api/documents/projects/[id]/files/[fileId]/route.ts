@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { deleteFileChunks } from '@/lib/rag'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { logger } from '@/lib/logger'
 
 interface RouteParams {
@@ -11,8 +11,9 @@ interface RouteParams {
 // DELETE /api/documents/projects/[id]/files/[fileId] - Remove file from project
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
-        const userId = await getUserId()
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { id, fileId } = await params
 
@@ -39,7 +40,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .single()
 
         if (fetchError || !file) {
-            console.error('Error fetching file for deletion:', fetchError)
+            logger.error("api", "Error fetching file for deletion:", fetchError)
             return NextResponse.json({ error: 'File not found' }, { status: 404 })
         }
 
@@ -63,7 +64,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
                 .remove([storagePath])
 
             if (storageError) {
-                console.error('Storage delete error (non-fatal):', storageError)
+                logger.error("api", "Storage delete error (non-fatal):", storageError)
             }
         }
 
@@ -78,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             .eq('project_id', id)
 
         if (error) {
-            console.error('Error deleting file record:', error)
+            logger.error("api", "Error deleting file record:", error)
             return NextResponse.json({ error: 'Failed to delete file record' }, { status: 500 })
         }
 
@@ -95,7 +96,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('Error in DELETE /api/documents/projects/[id]/files/[fileId]:', error)
+        logger.error("api", "Error in DELETE /api/documents/projects/[id]/files/[fileId]:", error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

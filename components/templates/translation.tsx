@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
 import { downloadTextFile } from "@/lib/download"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface TranslationResult {
     originalLanguage: string
@@ -37,45 +38,28 @@ const LANGUAGES = [
 ]
 
 export default function Translation() {
-    const [documentFile, setDocumentFile] = React.useState<File | null>(null)
-    const [targetLanguage, setTargetLanguage] = React.useState("")
-    const [isTranslating, setIsTranslating] = React.useState(false)
-    const [result, setResult] = React.useState<TranslationResult | null>(null)
-    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = React.useState(false)
+    const {
+        file: documentFile,
+        handleFileSelect,
+        isDuplicateModalOpen, setIsDuplicateModalOpen,
+        isRunning: isTranslating,
+        result,
+        runWithFile,
+        reset,
+    } = useTemplateWorkflow<TranslationResult>({
+        apiEndpoint: '/api/templates/translation',
+    })
 
-    const handleFileSelect = (file: File) => {
-        if (documentFile && documentFile.name === file.name) {
-            setIsDuplicateModalOpen(true)
-            return
-        }
-        setDocumentFile(file)
-        toast.success("Document uploaded")
-    }
+    const [targetLanguage, setTargetLanguage] = React.useState("")
 
     const handleTranslate = async () => {
         if (!documentFile) { toast.error("Please upload a document"); return }
         if (!targetLanguage) { toast.error("Please select a target language"); return }
 
-        setIsTranslating(true)
         const formData = new FormData()
         formData.append('document', documentFile)
         formData.append('targetLanguage', targetLanguage)
-
-        try {
-            const response = await fetch('/api/templates/translation', { method: 'POST', body: formData })
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to translate document')
-            }
-            const data = await response.json()
-            setResult(data)
-            toast.success("Document translated successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to translate document"
-            toast.error(message)
-        } finally {
-            setIsTranslating(false)
-        }
+        await runWithFile(formData, "Document translated successfully!")
     }
 
     const handleDownload = () => {
@@ -84,9 +68,8 @@ export default function Translation() {
     }
 
     const resetTranslation = () => {
-        setDocumentFile(null)
         setTargetLanguage("")
-        setResult(null)
+        reset()
     }
 
     return (

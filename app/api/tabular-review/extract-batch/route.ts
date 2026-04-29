@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
-import { getUserId } from '@/lib/auth/get-user-id'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { logger } from '@/lib/logger'
@@ -12,7 +12,9 @@ import { logger } from '@/lib/logger'
  */
 export async function POST(request: NextRequest) {
     try {
-        const userId = await getUserId()
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
         const { allowed } = checkRateLimit(userId, RATE_LIMIT_HEAVY)
@@ -97,7 +99,7 @@ Respond with JSON containing results for each column ID.`
 
         return NextResponse.json({ results })
     } catch (error) {
-        console.error('[Tabular Review Batch Extract] Error:', error)
+        logger.error('Tabular Review Batch Extract] Error:', 'Error', error)
         return apiError('Batch extraction failed', 500, error)
     }
 }

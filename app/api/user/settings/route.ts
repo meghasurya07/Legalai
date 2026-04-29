@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/server';
-import { logEvent } from '@/lib/logger';
-import { auth0 } from '@/lib/auth/auth0';
+import { logEvent, logger } from '@/lib/logger';
+import { requireAuth } from '@/lib/auth/require-auth'
 
 export async function GET() {
     try {
-        const session = await auth0.getSession();
-        const userId = session?.user?.sub;
-        if (!userId) {
-            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         const { data, error } = await supabase
             .from('user_settings')
@@ -23,19 +21,16 @@ export async function GET() {
 
         return NextResponse.json({ success: true, data: data || {} });
     } catch (error) {
-        console.error("Error in GET /api/user/settings", error);
+        logger.error("user/settings", "Error in GET /api/user/settings", error);
         return NextResponse.json({ success: false, error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)) }, { status: 500 });
     }
 }
 
 export async function PATCH(request: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        const userId = session?.user?.sub;
-        if (!userId) {
-            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-        }
-        const actor = session?.user?.email || 'unknown';
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId, userEmail } = auth
 
         const body = await request.json();
         const { sanitizeObject } = await import('@/lib/validation');
@@ -60,7 +55,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         logEvent('SETTINGS_UPDATE', {
-            actor,
+            actor: userEmail || 'unknown',
             level: 'user',
             userId,
             changes: updates,
@@ -69,7 +64,7 @@ export async function PATCH(request: NextRequest) {
 
         return NextResponse.json({ success: true, data });
     } catch (error) {
-        console.error("Error in PATCH /api/user/settings", error);
+        logger.error("user/settings", "Error in PATCH /api/user/settings", error);
         return NextResponse.json({ success: false, error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)) }, { status: 500 });
     }
 }

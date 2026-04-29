@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth/auth0'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
 import { getTopClausePatterns } from '@/lib/memory/clause-intelligence'
@@ -14,8 +14,9 @@ import { getTopClausePatterns } from '@/lib/memory/clause-intelligence'
  *   - limit: max results (default 20)
  */
 export async function GET(request: NextRequest) {
-    const session = await auth0.getSession()
-    if (!session?.user) return apiError('Unauthorized', 401)
+    const auth = await requireAuth()
+    if (auth instanceof Response) return auth
+    const { userId } = auth
 
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'arguments'
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('user_id', session.user.sub)
+        .eq('user_id', userId)
         .single()
 
     const organizationId = profile?.organization_id as string

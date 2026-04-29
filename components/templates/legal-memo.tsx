@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { ToolPageLayout } from "@/components/tool-page-layout"
+import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { downloadTextFile } from "@/lib/download"
+import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
 
 interface LegalMemoResult {
     heading: {
@@ -26,49 +27,30 @@ interface LegalMemoResult {
 }
 
 export default function LegalMemo() {
+    const {
+        isRunning: isGenerating,
+        result,
+        runWithJson,
+        reset,
+    } = useTemplateWorkflow<LegalMemoResult>({
+        apiEndpoint: '/api/templates/legal-memo',
+    })
+
     const [legalQuestion, setLegalQuestion] = React.useState("")
     const [facts, setFacts] = React.useState("")
     const [jurisdiction, setJurisdiction] = React.useState("")
     const [to, setTo] = React.useState("")
     const [from, setFrom] = React.useState("")
-    const [isGenerating, setIsGenerating] = React.useState(false)
-    const [result, setResult] = React.useState<LegalMemoResult | null>(null)
 
     const handleGenerate = async () => {
         if (!legalQuestion) {
             toast.error("Please provide a legal question")
             return
         }
-
-        setIsGenerating(true)
-
-        try {
-            const response = await fetch('/api/templates/legal-memo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    legalQuestion,
-                    facts,
-                    jurisdiction,
-                    to,
-                    from
-                })
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to generate legal memo')
-            }
-
-            const data = await response.json()
-            setResult(data)
-            toast.success("Legal memo generated successfully!")
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : "Failed to generate legal memo"
-            toast.error(message)
-        } finally {
-            setIsGenerating(false)
-        }
+        await runWithJson(
+            { legalQuestion, facts, jurisdiction, to, from },
+            "Legal memo generated successfully!"
+        )
     }
 
     const handleDownload = () => {
@@ -114,7 +96,7 @@ ${result.authorities.join('\n')}
         setJurisdiction("")
         setTo("")
         setFrom("")
-        setResult(null)
+        reset()
     }
 
     return (

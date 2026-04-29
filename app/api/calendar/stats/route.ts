@@ -1,14 +1,14 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // GET /api/calendar/stats
 export async function GET() {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
         const now = new Date();
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay());
@@ -66,7 +66,7 @@ export async function GET() {
             completedThisMonth: deadlinesCompleted.count || 0,
         });
     } catch (err) {
-        console.error("[Calendar Stats GET]", err);
+        logger.error("Calendar Stats GET", "Request failed", err);
         return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
     }
 }

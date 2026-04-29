@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 /**
  * Ethical Walls API Route
  *
@@ -25,7 +26,7 @@ export async function GET() {
         const walls = await listWalls(ctx.orgId)
         return NextResponse.json({ success: true, data: walls })
     } catch (error) {
-        console.error('[EthicalWalls] GET error:', error)
+        logger.error('EthicalWalls] GET error:', 'Error', error)
         return NextResponse.json({ error: 'Failed to fetch walls' }, { status: 500 })
     }
 }
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: { id: wall.id } }, { status: 201 })
     } catch (error) {
-        console.error('[EthicalWalls] POST error:', error)
+        logger.error('EthicalWalls] POST error:', 'Error', error)
         return NextResponse.json({ error: 'Failed to create wall' }, { status: 500 })
     }
 }
@@ -178,7 +179,7 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('[EthicalWalls] PUT error:', error)
+        logger.error('EthicalWalls] PUT error:', 'Error', error)
         return NextResponse.json({ error: 'Failed to update wall' }, { status: 500 })
     }
 }
@@ -229,7 +230,7 @@ export async function DELETE(request: NextRequest) {
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('[EthicalWalls] DELETE error:', error)
+        logger.error('EthicalWalls] DELETE error:', 'Error', error)
         return NextResponse.json({ error: 'Failed to delete wall' }, { status: 500 })
     }
 }

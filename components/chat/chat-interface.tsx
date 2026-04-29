@@ -8,10 +8,10 @@ import { FilePreviewContent } from "@/components/documents/file-preview-content"
 import { Attachment } from "@/types"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CitationsSidebar } from "@/components/citations-sidebar"
-import { ActivitySidebar } from "@/components/activity-sidebar"
-import { PdfCitationPanel } from "@/components/pdf-citation-panel"
-import type { PdfCitationTarget } from "@/components/pdf-citation-panel"
+import { CitationsSidebar } from "@/components/sidebar-panels/citations-sidebar"
+import { ActivitySidebar } from "@/components/sidebar-panels/activity-sidebar"
+import { PdfCitationPanel } from "@/components/pdf/pdf-citation-panel"
+import type { PdfCitationTarget } from "@/components/pdf/pdf-citation-panel"
 import {
     ChatCitationSource,
     parseSources,
@@ -34,7 +34,7 @@ interface ChatInterfaceProps {
     initialConversationId?: string
 }
 
-const RandomGreeting = dynamic(() => import("@/components/random-greeting"), { ssr: false })
+const RandomGreeting = dynamic(() => import("@/components/chat/random-greeting"), { ssr: false })
 
 export function ChatInterface({ onMessageSent, mode = "default", projectTitle, projectId, workflowId, conversationType = 'assistant', initialConversationId }: ChatInterfaceProps) {
 

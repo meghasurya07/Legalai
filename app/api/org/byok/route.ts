@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/get-org-context'
@@ -37,7 +38,7 @@ export async function GET() {
             }
         })
     } catch (error) {
-        console.error('[BYOK GET] Error:', error)
+        logger.error('BYOK GET] Error:', 'Error', error)
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
             .eq('id', ctx.orgId)
 
         if (updateError) {
-            console.error('[BYOK POST] Update error:', updateError)
+            logger.error('BYOK POST] Update error:', 'Error', updateError)
             return NextResponse.json({ success: false, error: 'Failed to save API key.' }, { status: 500 })
         }
 
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
             }
         })
     } catch (error) {
-        console.error('[BYOK POST] Error:', error)
+        logger.error('BYOK POST] Error:', 'Error', error)
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
     }
 }
@@ -164,7 +165,7 @@ export async function DELETE() {
             .eq('id', ctx.orgId)
 
         if (updateError) {
-            console.error('[BYOK DELETE] Update error:', updateError)
+            logger.error('BYOK DELETE] Update error:', 'Error', updateError)
             return NextResponse.json({ success: false, error: 'Failed to remove API key.' }, { status: 500 })
         }
 
@@ -183,7 +184,7 @@ export async function DELETE() {
 
         return NextResponse.json({ success: true })
     } catch (error) {
-        console.error('[BYOK DELETE] Error:', error)
+        logger.error('BYOK DELETE] Error:', 'Error', error)
         return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
     }
 }

@@ -1,15 +1,14 @@
+import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
-import { auth0 } from "@/lib/auth/auth0";
+import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from "@/lib/supabase/server";
 
 // POST /api/calendar/deadlines/batch — Create multiple deadlines at once (for chains)
 export async function POST(req: NextRequest) {
     try {
-        const session = await auth0.getSession();
-        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-        const userId = session.user.sub;
-        const userName = session.user.name || session.user.email || "Unknown";
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId, userName } = auth
         const body = await req.json();
 
         if (!body.deadlines || !Array.isArray(body.deadlines) || body.deadlines.length === 0) {
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ created: results.length, deadlines: results, chainId }, { status: 201 });
     } catch (err) {
-        console.error("[Deadlines Batch POST]", err);
+        logger.error("Deadlines Batch POST", "Request failed", err);
         return NextResponse.json({ error: "Failed to create deadline chain" }, { status: 500 });
     }
 }

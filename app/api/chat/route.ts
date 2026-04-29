@@ -1,22 +1,15 @@
 import { NextRequest } from 'next/server'
-import OpenAI from 'openai'
 import { getPrompts } from '@/lib/ai/prompts'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
-import { AI_TEMPERATURES, getChatConfig, type ChatMode } from '@/lib/ai/config'
-import { ensureCitationMarkers, type RetrievedChunk, buildDynamicRAGSourcesBlock } from '@/lib/rag'
-import { auth0 } from '@/lib/auth/auth0'
+import { getChatConfig, type ChatMode } from '@/lib/ai/config'
+import { requireAuth } from '@/lib/auth/require-auth'
 import { logger } from '@/lib/logger'
-import { phaseEvent, extractCitationsFromResponse } from '@/lib/ai/citation-extractor'
+import { phaseEvent } from '@/lib/ai/citation-extractor'
 import { buildChatContext } from '@/lib/ai/context-builder'
-import { saveAssistantMessage } from '@/lib/ai/save-message'
-import {
-    buildChatCompletionUserContent,
-    buildResponsesUserContent,
-    getImageInputsFromFiles,
-    prepareFilesForTextContext,
-    type ChatImageInput,
-} from '@/lib/ai/chat-file-inputs'
+import { getImageInputsFromFiles, prepareFilesForTextContext } from '@/lib/ai/chat-file-inputs'
+import { streamResponsesAPI } from '@/lib/ai/stream-responses'
+import { streamChatCompletions } from '@/lib/ai/stream-completions'
 
 export async function POST(request: NextRequest) {
     try {
@@ -39,11 +32,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Require authentication
-        const session = await auth0.getSession()
-        const userId = session?.user?.sub as string | undefined
-        if (!userId) {
-            return apiError('Authentication required', 401)
-        }
+        const auth = await requireAuth()
+        if (auth instanceof Response) return auth
+        const { userId } = auth
 
         // Rate limit chat messages
         const { checkRateLimit, RATE_LIMIT_CHAT } = await import('@/lib/rate-limit')
@@ -149,28 +140,22 @@ export async function POST(request: NextRequest) {
                     }
 
                     // ═══════════════════════════════════════════════
-                    // WEB SEARCH / THINKING / DEEP RESEARCH
-                    // → Use OpenAI Responses API with native tools
+                    // Route to the appropriate streaming strategy
                     // ═══════════════════════════════════════════════
+                    const sharedParams = {
+                        controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
+                        ragChunks, sourcesBlock, imageInputs,
+                        conversationId, projectId, orgId, userId, usedMemories,
+                        streamStartTime,
+                    }
+
                     if (webSearch || thinking || deepResearch) {
                         await streamResponsesAPI({
-                            controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
-                            webSearch, thinking, deepResearch, ragChunks, sourcesBlock,
-                            imageInputs,
-                            conversationId, projectId, orgId, userId, usedMemories,
-                            streamStartTime, chatMode,
+                            ...sharedParams,
+                            webSearch, thinking, deepResearch, chatMode,
                         })
                     } else {
-                        // ═══════════════════════════════════════════════
-                        // STANDARD CHAT — Chat Completions API
-                        // ═══════════════════════════════════════════════
-                        await streamChatCompletions({
-                            controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
-                            ragChunks, sourcesBlock,
-                            imageInputs,
-                            conversationId, projectId, orgId, userId, usedMemories,
-                            streamStartTime,
-                        })
+                        await streamChatCompletions(sharedParams)
                     }
                 } catch (err) {
                     logger.error('chat/route', 'Stream error', err)
@@ -195,339 +180,4 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         return apiError('Internal server error', 500, error)
     }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
-// Streaming Helpers
-// ═══════════════════════════════════════════════════════════════════
-
-interface StreamParams {
-    controller: ReadableStreamDefaultController
-    encoder: TextEncoder
-    client: OpenAI
-    model: string
-    fullSystemPrompt: string
-    finalUserPrompt: string
-    ragChunks: RetrievedChunk[]
-    sourcesBlock: string
-    imageInputs: ChatImageInput[]
-    conversationId: string | null | undefined
-    projectId: string | null | undefined
-    orgId?: string
-    userId: string
-    usedMemories: import('@/lib/memory').MemoryRetrievalResult[]
-    streamStartTime: number
-}
-
-interface ResponsesAPIParams extends StreamParams {
-    webSearch: boolean
-    thinking: boolean
-    deepResearch: boolean
-    chatMode: ChatMode
-}
-
-function makeSafeEnqueue(controller: ReadableStreamDefaultController, encoder: TextEncoder) {
-    let closed = false
-    return {
-        enqueue(data: string) {
-            if (closed) return false
-            try {
-                controller.enqueue(encoder.encode(data))
-                return true
-            } catch {
-                closed = true
-                return false
-            }
-        },
-        get isClosed() { return closed },
-        close() {
-            if (closed) return
-            try { controller.close() } catch (err) { logger.error("chat/route", "Close failed", err) }
-            closed = true
-        }
-    }
-}
-
-/**
- * Stream a response using the OpenAI Responses API (web search, thinking, deep research).
- */
-async function streamResponsesAPI(params: ResponsesAPIParams) {
-    const {
-        controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
-        webSearch, thinking, deepResearch, ragChunks,
-        imageInputs,
-        conversationId, projectId, orgId, userId, usedMemories,
-        streamStartTime, chatMode,
-    } = params
-    let { sourcesBlock } = params
-
-    const safe = makeSafeEnqueue(controller, encoder)
-
-    // Single phase event per mode for clean timeline UI
-    if (deepResearch) {
-        safe.enqueue(phaseEvent('searching_web', 'start', 'Performing deep research across the web'))
-    } else if (webSearch) {
-        safe.enqueue(phaseEvent('searching_web', 'start', 'Searching the web'))
-    } else if (thinking) {
-        safe.enqueue(phaseEvent('thinking', 'start', 'Reasoning through the problem'))
-    }
-
-    // Build Responses API input
-    const input: OpenAI.Responses.ResponseInput = [
-        { role: 'system', content: fullSystemPrompt },
-        { role: 'user', content: buildResponsesUserContent(finalUserPrompt, imageInputs) }
-    ]
-
-    const responsesOptions = {
-        model,
-        input,
-        stream: true as const,
-        ...(thinking ? {
-            reasoning: { effort: 'medium' as const, summary: 'auto' as const },
-        } : {}),
-        ...((webSearch || deepResearch) ? {
-            tools: [{ type: 'web_search' as const }],
-        } : {}),
-    } as OpenAI.Responses.ResponseCreateParamsStreaming
-
-    let streamedContent = ''
-    let webSearchCount = 0
-    let completedResponse: OpenAI.Responses.Response | null = null
-    let pendingDelta = ''
-
-    const stream = await client.responses.create(responsesOptions)
-
-    try {
-        for await (const event of stream) {
-            if (safe.isClosed) break
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const evt = event as any
-
-            // Stream text deltas — clean raw citation markers in real-time
-            if (event.type === 'response.output_text.delta') {
-                const rawDelta = event.delta || ''
-                if (!rawDelta) continue
-
-                pendingDelta += rawDelta
-
-                const openIdx = pendingDelta.lastIndexOf('【')
-                if (openIdx !== -1 && !pendingDelta.includes('】', openIdx)) {
-                    const safePart = pendingDelta.slice(0, openIdx)
-                    if (safePart) {
-                        streamedContent += safePart
-                        safe.enqueue(`data: ${JSON.stringify({ content: safePart })}\n\n`)
-                    }
-                    pendingDelta = pendingDelta.slice(openIdx)
-                    continue
-                }
-
-                const cleaned = pendingDelta.replace(/【[^】]*】/g, '')
-                pendingDelta = ''
-
-                if (cleaned) {
-                    streamedContent += cleaned
-                    safe.enqueue(`data: ${JSON.stringify({ content: cleaned })}\n\n`)
-                }
-            }
-
-            // Capture reasoning summary deltas
-            if (evt.type === 'response.reasoning_summary_text.delta') {
-                const delta = evt.delta as string
-                if (delta && thinking) {
-                    safe.enqueue(phaseEvent('thinking', 'update', delta.trim()))
-                }
-            }
-
-            // Track web search calls
-            if (evt.type === 'response.web_search_call.in_progress') {
-                webSearchCount++
-                if (webSearchCount === 1) {
-                    safe.enqueue(phaseEvent('searching_web', 'start', 'Searching the web'))
-                }
-            }
-
-            // Capture completed response for citation extraction
-            if (event.type === 'response.completed' && event.response) {
-                completedResponse = event.response
-            }
-            if (evt.type === 'response.incomplete' && evt.response) {
-                completedResponse = evt.response
-            }
-        }
-    } catch (streamErr) {
-        logger.error('chat/route', 'Stream error', streamErr)
-        if (!safe.isClosed && !streamedContent) {
-            const errMsg = streamErr instanceof Error ? streamErr.message : 'Stream failed'
-            safe.enqueue(`data: ${JSON.stringify({ content: `\n\n⚠️ Error: ${errMsg}` })}\n\n`)
-        }
-    }
-
-    // Send consolidated web search completion
-    if (webSearchCount > 0 && !safe.isClosed) {
-        safe.enqueue(phaseEvent('searching_web', 'complete', `Searched ${webSearchCount} site${webSearchCount > 1 ? 's' : ''}`))
-    }
-
-    // Flush any remaining pending delta
-    if (pendingDelta && !safe.isClosed) {
-        const cleaned = pendingDelta.replace(/【[^】]*】/g, '')
-        if (cleaned) {
-            streamedContent += cleaned
-            safe.enqueue(`data: ${JSON.stringify({ content: cleaned })}\n\n`)
-        }
-    }
-
-    // Rebuild sources dynamically based on what the AI actually selected
-    if (ragChunks.length > 0 && streamedContent) {
-        sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
-    }
-
-    // For web search / deep research: extract citations and append sources
-    if ((webSearch || deepResearch) && completedResponse && !safe.isClosed) {
-        const { processedText, sourcesBlock: citationSourcesBlock } = extractCitationsFromResponse(completedResponse, ragChunks.length + 1)
-
-        if (citationSourcesBlock && processedText) {
-            const cleanProcessed = processedText.replace(/【[^】]*】/g, '')
-            streamedContent = cleanProcessed
-            
-            let finalSourcesBlock = citationSourcesBlock
-            if (sourcesBlock) {
-                const cleanExistingSources = sourcesBlock.replace(/\n*-->\s*$/, '')
-                const cleanNewSources = citationSourcesBlock.replace(/^\n*<!--SOURCES:\n/, '')
-                finalSourcesBlock = `${cleanExistingSources}\n${cleanNewSources}`
-            }
-            
-            sourcesBlock = finalSourcesBlock
-            safe.enqueue(`data: ${JSON.stringify({ content: cleanProcessed + finalSourcesBlock, replace: true })}\n\n`)
-        } else {
-            const cleanedFinal = streamedContent.replace(/【[^】]*】/g, '')
-            if (cleanedFinal !== streamedContent) {
-                streamedContent = cleanedFinal
-                safe.enqueue(`data: ${JSON.stringify({ content: cleanedFinal, replace: true })}\n\n`)
-            }
-        }
-    } else if (sourcesBlock && !safe.isClosed) {
-        safe.enqueue(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`)
-    }
-
-    // Save assistant message
-    if (conversationId && streamedContent) {
-        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
-        // Send the message ID back to the client so it can be stored for later updates
-        if (savedMsgId && !safe.isClosed) {
-            safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
-        }
-    }
-
-    if (!safe.isClosed) {
-        safe.enqueue(phaseEvent('complete', 'end'))
-        safe.enqueue('data: [DONE]\n\n')
-        safe.close()
-    }
-
-    // Log usage
-    const responsesUsage = completedResponse?.usage as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined
-    import('@/lib/logger').then(({ logEvent }) => {
-        logEvent('AI_CALL', {
-            useCase: chatMode === 'deepResearch' ? 'deep_research' : chatMode === 'webSearch' ? 'web_search' : 'thinking',
-            model,
-            tokensIn: responsesUsage?.input_tokens || 0,
-            tokensOut: responsesUsage?.output_tokens || 0,
-            tokensTotal: responsesUsage?.total_tokens || ((responsesUsage?.input_tokens || 0) + (responsesUsage?.output_tokens || 0)),
-            latencyMs: Date.now() - streamStartTime,
-            streaming: true,
-            success: true
-        }, projectId ?? undefined, undefined, undefined, userId)
-    }).catch(() => { })
-}
-
-/**
- * Stream a response using the standard Chat Completions API.
- */
-async function streamChatCompletions(params: StreamParams) {
-    const {
-        controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
-        ragChunks, imageInputs,
-        conversationId, projectId, orgId, userId, usedMemories,
-        streamStartTime,
-    } = params
-    let { sourcesBlock } = params
-
-    const safe = makeSafeEnqueue(controller, encoder)
-
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: fullSystemPrompt }
-    ]
-    messages.push({ role: 'user', content: buildChatCompletionUserContent(finalUserPrompt, imageInputs) })
-
-    const stream = await client.chat.completions.create({
-        model,
-        messages,
-        temperature: AI_TEMPERATURES.default,
-        stream: true
-    })
-
-    let streamedContent = ''
-
-    for await (const chunk of stream) {
-        if (safe.isClosed) break
-        const content = chunk.choices[0]?.delta?.content || ''
-        if (content) {
-            streamedContent += content
-            safe.enqueue(`data: ${JSON.stringify({ content })}\n\n`)
-        }
-    }
-
-    // Handle sources for standard mode (RAG sources or AI-generated)
-    if (sourcesBlock && !safe.isClosed) {
-        const aiSourcesRegex = /\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi
-        if (aiSourcesRegex.test(streamedContent)) {
-            streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
-        }
-
-        if (ragChunks.length > 0 && !/\[\d+\]/.test(streamedContent)) {
-            streamedContent = ensureCitationMarkers(streamedContent, ragChunks)
-        }
-
-        if (ragChunks.length > 0) {
-            sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
-        }
-
-        safe.enqueue(`data: ${JSON.stringify({ content: streamedContent + sourcesBlock, replace: true })}\n\n`)
-    } else if (!sourcesBlock && !safe.isClosed) {
-        const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
-        if (aiSourcesMatch) {
-            streamedContent = streamedContent.replace(/\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi, '').trim()
-            safe.enqueue(`data: ${JSON.stringify({ content: '\n\n' + aiSourcesMatch[1] })}\n\n`)
-        }
-    }
-
-    // Save assistant message
-    if (conversationId && streamedContent) {
-        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
-        if (savedMsgId && !safe.isClosed) {
-            safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
-        }
-    }
-
-    if (!safe.isClosed) {
-        safe.enqueue('data: [DONE]\n\n')
-        safe.close()
-    }
-
-    // Log usage
-    import('@/lib/logger').then(({ logEvent }) => {
-        logEvent('AI_CALL', {
-            useCase: 'assistant_chat',
-            model,
-            tokensIn: 0,
-            tokensOut: 0,
-            tokensTotal: 0,
-            latencyMs: Date.now() - streamStartTime,
-            streaming: true,
-            success: true,
-            charCount: streamedContent.length
-        }, projectId ?? undefined, undefined, undefined, userId)
-    }).catch(() => { })
 }

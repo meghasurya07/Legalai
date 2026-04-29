@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { handleWorkflowRequest } from '@/lib/workflow-handler'
+import { handleWorkflowRequest } from '@/lib/workflow/handler'
 
 export async function POST(request: NextRequest) {
     return handleWorkflowRequest(request, {

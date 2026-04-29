@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { NextResponse } from "next/server"
 import { getUserId } from "@/lib/auth/get-user-id"
 import { apiError } from "@/lib/api-utils"
@@ -69,7 +70,7 @@ export async function POST() {
 
         if (!openaiResponse.ok) {
             const errorBody = await openaiResponse.text()
-            console.error("[Voice Session] OpenAI error:", openaiResponse.status, errorBody)
+            logger.error("voice", `OpenAI error: ${openaiResponse.status}`, errorBody)
             return NextResponse.json(
                 {
                     success: false,
@@ -99,7 +100,7 @@ export async function POST() {
             },
         })
     } catch (err) {
-        console.error("[Voice Session] Error:", err)
+        logger.error("Voice Session] Error:", "Error", err)
         return apiError("Failed to create voice session", 500, err)
     }
 }

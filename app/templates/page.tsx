@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import WorkflowsPage from '../../components/templates-page'
+import WorkflowsPage from '@/components/templates/templates-page'
 
 export const metadata: Metadata = {
     title: 'Templates | Wesley',
