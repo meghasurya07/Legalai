@@ -73,6 +73,33 @@ export async function POST(request: NextRequest) {
                 })
         }
 
+        // ─── Fetch Conversation History ─────────────────────────────
+        let conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
+        if (conversationId) {
+            const { data: historyRows } = await supabase
+                .from('messages')
+                .select('role, content')
+                .eq('conversation_id', conversationId)
+                .order('created_at', { ascending: true })
+                .limit(40) // Last 40 messages (20 turns)
+
+            if (historyRows && historyRows.length > 0) {
+                conversationHistory = historyRows
+                    .filter((m: { role: string; content: string }) => m.role === 'user' || m.role === 'assistant')
+                    .map((m: { role: string; content: string }) => ({
+                        role: m.role as 'user' | 'assistant',
+                        // Strip hidden markers from assistant messages to save tokens
+                        content: m.content
+                            .replace(/<!--CALENDAR_ACTION:[\s\S]*?-->/g, '')
+                            .replace(/<!--SOURCES:[\s\S]*?-->/g, '')
+                            .replace(/<!--DRAFT_START:[\s\S]*?-->/g, '')
+                            .replace(/<!--DRAFT_END-->/g, '')
+                            .trim()
+                    }))
+                    .filter((m: { content: string }) => m.content.length > 0)
+            }
+        }
+
         // ─── Build Chat Context (RAG + Memory + Files) ───────────────
         const imageInputs = getImageInputsFromFiles(attachedFiles)
         const ctx = await buildChatContext(effectiveMessage, projectId, userId, prepareFilesForTextContext(attachedFiles))
@@ -146,6 +173,7 @@ export async function POST(request: NextRequest) {
                         controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
                         ragChunks, sourcesBlock, imageInputs,
                         conversationId, projectId, orgId, userId, usedMemories,
+                        conversationHistory,
                         streamStartTime,
                     }
 

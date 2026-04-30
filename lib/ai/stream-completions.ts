@@ -13,6 +13,7 @@ export async function streamChatCompletions(params: StreamParams) {
         controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
         ragChunks, imageInputs,
         conversationId, projectId, orgId, userId, usedMemories,
+        conversationHistory,
         streamStartTime,
     } = params
     let { sourcesBlock } = params
@@ -22,6 +23,17 @@ export async function streamChatCompletions(params: StreamParams) {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: fullSystemPrompt }
     ]
+
+    // Inject conversation history for multi-turn context
+    if (conversationHistory.length > 0) {
+        for (const msg of conversationHistory) {
+            messages.push({
+                role: msg.role,
+                content: msg.content.slice(0, 2000) // Truncate to manage tokens
+            })
+        }
+    }
+
     messages.push({ role: 'user', content: buildChatCompletionUserContent(finalUserPrompt, imageInputs) })
 
     const stream = await client.chat.completions.create({

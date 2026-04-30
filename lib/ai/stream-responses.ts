@@ -15,6 +15,7 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         webSearch, thinking, deepResearch, ragChunks,
         imageInputs,
         conversationId, projectId, orgId, userId, usedMemories,
+        conversationHistory,
         streamStartTime, chatMode,
     } = params
     let { sourcesBlock } = params
@@ -30,11 +31,22 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         safe.enqueue(phaseEvent('thinking', 'start', 'Reasoning through the problem'))
     }
 
-    // Build Responses API input
+    // Build Responses API input with conversation history
     const input: OpenAI.Responses.ResponseInput = [
         { role: 'system', content: fullSystemPrompt },
-        { role: 'user', content: buildResponsesUserContent(finalUserPrompt, imageInputs) }
     ]
+
+    // Inject conversation history for multi-turn context
+    if (conversationHistory.length > 0) {
+        for (const msg of conversationHistory) {
+            input.push({
+                role: msg.role,
+                content: msg.content.slice(0, 2000) // Truncate to manage tokens
+            })
+        }
+    }
+
+    input.push({ role: 'user', content: buildResponsesUserContent(finalUserPrompt, imageInputs) })
 
     const responsesOptions = {
         model,
