@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server'
 import { handleWorkflowRequest } from '@/lib/workflow/handler'
+import { AI_TOKENS } from '@/lib/ai/config'
 
 export async function POST(request: NextRequest) {
     return handleWorkflowRequest(request, {
-        promptType: 'transcript_analysis',
+        promptType: 'red_team_analysis',
         fileField: 'file',
-        workflowId: 'transcripts'
+        workflowId: 'red-team',
+        maxTokens: AI_TOKENS.redTeam,
     })
 }

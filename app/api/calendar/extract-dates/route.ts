@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from '@/lib/auth/require-auth'
 import { resolveOpenAIClient } from "@/lib/byok";
+import { AI_MODELS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 // POST /api/calendar/extract-dates — AI-powered date extraction from legal text
 export async function POST(req: NextRequest) {
@@ -66,12 +67,12 @@ Return a JSON object with this structure:
         const userPrompt = `Extract all dates and deadlines from this legal document:\n\n${truncated}`;
 
         const response = await client.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: AI_MODELS.calendar,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
             ],
-            temperature: 0.1,
+            temperature: AI_TEMPERATURES.precise,
             response_format: { type: "json_object" },
         });
 

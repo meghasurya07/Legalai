@@ -15,6 +15,7 @@ interface WorkflowConfig {
     inputMode?: 'form' | 'json'
     workflowId?: string
     projectId?: string
+    maxTokens?: number
 }
 
 export async function handleWorkflowRequest(request: NextRequest, config: WorkflowConfig) {
@@ -62,6 +63,7 @@ export async function handleWorkflowRequest(request: NextRequest, config: Workfl
 
         const { result, error } = await callAISafe(config.promptType, variables, {
             jsonMode: true,
+            ...(config.maxTokens ? { maxTokens: config.maxTokens } : {}),
             ...(config.projectId ? { projectId: config.projectId, useRAG: true } : {})
         })
 

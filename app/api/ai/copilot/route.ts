@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { supabase } from '@/lib/supabase/server'
-import { AI_MODELS } from '@/lib/ai/config'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 /**
  * POST /api/ai/copilot — Ghost text completion for the editor
@@ -46,13 +46,13 @@ Rules:
 - Just provide the continuation text directly`
 
         const stream = await client.chat.completions.create({
-            model: AI_MODELS.chat,
+            model: AI_MODELS.copilot,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Context:\n${context || ''}\n\nContinue writing after: "${prompt}"` },
             ],
-            max_tokens: 150,
-            temperature: 0.7,
+            max_tokens: AI_TOKENS.copilot,
+            temperature: AI_TEMPERATURES.creative,
             stream: true,
         })
 

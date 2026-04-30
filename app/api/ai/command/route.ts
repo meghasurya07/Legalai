@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { supabase } from '@/lib/supabase/server'
-import { AI_MODELS } from '@/lib/ai/config'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 const COMMAND_PROMPTS: Record<string, string> = {
     draft: `Generate a well-structured legal document section based on the user's prompt. Use formal legal language with proper headings and numbered paragraphs where appropriate.`,
@@ -63,13 +63,13 @@ Rules:
         if (context) userPrompt += `Document context:\n"""${context}"""\n`
 
         const stream = await client.chat.completions.create({
-            model: AI_MODELS.chat,
+            model: AI_MODELS.editor,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt || 'Generate the requested content.' },
             ],
-            max_tokens: 2000,
-            temperature: 0.5,
+            max_tokens: AI_TOKENS.editor,
+            temperature: AI_TEMPERATURES.default,
             stream: true,
         })
 

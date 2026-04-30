@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
-import { AI_MODELS } from '@/lib/ai/config'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { resolveOpenAIClient } from '@/lib/byok'
 import type { Attachment } from '@/types'
 
@@ -114,8 +114,8 @@ async function generateTitleIfNeeded(conversationId: string, messageContent: str
                     content: messageContent.slice(0, 200)
                 }
             ],
-            max_tokens: 30,
-            temperature: 0.3,
+            max_tokens: AI_TOKENS.titleGeneration,
+            temperature: AI_TEMPERATURES.balanced,
         })
         const raw = completion.choices[0]?.message?.content || ''
         title = raw.trim().replace(/^["']|["']$/g, '').slice(0, 60) || messageContent.slice(0, 50)

@@ -2,6 +2,7 @@
 -- These are the 9 predefined expert workflows
 
 INSERT INTO workflows (id, title, description, icon) VALUES
+('red-team', 'Red Team My Contract', 'Simulate 6 opposing counsel personas attacking your contract to find loopholes, weak clauses, and exploitable language before the other side does.', 'Target'),
 ('redline-analysis', 'Redline analysis', 'Redline Analysis generates a chart comparing the original and revised version of a redline document. It also helps you identify or generate a response to your query based on the redline document.', 'FileCheck'),
 ('company-profile', 'Company profile', 'Company Profile will generate a report on any NYSE or NASDAQ listed company that files 10-Ks with the SEC by searching and summarizing publicly available data such as EDGAR.', 'FileText'),
 ('document-comparison', 'Document comparison', 'Document Comparison will describe the difference between two documents with vastly different formats but with overlapping substance.', 'Copy'),

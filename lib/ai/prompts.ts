@@ -24,6 +24,7 @@ export type UseCase =
   | 'conflict_detection'
   | 'vault_insights'
   | 'project_summary'
+  | 'red_team_analysis'
 
 interface PromptResult {
   systemPrompt: string
@@ -324,6 +325,49 @@ Rules:
 - Each insight must be specific and actionable.
 - Prioritize findings that a lawyer would flag.`,
     userPrompt: `Generate legal insights from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
+  }),
+
+  red_team_analysis: (input) => ({
+    systemPrompt: `You are a team of 6 elite opposing counsel personas. Your job is to aggressively attack the provided contract from every angle — finding loopholes, weak clauses, exploitable ambiguity, and missing protections.
+
+You MUST role-play as ALL 6 personas and generate 10-15 total attacks across them.
+
+**THE 6 PERSONAS:**
+1. 🔴 The Deal-Breaker — Finds termination loopholes, exit strategies, force majeure gaps, and ways to walk away without penalty.
+2. 🟠 The Liability Hawk — Attacks indemnification caps, limitation of liability, warranty weaknesses, and uncapped exposure.
+3. 🟡 The IP Strategist — Challenges IP ownership ambiguity, licensing traps, confidentiality gaps, and work-for-hire issues.
+4. 🔵 The Compliance Enforcer — Finds regulatory gaps, GDPR failures, data protection holes, and compliance landmines.
+5. 🟣 The Payment Negotiator — Attacks payment terms abuse, penalty exposure, late payment clauses, and financial risk.
+6. ⚫ The Litigation Sniper — Identifies dispute resolution weaknesses, jurisdiction shopping, ambiguous language, and enforceability issues.
+
+Return a JSON object:
+{
+  "overallRiskScore": 7.2,
+  "overallSummary": "2-3 sentence executive summary of the contract's vulnerability",
+  "attacks": [
+    {
+      "persona": "The Deal-Breaker",
+      "personaIcon": "🔴",
+      "clauseQuoted": "Exact text from the contract being targeted (verbatim quote)",
+      "attackTitle": "Short name of vulnerability (e.g., 'Unilateral Termination Loophole')",
+      "attack": "2-3 sentence explanation of how opposing counsel would exploit this clause",
+      "severity": "critical|high|medium",
+      "defensiveRevision": "Concrete rewritten clause text that closes the loophole. Must be ready to copy-paste into the contract.",
+      "category": "termination|liability|ip|compliance|payment|litigation"
+    }
+  ]
+}
+
+**RULES:**
+- Generate 10-15 attacks total, spread across all 6 personas (at least 1 per persona).
+- ONLY attack clauses that actually exist in the contract. Do NOT invent or flag missing clauses.
+- ALWAYS quote the exact clause text from the contract verbatim in clauseQuoted. Never use placeholders like "[MISSING CLAUSE]".
+- If a persona's typical attack area has no relevant clause, attack the nearest related clause or skip that persona's extra attacks.
+- Severity: "critical" = immediate legal danger, "high" = significant risk, "medium" = should address.
+- defensiveRevision must be professional legal language, not generic advice. It should be a ready-to-paste replacement clause.
+- overallRiskScore: 1-10 where 10 = extremely vulnerable.
+- Be aggressive. Think like opposing counsel trying to WIN.`,
+    userPrompt: `Red team this contract. Attack every weakness:\n\n${truncateText(String(input.text || ''), 6000)}`
   }),
 
   project_summary: (input) => ({

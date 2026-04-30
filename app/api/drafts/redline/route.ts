@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { apiError } from '@/lib/api-utils'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 interface RedlineChange {
     type: 'insertion' | 'deletion' | 'modification'
@@ -67,7 +68,7 @@ Rules:
 ${focus ? `\nSpecial focus area: ${focus}` : ''}`
 
         const response = await client.chat.completions.create({
-            model: 'gpt-4o',
+            model: AI_MODELS.redline,
             messages: [
                 { role: 'system', content: systemPrompt },
                 {
@@ -75,8 +76,8 @@ ${focus ? `\nSpecial focus area: ${focus}` : ''}`
                     content: `Compare these two documents and identify all changes:\n\nYOUR DRAFT:\n${draftText.substring(0, 15000)}\n\n---\n\nCOUNTERPARTY VERSION:\n${counterpartyText.substring(0, 15000)}`
                 },
             ],
-            max_tokens: 6000,
-            temperature: 0.1,
+            max_tokens: AI_TOKENS.redline,
+            temperature: AI_TEMPERATURES.precise,
             response_format: { type: 'json_object' },
         })
 

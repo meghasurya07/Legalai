@@ -62,7 +62,7 @@ export default function ContractAnalysis() {
         }
 
         const formData = new FormData()
-        formData.append('contract', contractFile)
+        formData.append('file', contractFile)
         await runWithFile(formData, "Contract analyzed successfully!")
     }
 

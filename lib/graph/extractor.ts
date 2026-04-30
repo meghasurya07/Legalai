@@ -7,6 +7,7 @@
 
 import { callAI } from '@/lib/ai/client'
 import { parseAIJSON } from '@/lib/api-utils'
+import { AI_TOKENS } from '@/lib/ai/config'
 import { upsertEntity } from './entities'
 import { addRelationship } from './relationships'
 import { ExtractedEntity, ExtractedRelationship, EntitySource } from './types'
@@ -31,7 +32,7 @@ export async function extractAndPersistGraph(params: {
 
         const { result } = await callAI('graph_extraction', { text }, {
             jsonMode: true,
-            maxTokens: 1200
+            maxTokens: AI_TOKENS.graphExtractor
         })
 
         const parsed = parseAIJSON(result, undefined)

@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger'
 
 import { callAI } from '@/lib/ai/client'
 import { addMemory } from './manager'
+import { AI_TOKENS } from '@/lib/ai/config'
 import { detectAndPersistPreferences } from './preference-detector'
 import type { MemoryType } from './types'
 
@@ -140,7 +141,7 @@ async function generateSummary(messages: SessionMessage[]): Promise<SessionSumma
             conversation: transcript,
         }, {
             jsonMode: true,
-            maxTokens: 1000,
+            maxTokens: AI_TOKENS.sessionSummarizer,
         })
 
         const parsed = JSON.parse(result)

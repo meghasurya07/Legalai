@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { supabase } from '@/lib/supabase/server'
 import { apiError } from '@/lib/api-utils'
+import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
 /**
  * POST /api/drafts/from-project — Generate a draft from project files
@@ -62,13 +63,13 @@ Rules:
             : `Based on the following source documents, draft a comprehensive ${documentType || 'legal'} document that captures the key terms, obligations, and provisions:\n\n${fileContext}`
 
         const response = await client.chat.completions.create({
-            model: 'gpt-4o',
+            model: AI_MODELS.drafting,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ],
-            max_tokens: 8000,
-            temperature: 0.3,
+            max_tokens: AI_TOKENS.drafting,
+            temperature: AI_TEMPERATURES.balanced,
         })
 
         const draftContent = response.choices[0]?.message?.content || ''

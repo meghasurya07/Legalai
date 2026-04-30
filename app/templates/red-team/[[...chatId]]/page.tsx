@@ -1,14 +1,14 @@
 import { Metadata } from 'next'
-import ClientAlert from '@/components/templates/client-alert'
+import RedTeam from '@/components/templates/red-team'
 import { Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 
 export const metadata: Metadata = {
-    title: 'Client Alert | Wesley',
-    description: 'Draft professional client alerts and legal updates',
+    title: 'Red Team My Contract | Wesley',
+    description: 'Simulate 6 opposing counsel personas attacking your contract to find loopholes and weak clauses',
 }
 
-export default function ClientAlertPage() {
+export default function RedTeamPage() {
     return (
         <Suspense fallback={
             <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -16,7 +16,7 @@ export default function ClientAlertPage() {
                 <p className="text-sm text-muted-foreground">Loading...</p>
             </div>
         }>
-            <ClientAlert />
+            <RedTeam />
         </Suspense>
     )
 }
