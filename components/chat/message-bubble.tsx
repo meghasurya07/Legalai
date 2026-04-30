@@ -15,7 +15,6 @@ import {
     escapeCitationMarkers,
 } from "@/lib/citations"
 import { parseCalendarAction, CalendarActionCard } from "@/components/chat/calendar-action-card"
-import { parseDraftAction, DraftActionCard } from "@/components/chat/draft-action-card"
 import type { Attachment, Message } from "@/types"
 
 import ReactMarkdown from "react-markdown"
@@ -147,7 +146,6 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
     const sources = parseSources(content)
     // Parse and strip calendar action blocks
     const { cleanMessage: contentNoCalendar, calendarItems, alreadyAdded } = parseCalendarAction(content)
-    const { hasDraftContent, draftTitle, draftType, alreadyOpened: draftAlreadyOpened } = parseDraftAction(content)
     const [calendarDismissed, setCalendarDismissed] = React.useState(false)
     // Strip all draft markers from visible content (both old and new format)
     const contentNoDraft = contentNoCalendar
@@ -340,22 +338,6 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
                 <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/15 rounded-lg px-3 py-2 mt-2">
                     <Check className="h-3.5 w-3.5" />
                     <span>Added to your calendar</span>
-                </div>
-            )}
-            {/* Draft Action Card — show "Open in Editor" when AI generates draft content */}
-            {hasDraftContent && !draftAlreadyOpened && (
-                <DraftActionCard
-                    content={displayContent}
-                    title={draftTitle}
-                    documentType={draftType}
-                    messageId={messageId}
-                    conversationId={conversationId}
-                />
-            )}
-            {draftAlreadyOpened && (
-                <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/15 rounded-lg px-3 py-2 mt-2">
-                    <Check className="h-3.5 w-3.5" />
-                    <span>Opened in editor</span>
                 </div>
             )}
         </>

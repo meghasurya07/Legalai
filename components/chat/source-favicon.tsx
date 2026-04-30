@@ -61,7 +61,7 @@ export function SourceFavicon({
             alt=""
             width={size}
             height={size}
-            className={className}
+            className={`w-auto h-auto ${className || ""}`}
             unoptimized // Using unoptimized because favicons come from diverse external domains
             onError={() => setFailed(true)}
         />
