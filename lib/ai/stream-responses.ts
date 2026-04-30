@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger'
 import { phaseEvent, extractCitationsFromResponse } from '@/lib/ai/citation-extractor'
 import { buildResponsesUserContent } from '@/lib/ai/chat-file-inputs'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
+import { getChatConfig } from '@/lib/ai/config'
 import { makeSafeEnqueue, type ResponsesAPIParams } from './stream-utils'
 
 /**
@@ -21,6 +22,9 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
     let { sourcesBlock } = params
 
     const safe = makeSafeEnqueue(controller, encoder)
+
+    // Get centralized config for this chat mode
+    const chatConfig = getChatConfig(chatMode)
 
     // Single phase event per mode for clean timeline UI
     if (deepResearch) {
@@ -52,6 +56,8 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         model,
         input,
         stream: true as const,
+        temperature: chatConfig.temperature,
+        max_output_tokens: chatConfig.maxTokens,
         ...(thinking ? {
             reasoning: { effort: 'medium' as const, summary: 'auto' as const },
         } : {}),

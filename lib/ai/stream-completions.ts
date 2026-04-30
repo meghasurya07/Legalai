@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { ensureCitationMarkers, buildDynamicRAGSourcesBlock } from '@/lib/rag'
-import { AI_TEMPERATURES } from '@/lib/ai/config'
+import { getChatConfig } from '@/lib/ai/config'
 import { buildChatCompletionUserContent } from '@/lib/ai/chat-file-inputs'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
 import { makeSafeEnqueue, type StreamParams } from './stream-utils'
@@ -19,6 +19,9 @@ export async function streamChatCompletions(params: StreamParams) {
     let { sourcesBlock } = params
 
     const safe = makeSafeEnqueue(controller, encoder)
+
+    // Get centralized config for standard chat mode
+    const chatConfig = getChatConfig('standard')
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: fullSystemPrompt }
@@ -39,7 +42,8 @@ export async function streamChatCompletions(params: StreamParams) {
     const stream = await client.chat.completions.create({
         model,
         messages,
-        temperature: AI_TEMPERATURES.default,
+        temperature: chatConfig.temperature,
+        max_completion_tokens: chatConfig.maxTokens,
         stream: true,
         stream_options: { include_usage: true },
     })
