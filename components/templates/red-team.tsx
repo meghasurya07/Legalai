@@ -210,7 +210,7 @@ function RiskScoreBar({ score }: { score: number }) {
             <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                 <div
                     className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`}
-                    style={{ width: `${percentage}%` }}
+                    ref={(el) => { if (el) el.style.width = `${percentage}%` }}
                 />
             </div>
         </div>
