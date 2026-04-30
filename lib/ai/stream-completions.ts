@@ -40,13 +40,21 @@ export async function streamChatCompletions(params: StreamParams) {
         model,
         messages,
         temperature: AI_TEMPERATURES.default,
-        stream: true
+        stream: true,
+        stream_options: { include_usage: true },
     })
 
     let streamedContent = ''
+    let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null
 
     for await (const chunk of stream) {
         if (safe.isClosed) break
+
+        // Capture usage from the final chunk (sent when stream_options.include_usage is true)
+        if (chunk.usage) {
+            usage = chunk.usage
+        }
+
         const content = chunk.choices[0]?.delta?.content || ''
         if (content) {
             streamedContent += content
@@ -91,14 +99,16 @@ export async function streamChatCompletions(params: StreamParams) {
         safe.close()
     }
 
-    // Log usage
+    // Log usage with real token counts from the stream
+    const tokensIn = usage?.prompt_tokens || 0
+    const tokensOut = usage?.completion_tokens || 0
     import('@/lib/logger').then(({ logEvent }) => {
         logEvent('AI_CALL', {
             useCase: 'assistant_chat',
             model,
-            tokensIn: 0,
-            tokensOut: 0,
-            tokensTotal: 0,
+            tokensIn,
+            tokensOut,
+            tokensTotal: usage?.total_tokens || (tokensIn + tokensOut),
             latencyMs: Date.now() - streamStartTime,
             streaming: true,
             success: true,
