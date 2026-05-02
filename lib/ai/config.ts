@@ -22,7 +22,7 @@ export const AI_MODELS = {
     /** Chat — deep research mode (requires verified org: o3-deep-research, o4-mini-deep-research) */
     chatDeepResearch: 'o4-mini-deep-research',
     /** Title generation — ultra-cheap nano model for generating short conversation titles */
-    titleGeneration: 'gpt-5.4-nano',
+    titleGeneration: 'gpt-5-nano',
     /** Document Intelligence — summaries, metadata, clause extraction */
     docIntel: 'gpt-5.4-mini',
     /** Trust & Insight layer — conflicts, insights, project summaries */
@@ -32,7 +32,7 @@ export const AI_MODELS = {
     /** Company research — web search for company profiles */
     companyResearch: 'gpt-5.4-mini',
     /** Prompt Improvement — rewriting user inputs (nano: lightweight rewrite) */
-    promptImprovement: 'gpt-5.4-nano',
+    promptImprovement: 'gpt-5-nano',
     /** Calendar — date/deadline extraction from legal documents */
     calendar: 'gpt-5.4-mini',
     /** Drafting — document generation from project files and templates */

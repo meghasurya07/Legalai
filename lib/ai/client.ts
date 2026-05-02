@@ -145,7 +145,7 @@ export async function callAI(
     const completion = await client.chat.completions.create({
         model: options?.model || AI_MODELS.chat,
         messages,
-        max_tokens: options?.maxTokens || AI_TOKENS.default,
+        max_completion_tokens: options?.maxTokens || AI_TOKENS.default,
         temperature: AI_TEMPERATURES.default,
         ...(options?.jsonMode ? { response_format: { type: 'json_object' as const } } : {})
     })
