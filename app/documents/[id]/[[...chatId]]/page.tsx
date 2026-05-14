@@ -6,9 +6,11 @@ import { useParams, useRouter } from "next/navigation"
 import { ProjectSidebar } from "@/components/documents/project-sidebar"
 import { ChatInterface } from "@/components/chat/chat-interface"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2, Play } from "lucide-react"
+import { ArrowLeft, Loader2, Play, FolderOpen } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { Project } from "@/types"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 function ProjectContent() {
     const params = useParams()
@@ -18,6 +20,8 @@ function ProjectContent() {
     const [project, setProject] = useState<Project | null | undefined>(undefined)
     const [isLoading, setIsLoading] = useState(true)
     const hasFetched = useRef(false)
+    const isMobile = useIsMobile()
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
     // params.id might be string or string[]
     const projectId = Array.isArray(params.id) ? params.id[0] : (params.id as string)
@@ -71,43 +75,71 @@ function ProjectContent() {
         )
     }
 
+    const sidebarContent = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "flex flex-col h-full border-r bg-background w-[300px] shrink-0"}>
+            <div className="p-4 border-b flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => { if (isMobile) { setIsSidebarOpen(false) } else { router.push('/documents') } }} title="Back to Documents" className="h-8 w-8 shrink-0">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="font-medium text-sm flex-1 truncate">{isMobile ? project.title : 'Back to Documents'}</span>
+                </div>
+                <div className="flex gap-2 w-full">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/documents/${projectId}/cross-reference`)}
+                        className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-blue-600/10 border-blue-600/30 text-blue-700 hover:bg-blue-600/20 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 justify-center"
+                        title="Open Cross-Reference"
+                    >
+                        <Play className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Cross-Reference</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/documents/${projectId}/tabular-review`)}
+                        className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 justify-center"
+                        title="Open Tabular Review"
+                    >
+                        <Play className="h-3 w-3 shrink-0" />
+                        <span className="truncate">Tabular Review</span>
+                    </Button>
+                </div>
+            </div>
+            <ProjectSidebar project={project} />
+        </div>
+    )
+
     return (
         <div className="flex h-full w-full overflow-hidden">
-            <div className="flex flex-col h-full border-r bg-background w-[300px] shrink-0">
-                <div className="p-4 border-b flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => router.push('/documents')} title="Back to Documents" className="h-8 w-8 shrink-0">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <span className="font-medium text-sm flex-1 truncate">Back to Documents</span>
-                    </div>
-                    <div className="flex gap-2 w-full">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/documents/${projectId}/cross-reference`)}
-                            className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-blue-600/10 border-blue-600/30 text-blue-700 hover:bg-blue-600/20 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 justify-center"
-                            title="Open Cross-Reference"
-                        >
-                            <Play className="h-3 w-3 shrink-0" />
-                            <span className="truncate">Cross-Reference</span>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/documents/${projectId}/tabular-review`)}
-                            className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 justify-center"
-                            title="Open Tabular Review"
-                        >
-                            <Play className="h-3 w-3 shrink-0" />
-                            <span className="truncate">Tabular Review</span>
-                        </Button>
-                    </div>
-                </div>
-                <ProjectSidebar project={project} />
-            </div>
+            {/* Desktop sidebar */}
+            {!isMobile && sidebarContent}
+
+            {/* Mobile sidebar sheet */}
+            {isMobile && (
+                <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+                    <SheetContent side="left" className="w-[85vw] max-w-[320px] p-0 [&>button]:hidden">
+                        <SheetTitle className="sr-only">Project Files</SheetTitle>
+                        {sidebarContent}
+                    </SheetContent>
+                </Sheet>
+            )}
 
             <div className="flex-1 flex flex-col h-full overflow-hidden">
+                {/* Mobile: back button + files toggle */}
+                {isMobile && (
+                    <div className="flex items-center gap-2 px-3 py-2 border-b bg-background shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/documents')} className="h-8 w-8 shrink-0">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="font-medium text-sm flex-1 truncate">{project.title}</span>
+                        <Button variant="outline" size="sm" onClick={() => setIsSidebarOpen(true)} className="h-8 gap-1.5 text-xs">
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            Files
+                        </Button>
+                    </div>
+                )}
                 <ChatInterface
                     onMessageSent={() => incrementQueryCount(projectId)}
                     mode="project"

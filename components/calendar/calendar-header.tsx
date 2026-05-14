@@ -47,7 +47,7 @@ export function CalendarHeader({
     }
 
     return (
-        <div className="flex items-center justify-between gap-4 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
             {/* Left: Navigation */}
             <div className="flex items-center gap-2">
                 <Button
@@ -66,13 +66,13 @@ export function CalendarHeader({
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
-                <h2 className="text-lg font-semibold text-foreground min-w-[200px]">
+                <h2 className="text-base sm:text-lg font-semibold text-foreground sm:min-w-[200px]">
                     {getDateLabel()}
                 </h2>
             </div>
 
             {/* Right: Scope + View Toggle + Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
                 {/* Scope toggle (only if user has an org) */}
                 {hasOrg && (
                     <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
@@ -110,7 +110,7 @@ export function CalendarHeader({
                             key={v.value}
                             onClick={() => onViewChange(v.value)}
                             className={cn(
-                                "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                "px-2 sm:px-3 py-1 text-xs font-medium rounded-md transition-all",
                                 view === v.value
                                     ? "bg-background text-foreground shadow-sm"
                                     : "text-muted-foreground hover:text-foreground"
@@ -128,7 +128,7 @@ export function CalendarHeader({
                 </Button>
                 <Button size="sm" className="rounded-lg h-8 gap-1.5 text-xs" onClick={onNewEvent}>
                     <Plus className="h-3.5 w-3.5" />
-                    <span>New Event</span>
+                    <span className="hidden sm:inline">New Event</span>
                 </Button>
             </div>
         </div>

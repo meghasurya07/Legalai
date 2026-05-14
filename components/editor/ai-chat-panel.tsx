@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { X, Sparkles, Loader2, Send, Copy, Plus, BookMarked } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 import { PromptLibraryPicker } from './prompt-library-picker'
 
@@ -95,8 +97,10 @@ export function AIChatPanel({ isOpen, onClose, onInsert, documentContext, docume
 
     if (!isOpen) return null
 
-    return (
-        <div className="w-96 border-l bg-background flex flex-col h-full shrink-0">
+    const isMobile = useIsMobile()
+
+    const panelContent = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "w-96 border-l bg-background flex flex-col h-full shrink-0"}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
@@ -230,4 +234,17 @@ export function AIChatPanel({ isOpen, onClose, onInsert, documentContext, docume
             </div>
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">AI Assistant</SheetTitle>
+                    {panelContent}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return panelContent
 }

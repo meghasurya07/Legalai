@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
     Dialog,
@@ -16,7 +15,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Settings as SettingsIcon, Camera } from "lucide-react"
+import { Camera } from "lucide-react"
 
 interface UserSettings {
     user_name?: string;
@@ -126,22 +125,7 @@ export default function SettingsPage() {
 
     return (
         <div className="flex flex-col flex-1 w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 h-full overflow-y-auto">
-            {/* Header */}
-            <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                        <SettingsIcon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
-                        <p className="text-sm text-muted-foreground">Manage your personal preferences and profile.</p>
-                    </div>
-                </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex-1 w-full min-w-0 mt-4 space-y-6 pb-12">
+            <div className="flex-1 w-full min-w-0 space-y-6 pb-12">
                 <Card className="border-none shadow-none bg-transparent sm:bg-card sm:border-solid sm:border">
                     <CardHeader className="px-0 sm:px-6">
                         <CardTitle>User Profile</CardTitle>
@@ -150,7 +134,7 @@ export default function SettingsPage() {
                     <CardContent className="space-y-8 px-0 sm:px-6">
                         <div className="space-y-4">
                             <Label>Custom Profile Picture</Label>
-                            <div className="flex items-center gap-6">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                                 <Dialog>
                                     <DialogTrigger asChild>
                                         <Avatar className="h-24 w-24 rounded-full border border-border shadow-sm cursor-pointer hover:opacity-80 transition-opacity">
@@ -202,7 +186,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="flex justify-end pt-6 border-t">
-                            <Button onClick={saveUserSettings} disabled={savingUser}>
+                            <Button className="w-full sm:w-auto" onClick={saveUserSettings} disabled={savingUser}>
                                 {savingUser ? "Saving..." : "Save Preferences"}
                             </Button>
                         </div>

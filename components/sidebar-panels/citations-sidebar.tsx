@@ -3,6 +3,8 @@
 import * as React from "react"
 import { X, FileText, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
     ChatCitationSource,
     getCitationSourceDisplayName,
@@ -19,10 +21,12 @@ interface CitationsSidebarProps {
 }
 
 export function CitationsSidebar({ isOpen, sources, onClose, onViewPdf }: CitationsSidebarProps) {
-    if (!isOpen) return null
+    const isMobile = useIsMobile()
 
-    return (
-        <div className="w-[350px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0">
+    if (!isOpen && !isMobile) return null
+
+    const content = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[350px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0"}>
             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
                 <h2 className="font-semibold text-base">Citations</h2>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
@@ -99,4 +103,17 @@ export function CitationsSidebar({ isOpen, sources, onClose, onViewPdf }: Citati
             </div>
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">Citations</SheetTitle>
+                    {content}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return content
 }

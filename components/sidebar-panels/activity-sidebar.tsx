@@ -3,6 +3,8 @@
 import * as React from "react"
 import { X, Check, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
     ChatCitationSource,
     getCitationSourceDisplayName,
@@ -23,12 +25,13 @@ interface ActivitySidebarProps {
 
 
 export function ActivitySidebar({ isOpen, duration, entries, sources, isThinkingMode, onClose }: ActivitySidebarProps) {
-    if (!isOpen) return null
-
+    const isMobile = useIsMobile()
     const durationLabel = duration ? `${duration}s` : '...'
 
-    return (
-        <div className="w-[380px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0">
+    if (!isOpen && !isMobile) return null
+
+    const content = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[380px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0"}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
                 <div className="flex items-center gap-2">
@@ -134,6 +137,19 @@ export function ActivitySidebar({ isOpen, duration, entries, sources, isThinking
             </div>
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">Activity</SheetTitle>
+                    {content}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return content
 }
 
 function extractDomains(text: string): string[] {

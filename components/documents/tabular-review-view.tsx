@@ -6,6 +6,8 @@ import { Project, DocumentFile } from "@/types"
 import { TabularReviewToolbar } from "./tabular-review-toolbar"
 import { TabularReviewGrid } from "./tabular-review-grid"
 import { TabularReviewChat } from "./tabular-review-chat"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { toast } from "sonner"
 
 export interface ReviewColumn {
@@ -49,6 +51,7 @@ interface TabularReviewViewProps {
 }
 
 export function TabularReviewView({ project, projectId }: TabularReviewViewProps) {
+    const isMobile = useIsMobile()
     const [columns, setColumns] = useState<ReviewColumn[]>([])
     const [cells, setCells] = useState<Map<string, ReviewCell>>(new Map())
     const [isRunning, setIsRunning] = useState(false)
@@ -532,8 +535,8 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
     return (
         <div className="flex flex-1 h-full overflow-hidden">
-            {/* Chat Sidebar */}
-            {chatOpen && (
+            {/* Chat Sidebar — Sheet on mobile, inline on desktop */}
+            {chatOpen && !isMobile && (
                 <div
                     // Edge Tools often flag inline styles dynamically injected by React, but this is required for smooth sliding
                     style={{ width: `${chatWidth}px` }}
@@ -556,6 +559,23 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                         className="absolute right-[-4px] top-0 bottom-0 w-2 cursor-col-resize z-10 hover:bg-primary/20 transition-colors"
                     />
                 </div>
+            )}
+            {chatOpen && isMobile && (
+                <Sheet open={chatOpen} onOpenChange={(open) => !open && setChatOpen(false)}>
+                    <SheetContent side="left" className="w-[85vw] max-w-[360px] p-0 [&>button]:hidden">
+                        <SheetTitle className="sr-only">Review Chat</SheetTitle>
+                        <TabularReviewChat
+                            projectId={projectId}
+                            projectTitle={project.title}
+                            columns={columns}
+                            cells={cells}
+                            documents={documents}
+                            onClose={() => setChatOpen(false)}
+                            initialMessages={chatMessages}
+                            onSaveMessages={handleSaveMessages}
+                        />
+                    </SheetContent>
+                </Sheet>
             )}
 
             {/* Main grid area */}

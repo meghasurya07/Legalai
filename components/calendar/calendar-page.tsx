@@ -242,7 +242,7 @@ export function CalendarPage({ tab }: CalendarPageProps) {
     // ---- SCHEDULE TAB ----
     if (tab === "schedule") {
         return (
-            <div className="flex-1 flex flex-col p-6 overflow-hidden">
+            <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
                 <CalendarHeader
                     view={cal.view}
                     currentDate={cal.currentDate}
@@ -333,21 +333,21 @@ export function CalendarPage({ tab }: CalendarPageProps) {
 
     // ---- DEADLINES TAB ----
     return (
-        <div className="flex-1 flex flex-col p-6 overflow-hidden">
+        <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 md:mb-6">
                 <div>
-                    <h1 className="text-xl font-semibold text-foreground">Deadlines</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Track and manage critical legal deadlines with smart countdown intelligence</p>
+                    <h1 className="text-lg md:text-xl font-semibold text-foreground">Deadlines</h1>
+                    <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Track and manage critical legal deadlines</p>
                 </div>
-                <Button size="sm" className="rounded-lg gap-1.5" onClick={() => { setEditingDeadline(null); setDefaultDate(undefined); setDeadlineModalOpen(true) }}>
+                <Button size="sm" className="rounded-lg gap-1.5 self-start sm:self-auto" onClick={() => { setEditingDeadline(null); setDefaultDate(undefined); setDeadlineModalOpen(true) }}>
                     <CalendarClock className="h-3.5 w-3.5" />
                     New Deadline
                 </Button>
             </div>
 
             {/* Stat cards */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
                 {[
                     { label: "Upcoming", value: cal.stats.upcoming, icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
                     { label: "Overdue", value: cal.stats.overdue, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30", pulse: cal.stats.overdue > 0 },
@@ -372,9 +372,9 @@ export function CalendarPage({ tab }: CalendarPageProps) {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectTrigger className="w-[140px] md:w-[160px] h-8 text-xs">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -386,7 +386,7 @@ export function CalendarPage({ tab }: CalendarPageProps) {
                     </SelectContent>
                 </Select>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectTrigger className="w-[140px] md:w-[160px] h-8 text-xs">
                         <SelectValue placeholder="Priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -403,7 +403,7 @@ export function CalendarPage({ tab }: CalendarPageProps) {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-y-auto rounded-xl border border-border/50 bg-card">
+            <div className="flex-1 overflow-auto rounded-xl border border-border/50 bg-card">
                 {cal.isLoading ? (
                     <div className="flex items-center justify-center py-20">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -417,7 +417,7 @@ export function CalendarPage({ tab }: CalendarPageProps) {
                         <p className="text-sm mt-1">Create your first deadline to start tracking</p>
                     </div>
                 ) : (
-                    <table className="w-full">
+                    <table className="w-full min-w-[700px]">
                         <thead>
                             <tr className="border-b border-border/50">
                                 <th className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">Deadline</th>

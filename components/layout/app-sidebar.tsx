@@ -7,7 +7,6 @@ import { useUserSettings } from "@/context/user-settings-context"
 import {
     BookMarked,
     BookOpen,
-    Brain,
     Building2,
     Calendar,
     CalendarClock,
@@ -170,12 +169,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <SidebarMenuButton isActive={pathname?.startsWith('/drafts')} tooltip="Drafts" onClick={() => router.push('/drafts')}>
                                     <FileEdit />
                                     <span>Drafts</span>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                            <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname?.startsWith('/settings/memory')} tooltip="Memory" onClick={() => router.push('/settings/memory')}>
-                                    <Brain />
-                                    <span>Memory</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>

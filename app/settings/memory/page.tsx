@@ -18,10 +18,8 @@ import {
     LayoutGrid,
     ChevronLeft,
     ChevronRight,
-    ArrowLeft,
     Building2,
 } from "lucide-react"
-import Link from "next/link"
 import MemoryHealth from "@/components/memory/memory-health"
 import MemoryList from "@/components/memory/memory-list"
 import AddMemoryModal from "@/components/memory/add-memory-modal"
@@ -208,23 +206,16 @@ export default function MemorySettingsPage() {
 
     return (
         <div className="flex flex-col flex-1 w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 space-y-6 h-full overflow-y-auto pb-20">
-            {/* ─── Header ─── */}
-            <div className="flex items-start justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <Link href="/settings">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                            <Brain className="h-6 w-6 text-primary" />
-                            AI Memory
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Manage what Wesley remembers about your work, preferences, and cases.
-                        </p>
-                    </div>
+            {/* ─── Sub-Header ─── */}
+            <div className="flex items-center justify-between shrink-0">
+                <div>
+                    <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                        <Brain className="h-5 w-5 text-primary" />
+                        AI Memory
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Manage what Wesley remembers about your work, preferences, and cases.
+                    </p>
                 </div>
             </div>
 

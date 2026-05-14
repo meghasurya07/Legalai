@@ -7,6 +7,8 @@ import {
     X, Loader2, AlertTriangle, Plus, Minus, ArrowLeftRight,
     ChevronDown, ChevronUp, ShieldAlert,
 } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 
 interface RedlineChange {
@@ -79,8 +81,10 @@ export function RedlinePanel({ isOpen, onClose, draftText }: RedlinePanelProps) 
 
     if (!isOpen) return null
 
-    return (
-        <div className="w-[400px] border-l bg-card flex flex-col h-full">
+    const isMobile = useIsMobile()
+
+    const panelContent = (
+        <div className={isMobile ? "flex flex-col h-full bg-card" : "w-[400px] border-l bg-card flex flex-col h-full"}>
             {/* Header */}
             <div className="px-4 py-3 border-b flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -204,4 +208,17 @@ export function RedlinePanel({ isOpen, onClose, draftText }: RedlinePanelProps) 
             </div>
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">Smart Redline</SheetTitle>
+                    {panelContent}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return panelContent
 }

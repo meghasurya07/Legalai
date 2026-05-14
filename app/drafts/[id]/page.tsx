@@ -25,6 +25,7 @@ import { GhostTextOverlay } from '@/components/editor/ghost-text-overlay'
 import { useGhostText } from '@/components/editor/use-ghost-text'
 import { useSuggestions } from '@/components/editor/use-suggestions'
 import { SuggestionPopover } from '@/components/editor/suggestion-popover'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { DraftDocumentType, DraftStatus } from '@/types'
 
 interface DraftData {
@@ -396,7 +397,7 @@ export default function DraftEditorPage() {
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top bar */}
-            <div className="flex items-center gap-3 px-4 py-2 border-b bg-background/95 backdrop-blur-sm shrink-0">
+            <div className="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 border-b bg-background/95 backdrop-blur-sm shrink-0">
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => router.push('/drafts')}>
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -404,51 +405,55 @@ export default function DraftEditorPage() {
                 <Input
                     value={title}
                     onChange={(e) => handleTitleChange(e.target.value)}
-                    className="border-none shadow-none text-base font-semibold h-8 px-2 bg-transparent focus-visible:ring-0 max-w-md"
+                    className="border-none shadow-none text-sm md:text-base font-semibold h-8 px-2 bg-transparent focus-visible:ring-0 flex-1 min-w-0 md:max-w-md"
                     placeholder="Untitled Document"
                 />
 
-                <Select value={documentType} onValueChange={(v) => handleTypeChange(v as DraftDocumentType)}>
-                    <SelectTrigger className="w-28 h-8 text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="contract">Contract</SelectItem>
-                        <SelectItem value="memo">Memo</SelectItem>
-                        <SelectItem value="brief">Brief</SelectItem>
-                        <SelectItem value="letter">Letter</SelectItem>
-                        <SelectItem value="motion">Motion</SelectItem>
-                    </SelectContent>
-                </Select>
+                {/* Desktop: inline selectors */}
+                <div className="hidden md:flex items-center gap-2">
+                    <Select value={documentType} onValueChange={(v) => handleTypeChange(v as DraftDocumentType)}>
+                        <SelectTrigger className="w-28 h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="general">General</SelectItem>
+                            <SelectItem value="contract">Contract</SelectItem>
+                            <SelectItem value="memo">Memo</SelectItem>
+                            <SelectItem value="brief">Brief</SelectItem>
+                            <SelectItem value="letter">Letter</SelectItem>
+                            <SelectItem value="motion">Motion</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-                <Select value={draftStatus} onValueChange={(v) => handleStatusChange(v as DraftStatus)}>
-                    <SelectTrigger className="w-24 h-8 text-xs">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="final">Final</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                <div className="flex-1" />
-
-                {/* Save status */}
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {saveStatus === 'saving' && <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>}
-                    {saveStatus === 'saved' && <><Check className="h-3 w-3 text-green-500" /> Saved</>}
-                    {saveStatus === 'unsaved' && <span className="text-amber-500">Unsaved changes</span>}
+                    <Select value={draftStatus} onValueChange={(v) => handleStatusChange(v as DraftStatus)}>
+                        <SelectTrigger className="w-24 h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="review">Review</SelectItem>
+                            <SelectItem value="final">Final</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <div className="flex-1 hidden md:block" />
+
+                {/* Save status */}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                    {saveStatus === 'saving' && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="hidden sm:inline">Saving...</span></>}
+                    {saveStatus === 'saved' && <><Check className="h-3 w-3 text-green-500" /> <span className="hidden sm:inline">Saved</span></>}
+                    {saveStatus === 'unsaved' && <span className="text-amber-500 hidden sm:inline">Unsaved</span>}
+                </div>
+
+                {/* Desktop: word count */}
+                <span className="text-xs text-muted-foreground tabular-nums hidden md:inline">
                     {wordCount.toLocaleString()} words
                 </span>
 
-                {/* Suggestion controls */}
+                {/* Desktop: Suggestion controls */}
                 {pendingCount > 0 && (
-                    <div className="flex items-center gap-1 ml-1 pl-2 border-l border-border/40">
+                    <div className="hidden md:flex items-center gap-1 ml-1 pl-2 border-l border-border/40">
                         <span className="text-[10px] text-violet-600 font-medium tabular-nums">
                             {pendingCount} suggestion{pendingCount > 1 ? 's' : ''}
                         </span>
@@ -479,48 +484,75 @@ export default function DraftEditorPage() {
                     </div>
                 )}
 
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleManualSave}>
-                    <Save className="h-3.5 w-3.5" />
-                    Save Version
-                </Button>
+                {/* Desktop: inline action buttons */}
+                <div className="hidden md:flex items-center gap-0.5">
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleManualSave}>
+                        <Save className="h-3.5 w-3.5" />
+                        Save Version
+                    </Button>
 
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setShowVersions(!showVersions)}>
-                    <Clock className="h-3.5 w-3.5" />
-                    History
-                </Button>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setShowVersions(!showVersions)}>
+                        <Clock className="h-3.5 w-3.5" />
+                        History
+                    </Button>
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 gap-1.5 text-xs ${showAIChat ? 'bg-violet-500/10 text-violet-600' : ''}`}
-                    onClick={() => setShowAIChat(!showAIChat)}
-                >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    AI
-                </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`h-8 gap-1.5 text-xs ${showAIChat ? 'bg-violet-500/10 text-violet-600' : ''}`}
+                        onClick={() => setShowAIChat(!showAIChat)}
+                    >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        AI
+                    </Button>
 
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleExport}>
-                    <Download className="h-3.5 w-3.5" />
-                    Export
-                </Button>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleExport}>
+                        <Download className="h-3.5 w-3.5" />
+                        Export
+                    </Button>
 
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 gap-1.5 text-xs ${showRedline ? 'bg-red-500/10 text-red-600' : ''}`}
-                    onClick={() => setShowRedline(!showRedline)}
-                >
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    Redline
-                </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`h-8 gap-1.5 text-xs ${showRedline ? 'bg-red-500/10 text-red-600' : ''}`}
+                        onClick={() => setShowRedline(!showRedline)}
+                    >
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        Redline
+                    </Button>
+                </div>
 
+                {/* Overflow menu — always visible, used for delete on desktop, all actions on mobile */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                             <MoreVertical className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-48">
+                        {/* Mobile-only items */}
+                        <div className="md:hidden">
+                            <DropdownMenuItem onClick={handleManualSave}>
+                                <Save className="h-4 w-4 mr-2" />
+                                Save Version
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowVersions(!showVersions)}>
+                                <Clock className="h-4 w-4 mr-2" />
+                                History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowAIChat(!showAIChat)}>
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                AI Assistant
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExport}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Export DOCX
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowRedline(!showRedline)}>
+                                <ShieldAlert className="h-4 w-4 mr-2" />
+                                Redline
+                            </DropdownMenuItem>
+                        </div>
                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete Draft

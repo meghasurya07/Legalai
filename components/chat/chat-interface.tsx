@@ -18,6 +18,8 @@ import {
     parseDocumentCitationUrl,
 } from "@/lib/citations"
 import dynamic from "next/dynamic"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 // Extracted sub-components and hook
 import { useChatStream } from "@/hooks/use-chat-stream"
@@ -109,10 +111,11 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     }, [])
 
     const hasMessages = messages.length > 0
+    const isMobile = useIsMobile()
 
     return (
         <div className="flex h-full w-full bg-background relative overflow-hidden">
-            <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting ? 'w-[45%]' : 'flex-1'}`}>
+            <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting && !isMobile ? 'w-[45%]' : 'flex-1'}`}>
                 <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-2 sm:p-3 md:p-4 relative">
 
                     {/* Preview Dialog */}
@@ -144,7 +147,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     {!hasMessages && (
                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 animate-in fade-in zoom-in-95 duration-700">
                             <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6">
-                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
+                                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
                                     {mode === "project" ? projectTitle : <RandomGreeting />}
                                 </h1>
                             </div>
@@ -231,7 +234,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 </div>
             </div>
             {/* Draft Editor Panel (Harvey-style split pane) */}
-            {isDrafting && (
+            {isDrafting && !isMobile && (
                 <div className="w-[55%] h-full shrink-0 transition-all duration-300 ease-in-out">
                     <DraftEditorPanel
                         isOpen={isDrafting}
@@ -242,6 +245,22 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         onClose={closeDraftPanel}
                     />
                 </div>
+            )}
+            {/* Draft Editor Panel — Sheet overlay on mobile */}
+            {isDrafting && isMobile && (
+                <Sheet open={isDrafting} onOpenChange={(open) => !open && closeDraftPanel()}>
+                    <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                        <SheetTitle className="sr-only">Draft Editor</SheetTitle>
+                        <DraftEditorPanel
+                            isOpen={isDrafting}
+                            title={draftTitle}
+                            documentType={draftType}
+                            content={draftContent}
+                            isStreaming={isDraftStreaming}
+                            onClose={closeDraftPanel}
+                        />
+                    </SheetContent>
+                </Sheet>
             )}
             {/* Activity Sidebar */}
             <ActivitySidebar

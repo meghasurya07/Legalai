@@ -210,9 +210,9 @@ export default function DraftsPage() {
 
     return (
         <div className="flex-1 overflow-y-auto">
-            <div className="max-w-6xl mx-auto px-6 py-8">
+            <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-3">
                             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
@@ -240,9 +240,11 @@ export default function DraftsPage() {
                             onClick={() => fileInputRef.current?.click()}
                             disabled={importing}
                             className="gap-2"
+                            size="sm"
                         >
                             {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                            Import DOCX
+                            <span className="hidden sm:inline">Import DOCX</span>
+                            <span className="sm:hidden">Import</span>
                         </Button>
 
 
@@ -255,8 +257,8 @@ export default function DraftsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="relative flex-1 max-w-sm">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
+                    <div className="relative flex-1 sm:max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search drafts..."
@@ -265,8 +267,9 @@ export default function DraftsPage() {
                             className="pl-9"
                         />
                     </div>
+                    <div className="flex items-center gap-3">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-full sm:w-32">
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -277,7 +280,7 @@ export default function DraftsPage() {
                         </SelectContent>
                     </Select>
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="w-36">
+                        <SelectTrigger className="w-full sm:w-36">
                             <SelectValue placeholder="Type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -290,6 +293,7 @@ export default function DraftsPage() {
                             <SelectItem value="motion">Motion</SelectItem>
                         </SelectContent>
                     </Select>
+                    </div>
                 </div>
 
                 {/* Drafts List */}
@@ -315,18 +319,18 @@ export default function DraftsPage() {
                             <div
                                 key={draft.id}
                                 onClick={() => router.push(`/drafts/${draft.id}`)}
-                                className="group flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-muted/30 hover:border-primary/20 transition-all cursor-pointer"
+                                className="group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl border bg-card hover:bg-muted/30 hover:border-primary/20 transition-all cursor-pointer"
                             >
                                 <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
                                     <FileEdit className="h-5 w-5 text-muted-foreground" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-sm font-medium truncate">{draft.title}</h3>
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${TYPE_COLORS[draft.document_type] || TYPE_COLORS.general}`}>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-sm font-medium truncate max-w-[180px] sm:max-w-none">{draft.title}</h3>
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider shrink-0 ${TYPE_COLORS[draft.document_type] || TYPE_COLORS.general}`}>
                                             {TYPE_LABELS[draft.document_type] || 'General'}
                                         </span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${STATUS_COLORS[draft.status] || STATUS_COLORS.draft}`}>
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider shrink-0 ${STATUS_COLORS[draft.status] || STATUS_COLORS.draft}`}>
                                             {draft.status}
                                         </span>
                                     </div>
@@ -342,7 +346,7 @@ export default function DraftsPage() {
                                 </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                                             <MoreVertical className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>

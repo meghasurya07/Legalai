@@ -4,6 +4,8 @@
 import * as React from "react"
 import { X, FileText, ZoomIn, ZoomOut, Maximize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { PdfViewer } from "@/components/pdf/pdf-viewer"
 import type { ChatCitationSource } from "@/lib/citations"
 
@@ -228,8 +230,10 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
     const zoomOut = () => setZoom(z => Math.max(z - 0.25, 0.5))
     const fitWidth = () => setZoom(1.0)
 
-    return (
-        <div className="w-[520px] h-full border-l bg-background flex flex-col shadow-lg animate-in slide-in-from-right duration-300 shrink-0">
+    const isMobile = useIsMobile()
+
+    const panelContent = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[520px] h-full border-l bg-background flex flex-col shadow-lg animate-in slide-in-from-right duration-300 shrink-0"}>
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0">
@@ -323,4 +327,17 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
             )}
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={!!target} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">Document Viewer</SheetTitle>
+                    {panelContent}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return panelContent
 }

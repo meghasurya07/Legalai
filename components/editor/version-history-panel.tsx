@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { X, Clock, RotateCcw, Loader2 } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 
 interface Version {
@@ -79,8 +81,10 @@ export function VersionHistoryPanel({ draftId, isOpen, activePreviewId, onClose,
 
     if (!isOpen) return null
 
-    return (
-        <div className="w-80 border-l bg-background flex flex-col h-full shrink-0">
+    const isMobile = useIsMobile()
+
+    const panelContent = (
+        <div className={isMobile ? "flex flex-col h-full bg-background" : "w-80 border-l bg-background flex flex-col h-full shrink-0"}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
@@ -159,4 +163,17 @@ export function VersionHistoryPanel({ draftId, isOpen, activePreviewId, onClose,
             </div>
         </div>
     )
+
+    if (isMobile) {
+        return (
+            <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+                    <SheetTitle className="sr-only">Version History</SheetTitle>
+                    {panelContent}
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return panelContent
 }
