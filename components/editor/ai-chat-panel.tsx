@@ -95,9 +95,9 @@ export function AIChatPanel({ isOpen, onClose, onInsert, documentContext, docume
         }
     }
 
-    if (!isOpen) return null
-
     const isMobile = useIsMobile()
+
+    if (!isOpen) return null
 
     const panelContent = (
         <div className={isMobile ? "flex flex-col h-full bg-background" : "w-96 border-l bg-background flex flex-col h-full shrink-0"}>

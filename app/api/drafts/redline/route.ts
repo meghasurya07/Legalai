@@ -4,15 +4,6 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 
-interface RedlineChange {
-    type: 'insertion' | 'deletion' | 'modification'
-    original: string
-    revised: string
-    section: string
-    severity: 'high' | 'medium' | 'low'
-    explanation: string
-}
-
 /**
  * POST /api/drafts/redline — AI-powered smart redlining
  * Compares your draft against a counterparty document and generates tracked changes

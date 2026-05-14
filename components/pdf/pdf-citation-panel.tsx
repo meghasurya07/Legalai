@@ -218,6 +218,8 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
         setPdfError(false)
     }, [target?.fileId, target?.chunkIndex])
 
+    const isMobile = useIsMobile()
+
     if (!target) return null
 
     const pdfUrl = `/api/documents/${target.fileId}/pdf`
@@ -229,8 +231,6 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
     const zoomIn = () => setZoom(z => Math.min(z + 0.25, 3.0))
     const zoomOut = () => setZoom(z => Math.max(z - 0.25, 0.5))
     const fitWidth = () => setZoom(1.0)
-
-    const isMobile = useIsMobile()
 
     const panelContent = (
         <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[520px] h-full border-l bg-background flex flex-col shadow-lg animate-in slide-in-from-right duration-300 shrink-0"}>

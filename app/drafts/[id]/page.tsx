@@ -25,7 +25,6 @@ import { GhostTextOverlay } from '@/components/editor/ghost-text-overlay'
 import { useGhostText } from '@/components/editor/use-ghost-text'
 import { useSuggestions } from '@/components/editor/use-suggestions'
 import { SuggestionPopover } from '@/components/editor/suggestion-popover'
-import { useIsMobile } from '@/hooks/use-mobile'
 import type { DraftDocumentType, DraftStatus } from '@/types'
 
 interface DraftData {

@@ -35,6 +35,15 @@ export function useGhostText({
     const abortRef = useRef<AbortController | null>(null)
     const lastTextRef = useRef('')
 
+    const updatePosition = useCallback(() => {
+        const selection = window.getSelection()
+        if (!selection || !selection.rangeCount) return
+
+        const range = selection.getRangeAt(0)
+        const rect = range.getBoundingClientRect()
+        setPosition({ top: rect.top, left: rect.right })
+    }, [])
+
     const fetchSuggestion = useCallback(async (text: string) => {
         if (!text || text.length < 10) return
 
@@ -104,16 +113,7 @@ export function useGhostText({
         } finally {
             setIsLoading(false)
         }
-    }, [documentType])
-
-    const updatePosition = useCallback(() => {
-        const selection = window.getSelection()
-        if (!selection || !selection.rangeCount) return
-
-        const range = selection.getRangeAt(0)
-        const rect = range.getBoundingClientRect()
-        setPosition({ top: rect.top, left: rect.right })
-    }, [])
+    }, [documentType, updatePosition])
 
     // Listen for text changes
     useEffect(() => {

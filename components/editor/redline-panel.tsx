@@ -79,9 +79,9 @@ export function RedlinePanel({ isOpen, onClose, draftText }: RedlinePanelProps) 
         }
     }
 
-    if (!isOpen) return null
-
     const isMobile = useIsMobile()
+
+    if (!isOpen) return null
 
     const panelContent = (
         <div className={isMobile ? "flex flex-col h-full bg-card" : "w-[400px] border-l bg-card flex flex-col h-full"}>

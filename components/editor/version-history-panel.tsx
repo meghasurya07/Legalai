@@ -79,9 +79,9 @@ export function VersionHistoryPanel({ draftId, isOpen, activePreviewId, onClose,
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
 
-    if (!isOpen) return null
-
     const isMobile = useIsMobile()
+
+    if (!isOpen) return null
 
     const panelContent = (
         <div className={isMobile ? "flex flex-col h-full bg-background" : "w-80 border-l bg-background flex flex-col h-full shrink-0"}>

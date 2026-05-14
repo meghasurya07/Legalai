@@ -1,5 +1,5 @@
 import { requireAuth } from '@/lib/auth/require-auth'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { supabase } from '@/lib/supabase/server'
