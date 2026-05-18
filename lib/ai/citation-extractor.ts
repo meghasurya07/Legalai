@@ -11,6 +11,9 @@ export function phaseEvent(phase: string, status: string, detail?: string, meta?
  * Extract url_citation annotations from a completed Responses API response.
  * Returns processedText (with [N] markers replacing OpenAI citation markers)
  * and a <!--SOURCES: block with [N] title | url | snippet.
+ *
+ * @deprecated Use CitationEngine.registerWebCitations() + processResponseText() instead.
+ * This function is retained only for backward compatibility.
  */
 export function extractCitationsFromResponse(
     response: OpenAI.Responses.Response,

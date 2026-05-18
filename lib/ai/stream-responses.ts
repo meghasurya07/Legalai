@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
-import { buildDynamicRAGSourcesBlock } from '@/lib/rag'
 import { logger } from '@/lib/logger'
-import { phaseEvent, extractCitationsFromResponse } from '@/lib/ai/citation-extractor'
+import { phaseEvent } from '@/lib/ai/citation-extractor'
+import { CitationEngine } from '@/lib/ai/citation-engine'
 import { buildResponsesUserContent } from '@/lib/ai/chat-file-inputs'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
 import { getChatConfig } from '@/lib/ai/config'
@@ -153,37 +153,56 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         }
     }
 
-    // Rebuild sources dynamically based on what the AI actually selected
-    if (ragChunks.length > 0 && streamedContent) {
-        sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
+    // ─── Citation Engine: unified citation handling ───────────────
+    const engine = new CitationEngine()
+
+    // Register RAG sources
+    if (ragChunks.length > 0) {
+        engine.registerRAGSources(ragChunks)
     }
 
-    // For web search / deep research: extract citations and append sources
-    if ((webSearch || deepResearch) && completedResponse && !safe.isClosed) {
-        const { processedText, sourcesBlock: citationSourcesBlock } = extractCitationsFromResponse(completedResponse, ragChunks.length + 1)
+    // Register web citations from Responses API annotations
+    if ((webSearch || deepResearch) && completedResponse) {
+        engine.registerWebCitations(completedResponse)
 
-        if (citationSourcesBlock && processedText) {
-            const cleanProcessed = processedText.replace(/【[^】]*】/g, '')
-            streamedContent = cleanProcessed
-            
-            let finalSourcesBlock = citationSourcesBlock
-            if (sourcesBlock) {
-                const cleanExistingSources = sourcesBlock.replace(/\n*-->\s*$/, '')
-                const cleanNewSources = citationSourcesBlock.replace(/^\n*<!--SOURCES:\n/, '')
-                finalSourcesBlock = `${cleanExistingSources}\n${cleanNewSources}`
-            }
-            
-            sourcesBlock = finalSourcesBlock
-            safe.enqueue(`data: ${JSON.stringify({ content: cleanProcessed + finalSourcesBlock, replace: true })}\n\n`)
-        } else {
-            const cleanedFinal = streamedContent.replace(/【[^】]*】/g, '')
-            if (cleanedFinal !== streamedContent) {
-                streamedContent = cleanedFinal
-                safe.enqueue(`data: ${JSON.stringify({ content: cleanedFinal, replace: true })}\n\n`)
+        // Replace the streamed content with the properly-annotated version
+        const processedText = engine.processResponseText(streamedContent)
+        if (processedText !== streamedContent) {
+            streamedContent = processedText
+        }
+    }
+
+    // Clean any remaining OpenAI markers
+    const cleanedFinal = streamedContent.replace(/【[^】]*】/g, '')
+    if (cleanedFinal !== streamedContent) {
+        streamedContent = cleanedFinal
+    }
+
+    if (engine.hasCitations() && !safe.isClosed) {
+        // Validate markers — remove any orphaned [N] that don't map to sources
+        const validation = engine.validateMarkers(streamedContent)
+        if (validation.orphanedMarkers.length > 0) {
+            streamedContent = validation.cleanedText
+        }
+
+        // Improve snippets for RAG entries
+        for (const entry of engine.getEntries()) {
+            if (entry.type === 'rag' && entry.metadata.fileId) {
+                const matchingChunk = ragChunks.find(c => c.id === entry.id.replace('rag-', ''))
+                if (matchingChunk) {
+                    entry.snippet = engine.findBestSnippet(matchingChunk, streamedContent, entry.num)
+                }
             }
         }
-    } else if (sourcesBlock && !safe.isClosed) {
-        safe.enqueue(`data: ${JSON.stringify({ content: sourcesBlock })}\n\n`)
+
+        // Build structured citation index
+        const citationBlock = engine.serialize()
+        sourcesBlock = citationBlock
+
+        safe.enqueue(`data: ${JSON.stringify({ content: streamedContent + citationBlock, replace: true })}\n\n`)
+    } else if (!safe.isClosed && streamedContent) {
+        // No citations — just send the cleaned content
+        safe.enqueue(`data: ${JSON.stringify({ content: streamedContent, replace: true })}\n\n`)
     }
 
     // Save assistant message

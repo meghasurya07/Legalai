@@ -14,16 +14,62 @@ import {
     getFaviconUrl,
 } from "@/lib/citations"
 
+/** Highlight significant keywords from the title within the snippet text */
+function highlightSnippet(snippet: string, title: string): React.ReactNode {
+    if (!snippet || !title) return snippet
+
+    // Extract significant words (4+ chars, not common stopwords)
+    const stopwords = new Set(['this', 'that', 'with', 'from', 'have', 'been', 'were', 'will', 'shall', 'which', 'their', 'there', 'about', 'other', 'than', 'into', 'more', 'some', 'such', 'each', 'made', 'after', 'also', 'upon'])
+    const keywords = title
+        .toLowerCase()
+        .replace(/[^\w\s'-]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 4 && !stopwords.has(w))
+
+    if (keywords.length === 0) return snippet
+
+    // Build a regex that matches any keyword (word-boundary, case-insensitive)
+    const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    const pattern = new RegExp(`(${escaped.join('|')})`, 'gi')
+    const parts = snippet.split(pattern)
+
+    if (parts.length === 1) return snippet
+
+    return parts.map((part, idx) => {
+        if (pattern.test(part)) {
+            // Reset lastIndex because we reuse the regex
+            pattern.lastIndex = 0
+            return React.createElement('mark', {
+                key: idx,
+                className: 'bg-primary/15 text-foreground rounded-sm px-0.5 font-medium',
+            }, part)
+        }
+        // Reset lastIndex for subsequent test calls
+        pattern.lastIndex = 0
+        return part
+    })
+}
+
 export function CitationPill({
     citationNum,
     source,
     onViewPdf,
+    confidence,
+    metadata,
 }: {
     citationNum: string
     source?: ChatCitationSource
     onOpenCitations?: () => void
     onViewPdf?: (source: ChatCitationSource, citationNum: string) => void
+    /** Attribution confidence 0-1. Below 0.7, pill renders dimmed. */
+    confidence?: number
+    /** Optional rich metadata for page/section display */
+    metadata?: {
+        pageNumber?: number
+        sectionHeading?: string
+    }
 }) {
+    const isLowConfidence = confidence !== undefined && confidence < 0.7
     const [faviconFailed, setFaviconFailed] = React.useState(false)
     const [isOpen, setIsOpen] = React.useState(false)
     const pillRouter = useRouter()
@@ -45,7 +91,7 @@ export function CitationPill({
             <PopoverTrigger asChild>
                 <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium bg-muted/60 hover:bg-muted/80 text-foreground/80 hover:text-foreground transition-all cursor-pointer border border-transparent hover:border-border/50 leading-none h-[22px]"
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium transition-all cursor-pointer border leading-none h-[22px] ${isLowConfidence ? 'bg-muted/30 text-foreground/50 border-dashed border-border/30 hover:bg-muted/50' : 'bg-muted/60 hover:bg-muted/80 text-foreground/80 hover:text-foreground border-transparent hover:border-border/50'}`}
                     onMouseEnter={() => setIsOpen(true)}
                     onMouseLeave={() => setIsOpen(false)}
                     onClick={(e) => {
@@ -101,14 +147,26 @@ export function CitationPill({
                         )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">
-                            {isDocument ? 'Project Document' : displayName}
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none flex items-center gap-1.5">
+                            <span>{isDocument ? 'Project Document' : displayName}</span>
+                            {isLowConfidence && (
+                                <span className="text-[9px] text-amber-500/80 font-semibold normal-case tracking-normal">⚠ Low confidence</span>
+                            )}
                         </div>
                         <h4 className="text-sm font-bold leading-tight line-clamp-2">
                             {source.title}
                         </h4>
-                        <div className="text-[11px] text-muted-foreground line-clamp-2 pt-0.5 leading-snug">
-                            {source.snippet || (isDocument ? 'Document' : source.url)}
+                        {metadata?.pageNumber || metadata?.sectionHeading ? (
+                            <div className="text-[10px] text-muted-foreground/70 font-medium flex items-center gap-1">
+                                {metadata.pageNumber && <span>Page {metadata.pageNumber}</span>}
+                                {metadata.pageNumber && metadata.sectionHeading && <span>·</span>}
+                                {metadata.sectionHeading && <span>{metadata.sectionHeading}</span>}
+                            </div>
+                        ) : null}
+                        <div className="text-[11px] text-muted-foreground line-clamp-3 pt-0.5 leading-snug">
+                            {source.snippet
+                                ? highlightSnippet(source.snippet, source.title)
+                                : (isDocument ? 'Document' : source.url)}
                         </div>
                     </div>
                 </div>

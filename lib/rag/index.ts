@@ -11,8 +11,8 @@ export {
     retrieveRelevantChunks,
     buildRAGContext,
     buildRAGSourcesBlock,
-    buildDynamicRAGSourcesBlock,
-    ensureCitationMarkers,
+    buildDynamicRAGSourcesBlock,  // @deprecated — use CitationEngine instead
+    ensureCitationMarkers,        // @deprecated — use CitationEngine.validateMarkers instead
     RAG_GROUNDING_INSTRUCTION,
     type RetrievedChunk,
     type RetrievalResult

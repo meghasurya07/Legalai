@@ -8,6 +8,8 @@ import {
     getDocumentRoute,
     getHostname,
     getFaviconUrl,
+    parseCitationIndex,
+    stripCitationIndexBlock,
 } from '@/lib/citations'
 
 // ────────────────────────────────────────────
@@ -201,3 +203,71 @@ describe('getFaviconUrl', () => {
         expect(getFaviconUrl('bad')).toBeNull()
     })
 })
+
+// ────────────────────────────────────────────
+// parseCitationIndex — New structured format
+// ────────────────────────────────────────────
+describe('parseCitationIndex', () => {
+    it('parses new JSON citation index format', () => {
+        const index = { entries: [{ id: 'rag-1', num: 1, type: 'rag', title: 'Doc', url: 'https://x.com', snippet: 'snip', confidence: 1, metadata: {} }], markerMap: { '1': 0 } }
+        const content = `Some text <!--CITATION_INDEX:${JSON.stringify(index)}-->`
+        const result = parseCitationIndex(content)
+        expect(result.entries).toHaveLength(1)
+        expect(result.entries[0].id).toBe('rag-1')
+        expect(result.entries[0].type).toBe('rag')
+        expect(result.markerMap['1']).toBe(0)
+    })
+
+    it('falls back to legacy SOURCES format', () => {
+        const content = '<!--SOURCES:\n[1] Title | https://example.com | snippet text\n-->'
+        const result = parseCitationIndex(content)
+        expect(result.entries).toHaveLength(1)
+        expect(result.entries[0].id).toBe('legacy-1')
+        expect(result.entries[0].title).toBe('Title')
+        expect(result.entries[0].url).toBe('https://example.com')
+        expect(result.entries[0].snippet).toBe('snippet text')
+        expect(result.entries[0].type).toBe('rag')
+        expect(result.markerMap['1']).toBe(0)
+    })
+
+    it('returns empty index for content with no citations', () => {
+        const result = parseCitationIndex('No citations here')
+        expect(result.entries).toHaveLength(0)
+        expect(Object.keys(result.markerMap)).toHaveLength(0)
+    })
+
+    it('handles malformed JSON gracefully by falling back to legacy', () => {
+        const content = '<!--CITATION_INDEX:{broken json-->'
+        const result = parseCitationIndex(content)
+        expect(result.entries).toHaveLength(0)
+    })
+
+    it('prefers new format over legacy when both exist', () => {
+        const index = { entries: [{ id: 'new-1', num: 1, type: 'rag', title: 'New', url: 'https://new.com', snippet: '', confidence: 1, metadata: {} }], markerMap: { '1': 0 } }
+        const content = `<!--SOURCES:\n[1] Old | https://old.com | old\n-->\n<!--CITATION_INDEX:${JSON.stringify(index)}-->`
+        const result = parseCitationIndex(content)
+        expect(result.entries[0].id).toBe('new-1')
+        expect(result.entries[0].title).toBe('New')
+    })
+})
+
+// ────────────────────────────────────────────
+// stripCitationIndexBlock
+// ────────────────────────────────────────────
+describe('stripCitationIndexBlock', () => {
+    it('strips complete CITATION_INDEX block', () => {
+        const content = 'Hello world <!--CITATION_INDEX:{"entries":[]}-->'
+        expect(stripCitationIndexBlock(content)).toBe('Hello world')
+    })
+
+    it('strips partial CITATION_INDEX block during streaming', () => {
+        const content = 'Hello world <!--CITATION_IN'
+        expect(stripCitationIndexBlock(content)).toBe('Hello world')
+    })
+
+    it('preserves content without CITATION_INDEX blocks', () => {
+        const content = 'No citation blocks here [1]'
+        expect(stripCitationIndexBlock(content)).toBe('No citation blocks here [1]')
+    })
+})
+

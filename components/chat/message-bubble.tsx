@@ -5,15 +5,19 @@ import Image from "next/image"
 import { Sparkles, FileText, Check } from "lucide-react"
 import { CopyButton } from "@/components/ui/copy-button"
 import { ConfidenceBadge, ConfidenceLevel } from "@/components/chat/confidence-badge"
-import { CitationPill } from "@/components/chat/citation-pill"
 import { SourceFavicon } from "@/components/chat/source-favicon"
 import type { ActivityPhase } from "@/components/chat/activity-timeline"
 import {
     ChatCitationSource,
-    parseSources,
+    parseCitationIndex,
     stripSourcesBlock,
+    stripCitationIndexBlock,
     escapeCitationMarkers,
 } from "@/lib/citations"
+import {
+    processTextWithCitations as sharedProcessText,
+    processNodeForCitations as sharedProcessNode,
+} from "@/lib/citation-processing"
 import { parseCalendarAction, CalendarActionCard } from "@/components/chat/calendar-action-card"
 import type { Attachment, Message } from "@/types"
 
@@ -143,7 +147,15 @@ interface AssistantContentProps {
 }
 
 function AssistantContent({ content, messageId, conversationId, messageIndex: i, onOpenCitations, onOpenPdfViewer }: AssistantContentProps) {
-    const sources = parseSources(content)
+    // Parse citations using dual-format parser (handles both new JSON and legacy SOURCES)
+    const citationIndex = parseCitationIndex(content)
+    // Convert CitationEntry[] to ChatCitationSource[] for backward compat with CitationPill
+    const sources: ChatCitationSource[] = citationIndex.entries.map(e => ({
+        num: String(e.num),
+        title: e.title,
+        url: e.url,
+        snippet: e.snippet,
+    }))
     // Parse and strip calendar action blocks
     const { cleanMessage: contentNoCalendar, calendarItems, alreadyAdded } = parseCalendarAction(content)
     const [calendarDismissed, setCalendarDismissed] = React.useState(false)
@@ -155,7 +167,8 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
         .replace(/<!--DRAFT_START:[\s\S]*?-->/g, '')
         .replace(/<!--DRAFT_END-->/g, '')
         .trim()
-    const displayContent = escapeCitationMarkers(stripSourcesBlock(contentNoDraft))
+    // Strip both citation formats for display
+    const displayContent = escapeCitationMarkers(stripCitationIndexBlock(stripSourcesBlock(contentNoDraft)))
     const sourcesMap = new Map(sources.map((src) => [src.num, src]))
 
     const processConfidenceBadges = (nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] => {
@@ -184,79 +197,16 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
         return result
     }
 
-    const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
-        if (!text || typeof text !== 'string') return [text]
-        const citationGroupRegex = /⟦CITE_\d+⟧(?:[\s,]*⟦CITE_\d+⟧)*/g
-        const matches = Array.from(text.matchAll(citationGroupRegex))
-        const parts: React.ReactNode[] = []
-        let lastIndex = 0
-        let groupCounter = 0
-
-        for (const match of matches) {
-            const matchIndex = match.index!
-            if (matchIndex > lastIndex) {
-                const beforeText = text.slice(lastIndex, matchIndex)
-                parts.push(...(processConfidenceBadges([beforeText], `${keyPrefix}-before-${groupCounter}`) as React.ReactNode[]))
-            }
-
-            const matchString = match[0]
-            const numRegex = /⟦CITE_(\d+)⟧/g
-            const nums = Array.from(matchString.matchAll(numRegex)).map(m => m[1])
-
-            const uniqueSources = new Map<string, { num: string, source: ChatCitationSource | undefined }>()
-            for (const num of nums) {
-                const src = sourcesMap.get(num)
-                const key = src?.title || `unknown-${num}`
-                if (!uniqueSources.has(key)) {
-                    uniqueSources.set(key, { num, source: src })
-                }
-            }
-
-            const pills = Array.from(uniqueSources.values()).map((item, idx) => (
-                <CitationPill
-                    key={`${keyPrefix}-citation-${groupCounter}-${idx}`}
-                    citationNum={item.num}
-                    source={item.source}
-                    onOpenCitations={() => onOpenCitations(i)}
-                    onViewPdf={onOpenPdfViewer}
-                />
-            ))
-
-            parts.push(
-                <span key={`${keyPrefix}-group-${groupCounter++}`} className="inline-flex items-center flex-wrap gap-1 mx-0.5">
-                    {pills}
-                </span>
-            )
-
-            lastIndex = matchIndex + matchString.length
-        }
-        if (lastIndex < text.length) {
-            const afterText = text.slice(lastIndex)
-            parts.push(...(processConfidenceBadges([afterText], `${keyPrefix}-after-${groupCounter}`) as React.ReactNode[]))
-        }
-        return processConfidenceBadges(parts.length > 0 ? parts : [text], keyPrefix)
+    const callbacks = {
+        onOpenCitations: () => onOpenCitations(i),
+        onViewPdf: onOpenPdfViewer,
     }
 
-    const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode => {
-        if (depth > 10) return node
-        if (typeof node === 'string') {
-            if (isInCode) return node
-            const processed = processTextWithCitations(node, keyPrefix)
-            if (processed.length === 1 && processed[0] === node) return node
-            return processed
-        }
-        if (React.isValidElement(node)) {
-            const el = node as React.ReactElement<{ className?: string; children?: React.ReactNode }>
-            if (el.type === CitationPill) return el
-            const nodeType = el.type
-            const className = typeof el.props?.className === "string" ? el.props.className : ""
-            const isCodeElement = typeof nodeType === 'string' && (nodeType === 'code' || nodeType === 'pre' || className.includes('prose-code') || className.includes('code') || className.includes('language-'))
-            if (isCodeElement) return el
-            return React.cloneElement(el, { key: el.key || `${keyPrefix}-${depth}` }, React.Children.map(el.props.children, (child, idx) => processNodeForCitations(child, `${keyPrefix}-${idx}`, depth + 1, isInCode || isCodeElement)))
-        }
-        if (Array.isArray(node)) return node.map((item, idx) => processNodeForCitations(item, `${keyPrefix}-${idx}`, depth, isInCode))
-        return node
-    }
+    const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] =>
+        sharedProcessText(text, sourcesMap, keyPrefix, callbacks, processConfidenceBadges)
+
+    const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode =>
+        sharedProcessNode(node, sourcesMap, keyPrefix, callbacks, processConfidenceBadges, depth, isInCode)
 
     const processCitations = (children: React.ReactNode, prefix: string) =>
         React.Children.map(children, (child) => processNodeForCitations(child, `${prefix}-${i}`, 0))

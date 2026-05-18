@@ -482,22 +482,10 @@ function buildAssistantSystemPrompt(input: AssistantChatInput): string {
   const hasRagContext = input.hasRagContext
 
   if (!isSearchMode && !isThinking && !hasRagContext) {
-    prompt += `\n\n**MANDATORY CITATION RULE:** For EVERY response where you reference external legal sources (statutes, cases, regulations, legal principles, authoritative guidelines, government publications, or any factual claim that originates from an external source), you MUST:
-1. Use inline numbered citations [1], [2], [3] etc. throughout your response, placed IMMEDIATELY after the relevant claim or reference.
-2. Include a hidden sources block at the VERY END of your response in this EXACT format:
-
-<!--SOURCES:
-[1] Source Name | https://real-url.com/path | Brief snippet describing the source
-[2] Another Source | https://another-real-url.com | Brief snippet
--->
-
-Rules for the SOURCES block:
-- Use REAL source names (e.g., "Indian Contract Act, 1872", "Smith v. Jones, 2023", "GDPR Article 17")
-- Use REAL URLs to authoritative legal websites (indiankanoon.org, legislation.gov.uk, law.cornell.edu, supremecourt.gov, eur-lex.europa.eu, etc.)
-- NEVER use placeholder text like "Source Title" or "example.com"
-- Each line MUST have exactly two pipe (|) separators: title | url | snippet
-- You MUST include this block whenever you cite ANY external source with [1], [2] etc.
-- Even for well-known legal principles, cite the authoritative source.`
+    prompt += `\n\n**CITATION GUIDELINES (Standard Chat):**
+When you reference specific external legal sources (statutes, cases, regulations, authoritative guidelines), provide proper citation names inline. For example: "Under Section 73 of the Indian Contract Act, 1872, ..." or "In *Smith v. Jones* (2023), the court held that...".
+Do NOT include any sources/references section at the end — the system handles citation metadata automatically.
+Focus on accuracy: only cite real, verifiable legal sources. Never fabricate case names or statute references.`
   }
 
   const customization = input.customization

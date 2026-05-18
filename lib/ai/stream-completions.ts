@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { ensureCitationMarkers, buildDynamicRAGSourcesBlock } from '@/lib/rag'
+import { CitationEngine } from '@/lib/ai/citation-engine'
 import { getChatConfig } from '@/lib/ai/config'
 import { buildChatCompletionUserContent } from '@/lib/ai/chat-file-inputs'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
@@ -66,27 +66,47 @@ export async function streamChatCompletions(params: StreamParams) {
         }
     }
 
-    // Handle sources for standard mode (RAG sources or AI-generated)
-    if (sourcesBlock && !safe.isClosed) {
+    // ─── Citation Engine: build structured citation index ────────────
+    const engine = new CitationEngine()
+    if (ragChunks.length > 0) {
+        engine.registerRAGSources(ragChunks)
+    }
+
+    if (engine.hasCitations() && !safe.isClosed) {
+        // Strip any AI-generated SOURCES blocks (the AI should not produce these anymore,
+        // but handle gracefully for transition period)
         const aiSourcesRegex = /\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi
-        if (aiSourcesRegex.test(streamedContent)) {
-            streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
+        streamedContent = streamedContent.replace(aiSourcesRegex, '').trim()
+
+        // Validate that [N] markers map to real sources; remove orphaned markers
+        const validation = engine.validateMarkers(streamedContent)
+        if (validation.orphanedMarkers.length > 0) {
+            streamedContent = validation.cleanedText
         }
 
-        if (ragChunks.length > 0 && !/\[\d+\]/.test(streamedContent)) {
-            streamedContent = ensureCitationMarkers(streamedContent, ragChunks)
+        // Improve snippets for RAG entries using the response text context
+        for (const entry of engine.getEntries()) {
+            if (entry.type === 'rag' && entry.metadata.fileId) {
+                const matchingChunk = ragChunks.find(c => c.id === entry.id.replace('rag-', ''))
+                if (matchingChunk) {
+                    entry.snippet = engine.findBestSnippet(matchingChunk, streamedContent, entry.num)
+                }
+            }
         }
 
-        if (ragChunks.length > 0) {
-            sourcesBlock = buildDynamicRAGSourcesBlock(ragChunks, streamedContent)
-        }
+        // Build structured citation index
+        const citationBlock = engine.serialize()
+        sourcesBlock = citationBlock
 
-        safe.enqueue(`data: ${JSON.stringify({ content: streamedContent + sourcesBlock, replace: true })}\n\n`)
-    } else if (!sourcesBlock && !safe.isClosed) {
+        safe.enqueue(`data: ${JSON.stringify({ content: streamedContent + citationBlock, replace: true })}\n\n`)
+    } else if (!safe.isClosed) {
+        // No RAG sources — check if AI generated its own SOURCES block (legacy standard chat)
         const aiSourcesMatch = streamedContent.match(/\n*(<!--SOURCES:?\s*[\s\S]*?-->)/i)
         if (aiSourcesMatch) {
+            // Keep AI-generated sources for standard chat (no RAG context)
+            sourcesBlock = aiSourcesMatch[1]
             streamedContent = streamedContent.replace(/\n*<!--SOURCES:?\s*[\s\S]*?(-->|$)/gi, '').trim()
-            safe.enqueue(`data: ${JSON.stringify({ content: '\n\n' + aiSourcesMatch[1] })}\n\n`)
+            safe.enqueue(`data: ${JSON.stringify({ content: streamedContent + '\n\n' + sourcesBlock, replace: true })}\n\n`)
         }
     }
 

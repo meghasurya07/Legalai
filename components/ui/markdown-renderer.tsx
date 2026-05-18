@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CitationPill } from '@/components/chat/citation-pill';
 import { SourceFavicon } from '@/components/chat/source-favicon';
 import type { ChatCitationSource } from '@/lib/citations';
 import {
-    parseSources,
+    parseCitationIndex,
     stripSourcesBlock,
+    stripCitationIndexBlock,
     escapeCitationMarkers,
 } from '@/lib/citations';
+import {
+    processTextWithCitations as sharedProcessText,
+    processNodeForCitations as sharedProcessNode,
+} from '@/lib/citation-processing';
 
 interface MarkdownRendererProps {
     content: string;
@@ -24,107 +28,32 @@ export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: Markdown
         if (onSourceClick) onSourceClick(id);
     };
 
-    const sources = parseSources(content);
-    const displayContent = escapeCitationMarkers(stripSourcesBlock(content));
+    // Parse citations using dual-format parser (handles both new JSON and legacy SOURCES)
+    const citationIndex = parseCitationIndex(content);
+    const sources: ChatCitationSource[] = citationIndex.entries.map(e => ({
+        num: String(e.num),
+        title: e.title,
+        url: e.url,
+        snippet: e.snippet,
+    }));
+    const displayContent = escapeCitationMarkers(stripCitationIndexBlock(stripSourcesBlock(content)));
     const sourcesMap = new Map(sources.map((src) => [src.num, src]));
 
-    const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] => {
-        if (!text || typeof text !== 'string') return [text];
-        // Match groups of citations that are separated only by whitespace or commas, or are adjacent
-        const citationGroupRegex = /⟦CITE_\d+⟧(?:[\s,]*⟦CITE_\d+⟧)*/g;
-        const matches = Array.from(text.matchAll(citationGroupRegex));
-
-        if (matches.length === 0) return [text];
-
-        const parts: React.ReactNode[] = [];
-        let lastIndex = 0;
-        let groupCounter = 0;
-
-        for (const match of matches) {
-            const matchIndex = match.index!;
-            if (matchIndex > lastIndex) {
-                parts.push(text.slice(lastIndex, matchIndex));
-            }
-
-            const matchString = match[0];
-            const numRegex = /⟦CITE_(\d+)⟧/g;
-            const nums = Array.from(matchString.matchAll(numRegex)).map(m => m[1]);
-
-            // Deduplicate citations by source title
-            const uniqueSources = new Map<string, { num: string, source: ChatCitationSource | undefined }>();
-            for (const num of nums) {
-                const src = sourcesMap.get(num);
-                // Merge identical documents in the same group
-                const key = src?.title || `unknown-${num}`;
-                if (!uniqueSources.has(key)) {
-                    uniqueSources.set(key, { num, source: src });
-                }
-            }
-
-            const pills = Array.from(uniqueSources.values()).map((item, idx) => (
-                <CitationPill
-                    key={`${keyPrefix}-citation-${groupCounter}-${idx}`}
-                    citationNum={item.num}
-                    source={item.source}
-                    onOpenCitations={() => openCitations(item.num)}
-                    onViewPdf={onViewPdf}
-                />
-            ));
-
-            // Render grouped pills seamlessly without commas
-            parts.push(
-                <span key={`${keyPrefix}-group-${groupCounter++}`} className="inline-flex items-center flex-wrap gap-1 mx-0.5">
-                    {pills}
-                </span>
-            );
-
-            lastIndex = matchIndex + matchString.length;
-        }
-
-        if (lastIndex < text.length) {
-            parts.push(text.slice(lastIndex));
-        }
-        return parts.length > 0 ? parts : [text];
+    const callbacks = {
+        onOpenCitations: (num: string) => openCitations(num),
+        onViewPdf,
     };
 
-    const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode => {
-        if (depth > 10) return node;
-        if (typeof node === 'string') {
-            if (isInCode) return node;
-            const processed = processTextWithCitations(node, keyPrefix);
-            if (processed.length === 1 && processed[0] === node) return node;
-            return processed;
-        }
-        if (React.isValidElement(node)) {
-            const el = node as React.ReactElement<Record<string, unknown>>;
-            if (el.type === CitationPill) return el;
+    const processText = (text: string, keyPrefix: string = '') =>
+        sharedProcessText(text, sourcesMap, keyPrefix, callbacks);
 
-            const nodeType = el.type;
-            const className = typeof el.props?.className === "string" ? el.props.className : "";
-            const isCodeElement = typeof nodeType === 'string' && (
-                nodeType === 'code' || nodeType === 'pre' || className.includes('prose-code') || className.includes('code') || className.includes('language-')
-            );
-
-            if (isCodeElement) return el;
-
-            return React.cloneElement(
-                el,
-                { key: el.key || `${keyPrefix}-${depth}` },
-                React.Children.map(el.props.children, (child, idx) =>
-                    processNodeForCitations(child as React.ReactNode, `${keyPrefix}-${idx}`, depth + 1, isInCode || isCodeElement)
-                )
-            );
-        }
-        if (Array.isArray(node)) {
-            return node.map((item, idx) => processNodeForCitations(item, `${keyPrefix}-${idx}`, depth, isInCode));
-        }
-        return node;
-    };
+    const processNode = (node: React.ReactNode, keyPrefix: string = '', depth = 0, isInCode = false) =>
+        sharedProcessNode(node, sourcesMap, keyPrefix, callbacks, undefined, depth, isInCode);
 
     const markdownComponents: Record<string, React.ElementType> = {
         text: ({ children }) => {
             if (typeof children === 'string') {
-                const processed = processTextWithCitations(children, `text`);
+                const processed = processText(children, `text`);
                 return <>{processed}</>;
             }
             return <>{children}</>;
@@ -132,21 +61,21 @@ export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: Markdown
         code: ({ children, ...props }) => <code {...props}>{children}</code>,
         pre: ({ children, ...props }) => <pre {...props}>{children}</pre>,
         p: ({ children, ...props }) => {
-            const processed = React.Children.map(children, (child) => processNodeForCitations(child, `p`, 0));
+            const processed = React.Children.map(children, (child) => processNode(child, `p`, 0));
             return <p className="leading-normal mb-2 last:mb-0" {...props}>{processed}</p>;
         },
         ul: ({ children, ...props }) => <ul className="list-disc pl-5 my-1.5 space-y-1" {...props}>{children}</ul>,
         ol: ({ children, ...props }) => <ol className="list-decimal pl-5 my-1.5 space-y-1" {...props}>{children}</ol>,
         li: ({ children, ...props }) => {
-            const processed = React.Children.map(children, (child) => processNodeForCitations(child, `li`, 0));
+            const processed = React.Children.map(children, (child) => processNode(child, `li`, 0));
             return React.createElement('li', { className: "my-0.5 leading-normal", ...props }, processed);
         },
         strong: ({ children, ...props }) => {
-            const processed = React.Children.map(children, (child) => processNodeForCitations(child, `strong`, 0));
+            const processed = React.Children.map(children, (child) => processNode(child, `strong`, 0));
             return <strong {...props}>{processed}</strong>;
         },
         em: ({ children, ...props }) => {
-            const processed = React.Children.map(children, (child) => processNodeForCitations(child, `em`, 0));
+            const processed = React.Children.map(children, (child) => processNode(child, `em`, 0));
             return <em {...props}>{processed}</em>;
         },
         table: ({ children, ...props }) => (
@@ -159,7 +88,7 @@ export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: Markdown
         tr: ({ children, ...props }) => <tr className="hover:bg-muted/20 transition-colors" {...props}>{children}</tr>,
         th: ({ children, ...props }) => <th className="px-4 py-3 font-medium whitespace-nowrap" {...props}>{children}</th>,
         td: ({ children, ...props }) => {
-            const processed = React.Children.map(children, (child) => processNodeForCitations(child, `td`, 0));
+            const processed = React.Children.map(children, (child) => processNode(child, `td`, 0));
             return <td className="px-4 py-3 align-top leading-relaxed" {...props}>{processed}</td>;
         }
     };

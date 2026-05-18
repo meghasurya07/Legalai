@@ -1,13 +1,111 @@
 /**
  * Shared citation and source parsing utilities.
  * Used by both chat-interface.tsx and markdown-renderer.tsx.
+ *
+ * Supports two citation formats:
+ *   1. NEW — <!--CITATION_INDEX:{...}--> structured JSON block
+ *   2. LEGACY — <!--SOURCES:\n[1] Title | url | snippet\n--> text block
+ *
+ * The `parseCitationIndex` function transparently handles both formats.
  */
 
+// ─── Legacy type (kept for backward compat) ─────────────────────────
 export type ChatCitationSource = {
     num: string
     title: string
     url: string
     snippet?: string
+}
+
+// ─── New structured types ────────────────────────────────────────────
+
+export type CitationType = 'rag' | 'web' | 'ai_knowledge'
+
+export interface CitationEntry {
+    /** Stable unique ID, e.g. `rag-{chunkId}` or `web-{urlHash}` */
+    id: string
+    /** Display number shown as [N] */
+    num: number
+    /** Source type */
+    type: CitationType
+    /** Human-readable source title */
+    title: string
+    /** Source URL (internal document URL or external web URL) */
+    url: string
+    /** Best-matching passage from the source document */
+    snippet: string
+    /** Attribution confidence 0–1 */
+    confidence: number
+    /** Rich metadata for navigation & display */
+    metadata: {
+        fileId?: string
+        chunkIndex?: number
+        pageNumber?: number
+        sectionHeading?: string
+        /** Character offset within the source document content */
+        startIndex?: number
+        endIndex?: number
+    }
+}
+
+export interface CitationIndex {
+    entries: CitationEntry[]
+    /** Maps citation number string → index into entries[] */
+    markerMap: Record<string, number>
+}
+
+// ─── Dual-format parser ──────────────────────────────────────────────
+
+/**
+ * Parse citation data from message content, supporting both the new
+ * structured JSON format and the legacy SOURCES text format.
+ *
+ * Priority: <!--CITATION_INDEX:{...}--> → <!--SOURCES:...--> → empty
+ */
+export function parseCitationIndex(content: string): CitationIndex {
+    // 1. Try new structured format
+    const jsonMatch = content.match(/<!--CITATION_INDEX:([\s\S]*?)-->/)
+    if (jsonMatch) {
+        try {
+            const parsed = JSON.parse(jsonMatch[1]) as CitationIndex
+            if (parsed.entries && Array.isArray(parsed.entries)) {
+                return parsed
+            }
+        } catch { /* fall through to legacy */ }
+    }
+
+    // 2. Fallback to legacy <!--SOURCES:--> format
+    const legacySources = parseSources(content)
+    if (legacySources.length === 0) {
+        return { entries: [], markerMap: {} }
+    }
+
+    const entries: CitationEntry[] = legacySources.map((s) => ({
+        id: `legacy-${s.num}`,
+        num: parseInt(s.num, 10),
+        type: 'rag' as CitationType,
+        title: s.title,
+        url: s.url,
+        snippet: s.snippet || '',
+        confidence: 1,
+        metadata: {},
+    }))
+
+    const markerMap: Record<string, number> = {}
+    entries.forEach((e, i) => { markerMap[String(e.num)] = i })
+
+    return { entries, markerMap }
+}
+
+/**
+ * Strip <!--CITATION_INDEX:...-->  blocks from content for display.
+ * Handles both complete and partial (streaming) blocks.
+ */
+export function stripCitationIndexBlock(content: string): string {
+    return content
+        .replace(/<!--CITATION_INDEX:[\s\S]*?-->/gi, '')
+        .replace(/<!--CITATION_I(?:N(?:D(?:E(?:X)?)?)?)?[\s\S]*$/i, '') // partial during streaming
+        .trim()
 }
 
 /**

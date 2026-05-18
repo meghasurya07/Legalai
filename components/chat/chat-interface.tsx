@@ -14,7 +14,7 @@ import { PdfCitationPanel } from "@/components/pdf/pdf-citation-panel"
 import type { PdfCitationTarget } from "@/components/pdf/pdf-citation-panel"
 import {
     ChatCitationSource,
-    parseSources,
+    parseCitationIndex,
     parseDocumentCitationUrl,
 } from "@/lib/citations"
 import dynamic from "next/dynamic"
@@ -38,6 +38,17 @@ interface ChatInterfaceProps {
 }
 
 const RandomGreeting = dynamic(() => import("@/components/chat/random-greeting"), { ssr: false })
+
+/** Convert message content to ChatCitationSource[] using the dual-format parser. */
+function getSourcesFromContent(content: string): ChatCitationSource[] {
+    const index = parseCitationIndex(content)
+    return index.entries.map((e) => ({
+        num: String(e.num),
+        title: e.title,
+        url: e.url,
+        snippet: e.snippet || '',
+    }))
+}
 
 export function ChatInterface({ onMessageSent, mode = "default", projectTitle, projectId, workflowId, conversationType = 'assistant', initialConversationId }: ChatInterfaceProps) {
 
@@ -267,21 +278,21 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 isOpen={isActivitySidebarOpen}
                 duration={thinkingDuration}
                 entries={activityEntries}
-                sources={messages.length > 0 ? parseSources(messages[messages.length - 1].content) : []}
+                sources={messages.length > 0 ? getSourcesFromContent(messages[messages.length - 1].content) : []}
                 isThinkingMode={isThinking}
                 onClose={() => setIsActivitySidebarOpen(false)}
             />
             {/* Citations Sidebar */}
             <CitationsSidebar
                 isOpen={isCitationsSidebarOpen && openCitationsIndex !== null && !isActivitySidebarOpen && !pdfViewerTarget}
-                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? parseSources(messages[openCitationsIndex].content) : []}
+                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? getSourcesFromContent(messages[openCitationsIndex].content) : []}
                 onClose={closeCitationsSidebar}
                 onViewPdf={openPdfViewer}
             />
             {/* PDF Citation Panel */}
             <PdfCitationPanel
                 target={pdfViewerTarget}
-                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? parseSources(messages[openCitationsIndex].content) : (messages.length > 0 ? parseSources(messages[messages.length - 1].content) : [])}
+                sources={openCitationsIndex !== null && messages[openCitationsIndex] ? getSourcesFromContent(messages[openCitationsIndex].content) : (messages.length > 0 ? getSourcesFromContent(messages[messages.length - 1].content) : [])}
                 onClose={closePdfViewer}
                 onCitationClick={(src) => openPdfViewer(src, src.num)}
             />

@@ -187,14 +187,20 @@ export function buildRAGContext(chunks: RetrievedChunk[]): string {
 
     for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i]
-        let label = `${chunk.fileName || 'Document'}`
-        if (chunk.pageNumber) label += `, Page ${chunk.pageNumber}`
-        if (chunk.sectionHeading) label += `, ${chunk.sectionHeading}`
+        const num = i + 1
 
-        sections.push(`[${i + 1}] (${label})\n${chunk.content}`)
+        // Build structured header with explicit metadata
+        const headerLines = [`[SOURCE_${num}]`]
+        headerLines.push(`Document: ${chunk.fileName || 'Document'}`)
+        if (chunk.pageNumber) headerLines.push(`Page: ${chunk.pageNumber}`)
+        if (chunk.sectionHeading) headerLines.push(`Section: "${chunk.sectionHeading}"`)
+        headerLines.push(`Chunk: ${chunk.chunkIndex + 1}`)
+        headerLines.push('---')
+
+        sections.push(`${headerLines.join('\n')}\n${chunk.content}\n[/SOURCE_${num}]`)
     }
 
-    return sections.join('\n---\n')
+    return sections.join('\n\n')
 }
 
 /**
@@ -350,9 +356,11 @@ export const RAG_GROUNDING_INSTRUCTION = `You are Wesley, a legal AI assistant w
    - If the documents don't contain information to answer the question, say so clearly
    - Do NOT fabricate document content
 
-4. **DO NOT** include a "Sources" or "References" section — the system adds source cards automatically.
+4. **DO NOT** include a "Sources", "References", or citation summary section at the end. The system automatically generates source cards from your [N] markers. Never output any source metadata block.
 
-5. **EXAMPLE of correct citation usage:**
+5. **ONLY use [N] markers that match the numbered excerpts you were given.** Do not invent citation numbers beyond what was provided.
+
+6. **EXAMPLE of correct citation usage:**
    "The agreement was executed on February 11, 2013 [1], between SUDAM Diamonds Ltd. and Americas Diamond Corp. [2]. The purchase price is set at $1.00 per share [1], with closing contingent upon satisfaction of certain conditions [3]."
 
 Remember: EVERY factual claim MUST have a [N] citation. Write detailed, thorough responses.`
