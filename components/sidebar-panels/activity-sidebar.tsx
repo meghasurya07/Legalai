@@ -84,9 +84,7 @@ export function ActivitySidebar({ isOpen, duration, entries, completedPhases, so
     const isMobile = useIsMobile()
     const durationLabel = duration ? `${duration}s` : '...'
 
-    if (!isOpen && !isMobile) return null
-
-    // Group entries by their phase category
+    // Group entries by their phase category (must be above early return — hooks cannot be conditional)
     const groupedEntries = React.useMemo(() => {
         const groups: Record<string, { phase: string; detail: string; time: Date }[]> = {}
         for (const entry of entries) {
@@ -105,6 +103,8 @@ export function ActivitySidebar({ isOpen, duration, entries, completedPhases, so
         if (elapsed < 1) return '0s'
         return `${elapsed}s`
     }
+
+    if (!isOpen && !isMobile) return null
 
     const content = (
         <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[380px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0"}>
