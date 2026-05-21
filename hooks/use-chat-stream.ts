@@ -146,12 +146,27 @@ export function useChatStream({
                     const res = await fetch(`/api/chat/conversations/${initialConversationId}/messages`)
                     if (res.ok) {
                         const data = await res.json()
-                        const loadedMessages = data.map((msg: { id: string, role: 'user' | 'assistant', content: string, attachments?: Attachment[] }) => ({
-                            id: msg.id,
-                            role: msg.role,
-                            content: msg.content,
-                            files: msg.attachments || []
-                        }))
+                        const loadedMessages = data.map((msg: { id: string, role: 'user' | 'assistant', content: string, attachments?: Attachment[] }) => {
+                            // Parse embedded activity metadata from assistant messages
+                            let content = msg.content
+                            let activityMetadata: Message['activityMetadata'] = undefined
+                            if (msg.role === 'assistant') {
+                                const activityMatch = content.match(/\n*<!--ACTIVITY:([\s\S]*?)-->/)
+                                if (activityMatch) {
+                                    try {
+                                        activityMetadata = JSON.parse(activityMatch[1])
+                                    } catch { /* ignore malformed */ }
+                                    content = content.replace(/\n*<!--ACTIVITY:[\s\S]*?-->/, '').trim()
+                                }
+                            }
+                            return {
+                                id: msg.id,
+                                role: msg.role,
+                                content,
+                                files: msg.attachments || [],
+                                activityMetadata,
+                            }
+                        })
                         setMessages(loadedMessages)
                         setTimeout(() => {
                             if (chatContainerRef.current) {
@@ -540,9 +555,11 @@ export function useChatStream({
                                         }
                                     } else {
                                         // Normal chat mode — update message as usual
+                                        // Strip embedded activity metadata from display
+                                        const displayContent = fullContent.replace(/\n*<!--ACTIVITY:[\s\S]*?-->/, '').trim()
                                         setMessages(prev => {
                                             const updated = [...prev]
-                                            updated[updated.length - 1] = { ...updated[updated.length - 1], content: fullContent }
+                                            updated[updated.length - 1] = { ...updated[updated.length - 1], content: displayContent }
                                             return updated
                                         })
                                         scrollToBottom(false, 'auto')

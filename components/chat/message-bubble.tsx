@@ -57,6 +57,7 @@ export function MessageBubble({
     return (
         <React.Fragment>
             {/* ChatGPT-style "Thinking" / "Thought for Xs" clickable header */}
+            {/* Live state (during streaming) */}
             {msg.role === 'assistant' && (activityPhase || thinkingDuration) && isLastMessage && (
                 <div className="mb-1 px-2 md:px-8 ml-0 md:ml-12">
                     <button
@@ -81,6 +82,21 @@ export function MessageBubble({
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                         {!thinkingDuration && <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" />}
                     </button>
+                </div>
+            )}
+            {/* Persisted state (after page refresh) — show from stored metadata */}
+            {msg.role === 'assistant' && !activityPhase && !thinkingDuration && msg.activityMetadata && (
+                <div className="mb-1 px-2 md:px-8 ml-0 md:ml-12">
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="font-medium">
+                            {msg.activityMetadata.mode === 'web_search' || msg.activityMetadata.mode === 'deep_research'
+                                ? `Searched for ${msg.activityMetadata.duration}s`
+                                : msg.activityMetadata.mode === 'thinking'
+                                    ? `Thought for ${msg.activityMetadata.duration}s`
+                                    : `Analyzed for ${msg.activityMetadata.duration}s`
+                            }
+                        </span>
+                    </div>
                 </div>
             )}
             <div className={`flex gap-2 md:gap-4 ${msg.role === 'user' ? 'justify-end px-2 md:px-12' : 'justify-start px-2 md:px-8'}`}>

@@ -123,6 +123,17 @@ export async function streamChatCompletions(params: StreamParams) {
         }
     }
 
+    // Embed activity metadata in the message content for persistence across page refreshes
+    const durationMs = Date.now() - streamStartTime
+    const durationSec = Math.round(durationMs / 1000)
+    const activityMeta = JSON.stringify({
+        duration: durationSec > 0 ? durationSec : 1,
+        mode: 'standard',
+        phases: ['initializing', 'analyzing_query', 'drafting_response']
+    })
+    const activityBlock = `\n\n<!--ACTIVITY:${activityMeta}-->`
+    streamedContent += activityBlock
+
     // Save assistant message
     if (conversationId && streamedContent) {
         const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })

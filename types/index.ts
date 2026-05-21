@@ -58,12 +58,20 @@ export interface Conversation {
     project_id?: string | null
     messageCount?: number
 }
+
+export interface MessageActivityMetadata {
+    duration: number | null
+    mode: 'standard' | 'web_search' | 'thinking' | 'deep_research'
+    phases: string[]
+}
+
 export interface Message {
     id?: string
     role: 'user' | 'assistant'
     content: string
     files?: Attachment[]
     isWebSearch?: boolean
+    activityMetadata?: MessageActivityMetadata
 }
 
 export interface Attachment {

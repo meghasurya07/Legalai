@@ -215,6 +215,22 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         safe.enqueue(`data: ${JSON.stringify({ content: streamedContent, replace: true })}\n\n`)
     }
 
+    // Embed activity metadata in the message content for persistence across page refreshes
+    const durationMs = Date.now() - streamStartTime
+    const durationSec = Math.round(durationMs / 1000)
+    const activityMode = deepResearch ? 'deep_research' : webSearch ? 'web_search' : thinking ? 'thinking' : 'standard'
+    const trackedPhases: string[] = ['initializing']
+    if (deepResearch) trackedPhases.push('planning_research', 'searching_web', 'extracting_information', 'synthesizing')
+    else if (webSearch) trackedPhases.push('searching_web', 'extracting_information', 'synthesizing')
+    else if (thinking) trackedPhases.push('thinking', 'drafting_response')
+    else trackedPhases.push('analyzing_query', 'drafting_response')
+    const activityMeta = JSON.stringify({
+        duration: durationSec > 0 ? durationSec : 1,
+        mode: activityMode,
+        phases: trackedPhases
+    })
+    streamedContent += `\n\n<!--ACTIVITY:${activityMeta}-->`
+
     // Save assistant message
     if (conversationId && streamedContent) {
         const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
