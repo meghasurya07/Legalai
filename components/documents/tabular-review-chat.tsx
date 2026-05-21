@@ -8,7 +8,7 @@ import { X, Send, Loader2, Sparkles, FileText, ExternalLink, Trash2 } from "luci
 import { DocumentFile } from "@/types"
 import type { ReviewColumn, ReviewCell } from "./tabular-review-view"
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer"
-import type { ActivityPhase } from "@/components/chat/activity-timeline"
+import type { ActivityPhase } from "@/lib/ai/activity-constants"
 import { ChatCitationSource, getCitationSourceDisplayName, isDocumentSource, getDocumentRoute } from "@/lib/citations"
 import { SourceFavicon } from "@/components/chat/source-favicon"
 import { TaskActivityTimeline } from "@/components/chat/task-activity-timeline"

@@ -6,7 +6,8 @@ import { Sparkles, FileText, Check } from "lucide-react"
 import { CopyButton } from "@/components/ui/copy-button"
 import { ConfidenceBadge, ConfidenceLevel } from "@/components/chat/confidence-badge"
 import { SourceFavicon } from "@/components/chat/source-favicon"
-import type { ActivityPhase } from "@/components/chat/activity-timeline"
+import type { ActivityPhase } from "@/lib/ai/activity-constants"
+import { getPhaseLabel } from "@/lib/ai/activity-constants"
 import {
     ChatCitationSource,
     parseCitationIndex,
@@ -36,6 +37,7 @@ interface MessageBubbleProps {
     onOpenPdfViewer: (source: ChatCitationSource, citationNum: string) => void
     onPreviewAttachment: (attachment: Attachment) => void
     onToggleActivitySidebar: () => void
+    currentVerb?: string
 }
 
 export function MessageBubble({
@@ -50,6 +52,7 @@ export function MessageBubble({
     onOpenPdfViewer,
     onPreviewAttachment,
     onToggleActivitySidebar,
+    currentVerb,
 }: MessageBubbleProps) {
     return (
         <React.Fragment>
@@ -61,15 +64,20 @@ export function MessageBubble({
                         onClick={onToggleActivitySidebar}
                         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
                     >
-                        <span className="font-medium">
-                            {thinkingDuration
-                                ? (isThinking ? `Thought for ${thinkingDuration}s` : `Searched for ${thinkingDuration}s`)
-                                : activityPhase === 'searching_web' ? 'Searching the web'
-                                    : activityPhase === 'thinking' ? 'Thinking'
-                                        : activityPhase === 'drafting' ? 'Writing'
-                                            : 'Processing'
-                            }
-                        </span>
+                        <div className="flex flex-col">
+                            <span className="font-medium">
+                                {thinkingDuration
+                                    ? (isThinking ? `Thought for ${thinkingDuration}s` : `Searched for ${thinkingDuration}s`)
+                                    : getPhaseLabel(activityPhase || 'thinking')
+                                }
+                            </span>
+                            {/* Rotating verb sub-label */}
+                            {!thinkingDuration && currentVerb && (
+                                <span className="text-[11px] text-muted-foreground/60 font-medium activity-verb-rotate">
+                                    {currentVerb}
+                                </span>
+                            )}
+                        </div>
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                         {!thinkingDuration && <span className="inline-block w-1 h-1 rounded-full bg-current animate-pulse" />}
                     </button>

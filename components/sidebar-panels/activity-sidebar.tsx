@@ -1,7 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { X, Check, FileText } from "lucide-react"
+import {
+    X, Check, FileText, Clock,
+    Globe, Brain, Wand2, Sparkles, ScanSearch, Scale,
+    BookOpen, PenLine, Loader2, Map as MapIcon, FolderSearch,
+    ShieldCheck, Gavel, ClipboardCheck, CheckCircle, GitCompare, AlertTriangle,
+    Search,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -12,23 +18,93 @@ import {
     getDocumentRoute,
 } from "@/lib/citations"
 import { SourceFavicon } from "@/components/chat/source-favicon"
+import { getPhaseLabel, getPhaseCategory, ACTIVITY_PHASE_CONFIG, type PhaseCategory } from "@/lib/ai/activity-constants"
+
+// Map icon names from config to actual Lucide components (small size for sidebar)
+const SIDEBAR_ICON_MAP: Record<string, React.ReactNode> = {
+    Loader2: <Loader2 className="h-3 w-3" />,
+    Brain: <Brain className="h-3 w-3" />,
+    Map: <MapIcon className="h-3 w-3" />,
+    Globe: <Globe className="h-3 w-3" />,
+    FolderSearch: <FolderSearch className="h-3 w-3" />,
+    BookOpen: <BookOpen className="h-3 w-3" />,
+    ScanSearch: <ScanSearch className="h-3 w-3" />,
+    FileSearch: <ScanSearch className="h-3 w-3" />,
+    GitCompare: <GitCompare className="h-3 w-3" />,
+    Scale: <Scale className="h-3 w-3" />,
+    ShieldCheck: <ShieldCheck className="h-3 w-3" />,
+    Gavel: <Gavel className="h-3 w-3" />,
+    ClipboardCheck: <ClipboardCheck className="h-3 w-3" />,
+    Wand2: <Wand2 className="h-3 w-3" />,
+    PenLine: <PenLine className="h-3 w-3" />,
+    Sparkles: <Sparkles className="h-3 w-3" />,
+    CheckCircle: <CheckCircle className="h-3 w-3" />,
+    CheckCircle2: <Check className="h-3 w-3" />,
+    AlertTriangle: <AlertTriangle className="h-3 w-3" />,
+    Search: <Search className="h-3 w-3" />,
+    FileText: <FileText className="h-3 w-3" />,
+}
+
+function getPhaseIconForSidebar(phase: string): React.ReactNode {
+    const config = ACTIVITY_PHASE_CONFIG[phase]
+    if (config) {
+        return SIDEBAR_ICON_MAP[config.icon] || <Brain className="h-3 w-3" />
+    }
+    return <Brain className="h-3 w-3" />
+}
 
 interface ActivitySidebarProps {
     isOpen: boolean
     duration: number | null
     entries: { phase: string; detail: string; time: Date }[]
+    completedPhases: string[]
     sources: ChatCitationSource[]
     isThinkingMode: boolean
     onClose: () => void
 }
 
+// Group entries by phase category for Harvey-style organized display
+const CATEGORY_ORDER: PhaseCategory[] = [
+    'initialization', 'analysis', 'research', 'extraction', 'validation', 'synthesis', 'drafting', 'completion', 'error'
+]
 
+const CATEGORY_LABELS: Record<PhaseCategory, string> = {
+    initialization: 'Initialization',
+    analysis: 'Analysis',
+    research: 'Research',
+    extraction: 'Extraction',
+    validation: 'Validation',
+    synthesis: 'Synthesis',
+    drafting: 'Drafting',
+    completion: 'Completion',
+    error: 'Errors',
+}
 
-export function ActivitySidebar({ isOpen, duration, entries, sources, isThinkingMode, onClose }: ActivitySidebarProps) {
+export function ActivitySidebar({ isOpen, duration, entries, completedPhases, sources, isThinkingMode, onClose }: ActivitySidebarProps) {
     const isMobile = useIsMobile()
     const durationLabel = duration ? `${duration}s` : '...'
 
     if (!isOpen && !isMobile) return null
+
+    // Group entries by their phase category
+    const groupedEntries = React.useMemo(() => {
+        const groups: Record<string, { phase: string; detail: string; time: Date }[]> = {}
+        for (const entry of entries) {
+            const category = getPhaseCategory(entry.phase)
+            if (!groups[category]) groups[category] = []
+            groups[category].push(entry)
+        }
+        return groups
+    }, [entries])
+
+    // Format time elapsed from first entry
+    const firstEntryTime = entries.length > 0 ? entries[0].time : null
+    const formatElapsed = (time: Date) => {
+        if (!firstEntryTime) return ''
+        const elapsed = Math.round((time.getTime() - firstEntryTime.getTime()) / 1000)
+        if (elapsed < 1) return '0s'
+        return `${elapsed}s`
+    }
 
     const content = (
         <div className={isMobile ? "flex flex-col h-full bg-background" : "w-[380px] h-full border-l bg-background flex flex-col shadow-sm animate-in slide-in-from-right duration-300 shrink-0"}>
@@ -45,32 +121,86 @@ export function ActivitySidebar({ isOpen, duration, entries, sources, isThinking
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-                {/* Thinking Section */}
+                {/* Completed Steps Summary */}
+                {completedPhases.length > 0 && (
+                    <div className="px-5 py-3 border-b border-border/40">
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">
+                            Completed Steps
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5">
+                            {completedPhases.map((cp, i) => (
+                                <div key={i} className="inline-flex items-center gap-1.5 px-2 py-1 bg-foreground/5 border border-border/40 rounded-lg text-[11px] font-medium text-foreground/60">
+                                    <div className="text-green-600/70">{getPhaseIconForSidebar(cp)}</div>
+                                    <span>{getPhaseLabel(cp)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Activity Entries — grouped by category */}
                 <div className="px-5 py-4">
-                    <h3 className="text-sm font-semibold mb-4">{isThinkingMode ? 'Thinking' : 'Searching'}</h3>
-                    <div className="space-y-4">
-                        {entries.map((entry, idx) => (
-                            <div key={idx} className="flex items-start gap-3">
-                                <div className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
-                                <div className="flex-1 min-w-0">
+                    {CATEGORY_ORDER.map(category => {
+                        const categoryEntries = groupedEntries[category]
+                        if (!categoryEntries || categoryEntries.length === 0) return null
+
+                        return (
+                            <div key={category} className="mb-5 last:mb-0">
+                                <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-3">
+                                    {CATEGORY_LABELS[category]}
+                                </h3>
+                                <div className="space-y-3">
+                                    {categoryEntries.map((entry, idx) => (
+                                        <div key={idx} className="flex items-start gap-3 animate-in fade-in duration-300">
+                                            <div className="mt-0.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary/70">
+                                                {getPhaseIconForSidebar(entry.phase)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-baseline justify-between gap-2">
+                                                    <p className="text-sm font-medium text-foreground/90 leading-tight">
+                                                        {entry.detail}
+                                                    </p>
+                                                    <span className="text-[10px] text-muted-foreground/50 shrink-0 flex items-center gap-0.5">
+                                                        <Clock className="h-2.5 w-2.5" />
+                                                        {formatElapsed(entry.time)}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[10px] text-muted-foreground/40 font-medium">
+                                                    {getPhaseLabel(entry.phase)}
+                                                </span>
+                                                {/* Show domain badges for search entries */}
+                                                {entry.phase === 'searching_web' && entry.detail.includes('http') && (
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {extractDomains(entry.detail).map((domain, di) => (
+                                                            <span key={di} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full text-[11px] text-muted-foreground">
+                                                                <SourceFavicon url={`https://${domain}`} size={12} className="rounded-sm" />
+                                                                {domain}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )
+                    })}
+
+                    {/* Fallback: ungrouped entries if no categories matched */}
+                    {Object.keys(groupedEntries).length === 0 && entries.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-semibold mb-4">{isThinkingMode ? 'Thinking' : 'Searching'}</h3>
+                            {entries.map((entry, idx) => (
+                                <div key={idx} className="flex items-start gap-3">
+                                    <div className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
                                     <p className="text-sm font-medium text-foreground/90 leading-tight">
                                         {entry.detail}
                                     </p>
-                                    {/* Show domain badges for search entries */}
-                                    {entry.phase === 'searching_web' && entry.detail.includes('http') && (
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {extractDomains(entry.detail).map((domain, di) => (
-                                                <span key={di} className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full text-[11px] text-muted-foreground">
-                                                    <SourceFavicon url={`https://${domain}`} size={12} className="rounded-sm" />
-                                                    {domain}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Completion status */}
                     {duration && (

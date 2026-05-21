@@ -23,16 +23,20 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
 
     const safe = makeSafeEnqueue(controller, encoder)
 
+    // Emit initializing phase
+    safe.enqueue(phaseEvent('initializing', 'start', 'Preparing analysis environment'))
+
     // Get centralized config for this chat mode
     const chatConfig = getChatConfig(chatMode)
 
-    // Single phase event per mode for clean timeline UI
+    // Emit mode-specific phase events for the timeline
     if (deepResearch) {
+        safe.enqueue(phaseEvent('planning_research', 'start', 'Mapping research strategy'))
         safe.enqueue(phaseEvent('searching_web', 'start', 'Performing deep research across the web'))
     } else if (webSearch) {
-        safe.enqueue(phaseEvent('searching_web', 'start', 'Searching the web'))
+        safe.enqueue(phaseEvent('searching_web', 'start', 'Searching legal databases and the web'))
     } else if (thinking) {
-        safe.enqueue(phaseEvent('thinking', 'start', 'Reasoning through the problem'))
+        safe.enqueue(phaseEvent('thinking', 'start', 'Applying legal reasoning to the problem'))
     }
 
     // Build Responses API input with conversation history
@@ -139,9 +143,10 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
         }
     }
 
-    // Send consolidated web search completion
+    // Send consolidated web search completion and transition to extraction phase
     if (webSearchCount > 0 && !safe.isClosed) {
         safe.enqueue(phaseEvent('searching_web', 'complete', `Searched ${webSearchCount} site${webSearchCount > 1 ? 's' : ''}`))
+        safe.enqueue(phaseEvent('extracting_information', 'start', 'Extracting key holdings and provisions'))
     }
 
     // Flush any remaining pending delta
@@ -151,6 +156,11 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
             streamedContent += cleaned
             safe.enqueue(`data: ${JSON.stringify({ content: cleaned })}\n\n`)
         }
+    }
+
+    // Transition to synthesis phase
+    if (!safe.isClosed) {
+        safe.enqueue(phaseEvent('synthesizing', 'start', 'Consolidating analysis and findings'))
     }
 
     // ─── Citation Engine: unified citation handling ───────────────

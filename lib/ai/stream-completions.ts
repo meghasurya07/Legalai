@@ -3,6 +3,7 @@ import { CitationEngine } from '@/lib/ai/citation-engine'
 import { getChatConfig } from '@/lib/ai/config'
 import { buildChatCompletionUserContent } from '@/lib/ai/chat-file-inputs'
 import { saveAssistantMessage } from '@/lib/ai/save-message'
+import { phaseEvent } from '@/lib/ai/citation-extractor'
 import { makeSafeEnqueue, type StreamParams } from './stream-utils'
 
 /**
@@ -19,6 +20,9 @@ export async function streamChatCompletions(params: StreamParams) {
     let { sourcesBlock } = params
 
     const safe = makeSafeEnqueue(controller, encoder)
+
+    // Emit initial activity phase — makes the timeline activate even for standard chat
+    safe.enqueue(phaseEvent('initializing', 'start', 'Preparing analysis environment'))
 
     // Get centralized config for standard chat mode
     const chatConfig = getChatConfig('standard')
@@ -39,6 +43,9 @@ export async function streamChatCompletions(params: StreamParams) {
 
     messages.push({ role: 'user', content: buildChatCompletionUserContent(finalUserPrompt, imageInputs) })
 
+    // Transition to analyzing phase
+    safe.enqueue(phaseEvent('analyzing_query', 'start', 'Understanding the legal question'))
+
     const stream = await client.chat.completions.create({
         model,
         messages,
@@ -50,6 +57,7 @@ export async function streamChatCompletions(params: StreamParams) {
 
     let streamedContent = ''
     let usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null = null
+    let firstContentReceived = false
 
     for await (const chunk of stream) {
         if (safe.isClosed) break
@@ -61,6 +69,11 @@ export async function streamChatCompletions(params: StreamParams) {
 
         const content = chunk.choices[0]?.delta?.content || ''
         if (content) {
+            // Emit drafting phase on first content token
+            if (!firstContentReceived) {
+                firstContentReceived = true
+                safe.enqueue(phaseEvent('drafting_response', 'start', 'Composing response'))
+            }
             streamedContent += content
             safe.enqueue(`data: ${JSON.stringify({ content })}\n\n`)
         }
@@ -119,6 +132,7 @@ export async function streamChatCompletions(params: StreamParams) {
     }
 
     if (!safe.isClosed) {
+        safe.enqueue(phaseEvent('complete', 'end'))
         safe.enqueue('data: [DONE]\n\n')
         safe.close()
     }

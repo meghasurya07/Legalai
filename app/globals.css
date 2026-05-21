@@ -322,21 +322,83 @@
   }
 }
 
-/* ChatGPT-style shimmer animation for activity text */
+/* ChatGPT-style shimmer animation for activity text — premium gradient */
 @keyframes shimmer-pulse {
-
   0%,
   100% {
     opacity: 0.3;
   }
-
   50% {
     opacity: 1;
   }
 }
 
+@keyframes shimmer-gradient {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
 .activity-shimmer {
   animation: shimmer-pulse 1.5s ease-in-out infinite;
+}
+
+/* Premium shimmer variant with gradient sweep */
+.activity-shimmer-gradient {
+  background: linear-gradient(
+    90deg,
+    currentColor 25%,
+    transparent 50%,
+    currentColor 75%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-gradient 2s linear infinite;
+}
+
+/* ─── Activity Timeline: Verb Rotation Animation ─── */
+/* 300ms cross-fade for rotating legal verbs — professional feel */
+@keyframes verb-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
+
+.activity-verb-rotate {
+  animation: verb-fade 0.4s ease-out;
+  transition: opacity 0.3s ease;
+}
+
+/* ─── Activity Timeline: Shimmer Dots ─── */
+/* Animated dots for active phase indicators */
+@keyframes shimmer-dots-pulse {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+.activity-shimmer-dots::after {
+  content: '···';
+  letter-spacing: 2px;
+  font-size: 0.75rem;
+  animation: shimmer-dots-pulse 1.4s ease-in-out infinite;
 }
 
 /* Citation highlight in document viewer */

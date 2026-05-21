@@ -63,7 +63,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         isWebSearch, setIsWebSearch,
         isDeepResearch, setIsDeepResearch,
         isConfidenceMode, setIsConfidenceMode,
-        activityPhase, activityEntries, thinkingDuration,
+        activityPhase, activityEntries, completedPhases, currentVerb, thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
         // Draft panel (Harvey-style)
         isDrafting, draftContent, draftTitle, draftType, isDraftStreaming, closeDraftPanel,
@@ -187,6 +187,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                         onOpenPdfViewer={openPdfViewer}
                                         onPreviewAttachment={setPreviewAttachment}
                                         onToggleActivitySidebar={() => setIsActivitySidebarOpen(prev => !prev)}
+                                        currentVerb={currentVerb}
                                     />
                                 ))}
                                 {/* Fallback loading dots */}
@@ -278,6 +279,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 isOpen={isActivitySidebarOpen}
                 duration={thinkingDuration}
                 entries={activityEntries}
+                completedPhases={completedPhases}
                 sources={messages.length > 0 ? getSourcesFromContent(messages[messages.length - 1].content) : []}
                 isThinkingMode={isThinking}
                 onClose={() => setIsActivitySidebarOpen(false)}

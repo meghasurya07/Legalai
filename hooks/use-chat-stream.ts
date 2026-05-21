@@ -3,7 +3,8 @@
 import * as React from "react"
 import { toast } from "sonner"
 import type { Attachment, Message } from "@/types"
-import type { ActivityPhase } from "@/components/chat/activity-timeline"
+import type { ActivityPhase } from "@/lib/ai/activity-constants"
+import { getRandomVerb } from "@/lib/ai/activity-constants"
 import {
     getAttachmentType,
     splitDuplicateFiles,
@@ -78,12 +79,27 @@ export function useChatStream({
     const [isDraftStreaming, setIsDraftStreaming] = React.useState(false)
     const draftModeRef = React.useRef(false)
 
-    // ─── Activity / Thinking State ───────────────────────────────
+    // ─── Activity / Thinking State ─────────────────────────────
     const [activityPhase, setActivityPhase] = React.useState<ActivityPhase>(null)
     const [activityEntries, setActivityEntries] = React.useState<{ phase: string; detail: string; time: Date }[]>([])
+    const [completedPhases, setCompletedPhases] = React.useState<string[]>([])
+    const [currentVerb, setCurrentVerb] = React.useState<string>('Processing')
     const [isActivitySidebarOpen, setIsActivitySidebarOpen] = React.useState(false)
     const thinkingStartRef = React.useRef<number | null>(null)
     const [thinkingDuration, setThinkingDuration] = React.useState<number | null>(null)
+
+    // ─── Verb Rotation (3s interval, inspired by Claude Code spinner pattern) ───
+    React.useEffect(() => {
+        if (!activityPhase || activityPhase === 'complete' || activityPhase === 'error') {
+            return
+        }
+        // Set initial verb immediately
+        setCurrentVerb(getRandomVerb(activityPhase))
+        const interval = setInterval(() => {
+            setCurrentVerb(getRandomVerb(activityPhase))
+        }, 3000)
+        return () => clearInterval(interval)
+    }, [activityPhase])
 
     // ─── Scroll Refs ─────────────────────────────────────────────
     const chatContainerRef = React.useRef<HTMLDivElement>(null)
@@ -360,6 +376,8 @@ export function useChatStream({
             // Reset activity state
             setActivityPhase(null)
             setActivityEntries([])
+            setCompletedPhases([])
+            setCurrentVerb('Processing')
             setIsActivitySidebarOpen(false)
             thinkingStartRef.current = null
             setThinkingDuration(null)
@@ -414,7 +432,13 @@ export function useChatStream({
                                             setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch }])
                                             assistantMsgAdded = true
                                         }
-                                        setActivityPhase(phase as ActivityPhase)
+                                        // Track completed phases: when a new phase starts, mark the previous one as completed
+                                        setActivityPhase(prev => {
+                                            if (prev && prev !== phase && prev !== 'complete' && prev !== 'error') {
+                                                setCompletedPhases(cp => cp.includes(prev) ? cp : [...cp, prev])
+                                            }
+                                            return phase as ActivityPhase
+                                        })
                                         if (detail) {
                                             setActivityEntries(prev => [...prev, { phase, detail, time: new Date() }])
                                         }
@@ -579,6 +603,8 @@ export function useChatStream({
         // Activity
         activityPhase,
         activityEntries,
+        completedPhases,
+        currentVerb,
         thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
         // Draft panel (Harvey-style)
