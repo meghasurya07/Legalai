@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState, useRef, useCallback, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, FileText, Loader2, AlertCircle } from "lucide-react"
+import { findHighlightRange } from "@/lib/highlight-utils"
 
 interface DocumentData {
     id: string
@@ -36,6 +37,7 @@ function DocumentViewerContent() {
     const [chunk, setChunk] = useState<ChunkData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [showJumpButton, setShowJumpButton] = useState(false)
 
     const highlightRef = useRef<HTMLElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
@@ -95,45 +97,42 @@ function DocumentViewerContent() {
         }
     }, [isLoading, chunk])
 
+    // Intersection observer for floating jump button
+    useEffect(() => {
+        const el = highlightRef.current
+        if (!el) {
+            setShowJumpButton(false)
+            return
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setShowJumpButton(!entry.isIntersecting)
+            },
+            {
+                root: contentRef.current,
+                threshold: 0.1
+            }
+        )
+
+        observer.observe(el)
+        return () => observer.disconnect()
+    }, [isLoading, chunk])
+
     // Render document content with highlighted chunk
     const renderContent = useCallback(() => {
         if (!document?.content) return null
 
         const fullText = document.content
 
-        // If we have a chunk to highlight, find and highlight it
+        // If we have a chunk to highlight, use shared fuzzy matching
         if (chunk?.content) {
-            const chunkText = chunk.content.trim()
-            // Try to find the chunk content in the full document
-            const startIdx = fullText.indexOf(chunkText)
+            const range = findHighlightRange(fullText, chunk.content.trim())
 
-            if (startIdx !== -1) {
-                const before = fullText.substring(0, startIdx)
-                const highlighted = fullText.substring(startIdx, startIdx + chunkText.length)
-                const after = fullText.substring(startIdx + chunkText.length)
-
-                return (
-                    <>
-                        {renderTextBlock(before, 'before')}
-                        <mark
-                            ref={highlightRef as React.RefObject<HTMLElement>}
-                            className="citation-highlight"
-                        >
-                            {highlighted}
-                        </mark>
-                        {renderTextBlock(after, 'after')}
-                    </>
-                )
-            }
-
-            // If exact match fails, try a fuzzy match with first 100 chars
-            const fuzzyText = chunkText.substring(0, 100)
-            const fuzzyIdx = fullText.indexOf(fuzzyText)
-
-            if (fuzzyIdx !== -1) {
-                const before = fullText.substring(0, fuzzyIdx)
-                const highlighted = fullText.substring(fuzzyIdx, fuzzyIdx + chunkText.length)
-                const after = fullText.substring(fuzzyIdx + chunkText.length)
+            if (range) {
+                const before = fullText.substring(0, range.start)
+                const highlighted = fullText.substring(range.start, range.end)
+                const after = fullText.substring(range.end)
 
                 return (
                     <>
@@ -266,12 +265,30 @@ function DocumentViewerContent() {
             )}
 
             {/* Document Content */}
-            <div className="flex-1 overflow-y-auto" ref={contentRef}>
+            <div className="flex-1 overflow-y-auto relative" ref={contentRef}>
                 <div className="max-w-4xl mx-auto px-6 py-8">
                     <article className="text-sm text-foreground/90 font-[var(--font-geist-sans)] whitespace-pre-wrap break-words">
                         {renderContent()}
                     </article>
                 </div>
+
+                {/* Floating "Jump to citation" button */}
+                {showJumpButton && (
+                    <div className="fixed bottom-6 right-6 z-20 animate-in fade-in slide-in-from-bottom duration-200">
+                        <Button
+                            onClick={() => {
+                                highlightRef.current?.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center'
+                                })
+                            }}
+                            className="shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-2 px-4 py-2.5 rounded-full"
+                        >
+                            <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                            Jump to citation
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     )

@@ -401,13 +401,14 @@
   animation: shimmer-dots-pulse 1.4s ease-in-out infinite;
 }
 
-/* Citation highlight in document viewer */
+/* ─── Citation Highlight: Document Viewer ─── */
 .citation-highlight {
   background-color: rgba(52, 211, 153, 0.25);
   border-bottom: 2px solid rgb(16, 185, 129);
   padding: 2px 0;
   border-radius: 2px;
   transition: background-color 0.3s ease;
+  animation: citation-glow-emerald 1.8s ease-out;
 }
 
 .citation-highlight:hover {
@@ -423,19 +424,89 @@
   background-color: rgba(16, 185, 129, 0.35);
 }
 
-/* Initial glow animation for the highlight */
-@keyframes highlight-glow {
+/* ─── Citation Glow Animations ─── */
+/* Emerald glow for document viewer highlights */
+@keyframes citation-glow-emerald {
   0% {
-    background-color: rgba(52, 211, 153, 0.5);
+    background-color: rgba(52, 211, 153, 0.55);
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
   }
-
+  40% {
+    background-color: rgba(52, 211, 153, 0.35);
+    box-shadow: 0 0 6px rgba(52, 211, 153, 0.15);
+  }
   100% {
     background-color: rgba(52, 211, 153, 0.25);
+    box-shadow: none;
   }
 }
 
-.citation-highlight {
-  animation: highlight-glow 1.5s ease-out;
+/* Yellow glow for PDF/text viewer highlights */
+@keyframes citation-glow-yellow {
+  0% {
+    background-color: rgba(250, 204, 21, 0.6) !important;
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
+  }
+  40% {
+    background-color: rgba(250, 204, 21, 0.45) !important;
+    box-shadow: 0 0 6px rgba(250, 204, 21, 0.15);
+  }
+  100% {
+    background-color: rgba(250, 204, 21, 0.25) !important;
+    box-shadow: none;
+  }
+}
+
+/* ─── Citation Source-Type Colors (Pills) ─── */
+/* RAG / Document citations — blue */
+.cite-pill-rag {
+  --cite-bg: rgba(59, 130, 246, 0.08);
+  --cite-bg-hover: rgba(59, 130, 246, 0.15);
+  --cite-border: rgba(59, 130, 246, 0.25);
+  --cite-text: rgb(37, 99, 235);
+}
+.dark .cite-pill-rag {
+  --cite-bg: rgba(59, 130, 246, 0.12);
+  --cite-bg-hover: rgba(59, 130, 246, 0.22);
+  --cite-border: rgba(59, 130, 246, 0.3);
+  --cite-text: rgb(96, 165, 250);
+}
+
+/* Web citations — emerald */
+.cite-pill-web {
+  --cite-bg: rgba(16, 185, 129, 0.08);
+  --cite-bg-hover: rgba(16, 185, 129, 0.15);
+  --cite-border: rgba(16, 185, 129, 0.25);
+  --cite-text: rgb(5, 150, 105);
+}
+.dark .cite-pill-web {
+  --cite-bg: rgba(16, 185, 129, 0.12);
+  --cite-bg-hover: rgba(16, 185, 129, 0.22);
+  --cite-border: rgba(16, 185, 129, 0.3);
+  --cite-text: rgb(52, 211, 153);
+}
+
+/* AI Knowledge citations — violet */
+.cite-pill-ai {
+  --cite-bg: rgba(139, 92, 246, 0.08);
+  --cite-bg-hover: rgba(139, 92, 246, 0.15);
+  --cite-border: rgba(139, 92, 246, 0.25);
+  --cite-text: rgb(124, 58, 237);
+}
+.dark .cite-pill-ai {
+  --cite-bg: rgba(139, 92, 246, 0.12);
+  --cite-bg-hover: rgba(139, 92, 246, 0.22);
+  --cite-border: rgba(139, 92, 246, 0.3);
+  --cite-text: rgb(167, 139, 250);
+}
+
+/* Hover lift for citation pills */
+.cite-pill-interactive {
+  transition: all 0.15s ease;
+}
+.cite-pill-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* ─── PDF.js TextLayer: pixel-perfect text positioning ─── */
@@ -473,15 +544,36 @@
   background: rgba(0, 100, 200, 0.3);
 }
 
-/* Highlight styling for citation matches */
+/* Highlight styling for citation matches in PDF */
 .textLayer .pdf-highlight-active {
   background-color: rgba(250, 204, 21, 0.4) !important;
   border-radius: 2px;
   mix-blend-mode: multiply;
+  animation: citation-glow-yellow 1.8s ease-out;
 }
 
 .dark .textLayer .pdf-highlight-active {
   background-color: rgba(250, 204, 21, 0.3) !important;
+}
+
+/* Doc text viewer highlight */
+.doc-highlight-glow {
+  animation: citation-glow-yellow 1.8s ease-out;
+}
+
+/* ─── Accessibility: Respect reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .citation-highlight,
+  .textLayer .pdf-highlight-active,
+  .doc-highlight-glow,
+  .cite-pill-interactive {
+    animation: none !important;
+    transition: none !important;
+  }
+  .cite-pill-interactive:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 /* ─── DOCX Preview: docx-preview library ─── */

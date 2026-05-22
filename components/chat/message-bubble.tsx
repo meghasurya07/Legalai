@@ -14,7 +14,10 @@ import {
     stripSourcesBlock,
     stripCitationIndexBlock,
     escapeCitationMarkers,
+    isDocumentSource,
+    getCitationSourceDisplayName,
 } from "@/lib/citations"
+import type { CitationEntry } from "@/lib/citations"
 import {
     processTextWithCitations as sharedProcessText,
     processNodeForCitations as sharedProcessNode,
@@ -194,6 +197,8 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
     // Strip both citation formats for display
     const displayContent = escapeCitationMarkers(stripCitationIndexBlock(stripSourcesBlock(contentNoDraft)))
     const sourcesMap = new Map(sources.map((src) => [src.num, src]))
+    // Build entriesMap for passing type/confidence/metadata to CitationPills
+    const entriesMap = new Map(citationIndex.entries.map(e => [String(e.num), e]))
 
     const processConfidenceBadges = (nodes: React.ReactNode[], keyPrefix: string): React.ReactNode[] => {
         const result: React.ReactNode[] = []
@@ -227,10 +232,10 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
     }
 
     const processTextWithCitations = (text: string, keyPrefix: string = ''): React.ReactNode[] =>
-        sharedProcessText(text, sourcesMap, keyPrefix, callbacks, processConfidenceBadges)
+        sharedProcessText(text, sourcesMap, keyPrefix, callbacks, processConfidenceBadges, entriesMap)
 
     const processNodeForCitations = (node: React.ReactNode, keyPrefix: string = '', depth: number = 0, isInCode: boolean = false): React.ReactNode =>
-        sharedProcessNode(node, sourcesMap, keyPrefix, callbacks, processConfidenceBadges, depth, isInCode)
+        sharedProcessNode(node, sourcesMap, keyPrefix, callbacks, processConfidenceBadges, depth, isInCode, entriesMap)
 
     const processCitations = (children: React.ReactNode, prefix: string) =>
         React.Children.map(children, (child) => processNodeForCitations(child, `${prefix}-${i}`, 0))
@@ -266,23 +271,60 @@ function AssistantContent({ content, messageId, conversationId, messageIndex: i,
                 <div className="flex items-center gap-1 mt-3 -ml-1 relative">
                     <CopyButton displayContent={displayContent} msgSelector={`[data-msg-index="${i}"]`} />
                     {sources.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => onOpenCitations(i)}
-                            className="cursor-pointer inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/50"
-                        >
-                            <span className="flex items-center -space-x-2">
-                                {sources.slice(0, 3).map((src) => (
-                                    <span
+                        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none ml-1">
+                            {sources.slice(0, 6).map((src) => {
+                                const isDoc = isDocumentSource(src.url)
+                                const displayName = getCitationSourceDisplayName(src.url, src.title)
+                                return (
+                                    <button
                                         key={src.num}
-                                        className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-border bg-background"
+                                        type="button"
+                                        onClick={() => {
+                                            if (isDoc && onOpenPdfViewer) {
+                                                onOpenPdfViewer(src, src.num)
+                                            } else if (!isDoc) {
+                                                window.open(src.url, '_blank', 'noopener,noreferrer')
+                                            } else {
+                                                onOpenCitations(i)
+                                            }
+                                        }}
+                                        className="cite-pill-interactive shrink-0 flex flex-col items-start gap-1 p-2 rounded-lg border border-border/50 bg-card/50 hover:bg-muted/50 text-xs text-muted-foreground hover:text-foreground transition-colors w-[160px] text-left"
                                     >
-                                        <SourceFavicon url={src.url} size={20} className="h-5 w-5 object-cover" />
-                                    </span>
-                                ))}
-                            </span>
-                            <span className="font-medium">Sources</span>
-                        </button>
+                                        {/* Row 1: Icon/Favicon + Source name + Badge */}
+                                        <div className="flex items-center gap-1.5 w-full min-w-0">
+                                            <span className="inline-flex h-4 w-4 items-center justify-center overflow-hidden rounded-sm shrink-0 bg-muted">
+                                                {isDoc ? (
+                                                    <FileText className="h-3 w-3 text-blue-500" />
+                                                ) : (
+                                                    <SourceFavicon url={src.url} size={16} className="h-4 w-4 object-cover" />
+                                                )}
+                                            </span>
+                                            <span className="truncate font-semibold text-[11px] flex-1 text-foreground">
+                                                {displayName}
+                                            </span>
+                                            <span className="shrink-0 text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full leading-none">
+                                                {src.num}
+                                            </span>
+                                        </div>
+                                        {/* Row 2: Snippet preview */}
+                                        {src.snippet && (
+                                            <p className="text-[10px] text-muted-foreground/75 truncate w-full leading-normal">
+                                                {src.snippet}
+                                            </p>
+                                        )}
+                                    </button>
+                                )
+                            })}
+                            {sources.length > 6 && (
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenCitations(i)}
+                                    className="shrink-0 px-2 py-1.5 rounded-lg border border-border/50 bg-card/50 hover:bg-muted/50 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+                                >
+                                    +{sources.length - 6} more
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
             )}

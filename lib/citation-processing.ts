@@ -9,7 +9,7 @@
 
 import React from 'react'
 import { CitationPill } from '@/components/chat/citation-pill'
-import type { ChatCitationSource } from '@/lib/citations'
+import type { ChatCitationSource, CitationEntry } from '@/lib/citations'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -38,6 +38,7 @@ export function processTextWithCitations(
     keyPrefix: string = '',
     callbacks: CitationCallbacks = {},
     extraProcessor?: (nodes: React.ReactNode[], prefix: string) => React.ReactNode[],
+    entriesMap?: Map<string, CitationEntry>,
 ): React.ReactNode[] {
     if (!text || typeof text !== 'string') return [text]
 
@@ -81,8 +82,9 @@ export function processTextWithCitations(
             }
         }
 
-        const pills = Array.from(uniqueSources.values()).map((item, idx) => (
-            React.createElement(CitationPill, {
+        const pills = Array.from(uniqueSources.values()).map((item, idx) => {
+            const entry = entriesMap?.get(item.num)
+            return React.createElement(CitationPill, {
                 key: `${keyPrefix}-citation-${groupCounter}-${idx}`,
                 citationNum: item.num,
                 source: item.source,
@@ -90,8 +92,14 @@ export function processTextWithCitations(
                     ? () => callbacks.onOpenCitations!(item.num)
                     : undefined,
                 onViewPdf: callbacks.onViewPdf,
+                citationType: entry?.type,
+                confidence: entry?.confidence,
+                metadata: entry?.metadata ? {
+                    pageNumber: entry.metadata.pageNumber,
+                    sectionHeading: entry.metadata.sectionHeading,
+                } : undefined,
             })
-        ))
+        })
 
         parts.push(
             React.createElement(
@@ -136,13 +144,14 @@ export function processNodeForCitations(
     extraProcessor?: (nodes: React.ReactNode[], prefix: string) => React.ReactNode[],
     depth: number = 0,
     isInCode: boolean = false,
+    entriesMap?: Map<string, CitationEntry>,
 ): React.ReactNode {
     if (depth > 10) return node
 
     // Plain string → replace citations
     if (typeof node === 'string') {
         if (isInCode) return node
-        const processed = processTextWithCitations(node, sourcesMap, keyPrefix, callbacks, extraProcessor)
+        const processed = processTextWithCitations(node, sourcesMap, keyPrefix, callbacks, extraProcessor, entriesMap)
         if (processed.length === 1 && processed[0] === node) return node
         return processed
     }
@@ -176,6 +185,7 @@ export function processNodeForCitations(
                     extraProcessor,
                     depth + 1,
                     isInCode || isCodeElement,
+                    entriesMap,
                 ),
             ),
         )
@@ -184,7 +194,7 @@ export function processNodeForCitations(
     // Array → recurse each item
     if (Array.isArray(node)) {
         return node.map((item, idx) =>
-            processNodeForCitations(item, sourcesMap, `${keyPrefix}-${idx}`, callbacks, extraProcessor, depth, isInCode),
+            processNodeForCitations(item, sourcesMap, `${keyPrefix}-${idx}`, callbacks, extraProcessor, depth, isInCode, entriesMap),
         )
     }
 

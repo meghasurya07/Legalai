@@ -250,8 +250,10 @@ export class CitationEngine {
                 }
             }
 
-            // Bonus for legal-specific exact matches (case names, statute numbers)
-            const legalTerms = sentenceText.match(/\b(?:§\s*\d+|\d+\s+U\.S\.C|v\.\s+\w+|\d{4}\s+WL\s+\d+)/gi)
+            // Bonus for legal-specific exact matches (case names, statute numbers, regulations)
+            const legalTerms = sentenceText.match(
+                /\b(?:§\s*\d+(?:\.\d+)*|\d+\s+U\.S\.C\.?\s*§?\s*\d+|\d+\s+C\.F\.R\.?\s*§?\s*\d+|v\.\s+\w+|\d{4}\s+WL\s+\d+|\d{4}\s+LEXIS\s+\d+|\d+\s+(?:F\.(?:2d|3d|4th|Supp)|S\.\s*Ct|L\.\s*Ed)|Art(?:icle)?\s+\d+|Clause\s+\d+|Section\s+\d+(?:\.\d+)*|Regulation\s+\(?[A-Z]|\d+\.\d+\([a-z]\))/gi
+            )
             if (legalTerms) {
                 for (const term of legalTerms) {
                     if (contextText.toLowerCase().includes(term.toLowerCase())) {
@@ -266,16 +268,16 @@ export class CitationEngine {
             }
         }
 
-        // Gather context starting slightly before the best sentence
+        // Gather context: 2-3 best sentences for sentence-level granularity
         let gatheredSnippet = ''
         let currentS = Math.max(0, bestSentenceIdx - 1)
 
-        while (gatheredSnippet.length < 800 && currentS < sentences.length) {
+        while (gatheredSnippet.length < 400 && currentS < sentences.length) {
             gatheredSnippet += sentences[currentS].trim() + ' '
             currentS++
         }
 
-        return gatheredSnippet.trim().substring(0, 800).replace(/\r?\n/g, ' ')
+        return gatheredSnippet.trim().substring(0, 400).replace(/\r?\n/g, ' ')
     }
 
     /**

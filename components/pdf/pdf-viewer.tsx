@@ -3,6 +3,7 @@
 
 import * as React from "react"
 import { Loader2 } from "lucide-react"
+import { normalizeTextForSearch } from "@/lib/highlight-utils"
 
 // ─── Types ────────────────────────────────────────────────────────
 export interface PdfHighlight {
@@ -238,30 +239,8 @@ function highlightMatchingSpans(
         spanRanges.push({ start, end: runningText.length - 1, span })
     }
 
-    // Build an index map mapping normalized text indices back to original chunk string
-    let normalizedPage = ""
-    let isSpace = false
-    const indexMap: number[] = []
-
-    for (let i = 0; i < runningText.length; i++) {
-        const char = runningText[i]
-        if (/\s/.test(char)) {
-            if (!isSpace) {
-                // Only add a single space to normalized text if we haven't just added one
-                if (normalizedPage.length > 0) {
-                    normalizedPage += " "
-                    indexMap.push(i)
-                    isSpace = true
-                }
-            }
-        } else {
-            normalizedPage += char.toLowerCase()
-            indexMap.push(i)
-            isSpace = false
-        }
-    }
-    indexMap.push(runningText.length)
-
+    // Use shared normalisation utility
+    const { normalized: normalizedPage, indexMap } = normalizeTextForSearch(runningText)
     const normalizedSearch = searchText.replace(/\s+/g, " ").trim().toLowerCase()
 
     // Try progressively shorter snippets for matching to handle PDF.js extraction anomalies

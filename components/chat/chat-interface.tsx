@@ -17,6 +17,7 @@ import {
     parseCitationIndex,
     parseDocumentCitationUrl,
 } from "@/lib/citations"
+import type { CitationEntry } from "@/lib/citations"
 import dynamic from "next/dynamic"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
@@ -48,6 +49,12 @@ function getSourcesFromContent(content: string): ChatCitationSource[] {
         url: e.url,
         snippet: e.snippet || '',
     }))
+}
+
+/** Extract structured CitationEntry[] for the sidebar's grouped display. */
+function getEntriesFromContent(content: string): CitationEntry[] {
+    const index = parseCitationIndex(content)
+    return index.entries
 }
 
 export function ChatInterface({ onMessageSent, mode = "default", projectTitle, projectId, workflowId, conversationType = 'assistant', initialConversationId }: ChatInterfaceProps) {
@@ -288,6 +295,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
             <CitationsSidebar
                 isOpen={isCitationsSidebarOpen && openCitationsIndex !== null && !isActivitySidebarOpen && !pdfViewerTarget}
                 sources={openCitationsIndex !== null && messages[openCitationsIndex] ? getSourcesFromContent(messages[openCitationsIndex].content) : []}
+                entries={openCitationsIndex !== null && messages[openCitationsIndex] ? getEntriesFromContent(messages[openCitationsIndex].content) : []}
                 onClose={closeCitationsSidebar}
                 onViewPdf={openPdfViewer}
             />

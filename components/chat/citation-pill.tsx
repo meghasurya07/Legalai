@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { FileText } from "lucide-react"
+import { FileText, Globe, Brain } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -13,8 +13,26 @@ import {
     getDocumentRoute,
     getFaviconUrl,
 } from "@/lib/citations"
+import type { CitationType } from "@/lib/citations"
 
-/** Highlight significant keywords from the title within the snippet text */
+// ─── Source-type config ─────────────────────────────────────────
+interface TypeConfig {
+    pillClass: string
+    icon: React.ElementType
+    label: string
+}
+
+const TYPE_CONFIG: Record<CitationType | 'default', TypeConfig> = {
+    rag: { pillClass: 'cite-pill-rag', icon: FileText, label: 'Project Document' },
+    web: { pillClass: 'cite-pill-web', icon: Globe, label: 'Web Source' },
+    ai_knowledge: { pillClass: 'cite-pill-ai', icon: Brain, label: 'AI Knowledge' },
+    default: { pillClass: 'cite-pill-rag', icon: FileText, label: 'Source' },
+}
+
+// ─── Snippet highlighting ───────────────────────────────────────
+
+/** Highlight the most relevant phrase from the snippet that overlaps
+ *  with meaningful keywords. Uses sentence-boundary-aware matching. */
 function highlightSnippet(snippet: string, title: string): React.ReactNode {
     if (!snippet || !title) return snippet
 
@@ -41,7 +59,7 @@ function highlightSnippet(snippet: string, title: string): React.ReactNode {
             pattern.lastIndex = 0
             return React.createElement('mark', {
                 key: idx,
-                className: 'bg-primary/15 text-foreground rounded-sm px-0.5 font-medium',
+                className: 'bg-yellow-200/60 dark:bg-yellow-500/20 text-foreground rounded-sm px-0.5 font-medium',
             }, part)
         }
         // Reset lastIndex for subsequent test calls
@@ -50,12 +68,15 @@ function highlightSnippet(snippet: string, title: string): React.ReactNode {
     })
 }
 
+// ─── Component ──────────────────────────────────────────────────
+
 export function CitationPill({
     citationNum,
     source,
     onViewPdf,
     confidence,
     metadata,
+    citationType,
 }: {
     citationNum: string
     source?: ChatCitationSource
@@ -68,11 +89,40 @@ export function CitationPill({
         pageNumber?: number
         sectionHeading?: string
     }
+    /** Source type for color coding */
+    citationType?: CitationType
 }) {
     const isLowConfidence = confidence !== undefined && confidence < 0.7
     const [faviconFailed, setFaviconFailed] = React.useState(false)
     const [isOpen, setIsOpen] = React.useState(false)
     const pillRouter = useRouter()
+    const openTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+    const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Determine source type for color coding
+    const isDocument = source ? isDocumentSource(source.url) : false
+    const resolvedType: CitationType | 'default' = citationType || (isDocument ? 'rag' : source ? 'web' : 'default')
+    const typeConfig = TYPE_CONFIG[resolvedType] || TYPE_CONFIG.default
+    const TypeIcon = typeConfig.icon
+
+    // Delayed open/close for smooth hover (Harvey/Perplexity pattern)
+    const handleMouseEnter = React.useCallback(() => {
+        if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
+        openTimerRef.current = setTimeout(() => setIsOpen(true), 200)
+    }, [])
+
+    const handleMouseLeave = React.useCallback(() => {
+        if (openTimerRef.current) { clearTimeout(openTimerRef.current); openTimerRef.current = null }
+        closeTimerRef.current = setTimeout(() => setIsOpen(false), 300)
+    }, [])
+
+    // Cleanup timers on unmount
+    React.useEffect(() => {
+        return () => {
+            if (openTimerRef.current) clearTimeout(openTimerRef.current)
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+        }
+    }, [])
 
     if (!source) {
         return (
@@ -84,16 +134,20 @@ export function CitationPill({
 
     const displayName = getCitationSourceDisplayName(source.url, source.title)
     const faviconUrl = getFaviconUrl(source.url)
-    const isDocument = isDocumentSource(source.url)
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
                 <button
                     type="button"
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium transition-all cursor-pointer border leading-none h-[22px] ${isLowConfidence ? 'bg-muted/30 text-foreground/50 border-dashed border-border/30 hover:bg-muted/50' : 'bg-muted/60 hover:bg-muted/80 text-foreground/80 hover:text-foreground border-transparent hover:border-border/50'}`}
-                    onMouseEnter={() => setIsOpen(true)}
-                    onMouseLeave={() => setIsOpen(false)}
+                    className={`cite-pill-interactive inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 rounded-full text-[13px] font-medium cursor-pointer border leading-none h-[22px] ${typeConfig.pillClass} ${isLowConfidence ? 'opacity-60 border-dashed' : ''}`}
+                    style={{
+                        backgroundColor: 'var(--cite-bg)',
+                        borderColor: isLowConfidence ? 'var(--cite-border)' : 'var(--cite-border)',
+                        color: 'var(--cite-text)',
+                    }}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                     onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -112,7 +166,7 @@ export function CitationPill({
                 >
                     <span className="inline-flex h-3.5 w-3.5 items-center justify-center overflow-hidden rounded-sm shrink-0 relative">
                         {isDocument ? (
-                            <FileText className="h-3 w-3 text-primary/70" />
+                            <TypeIcon className="h-3 w-3" style={{ color: 'var(--cite-text)' }} />
                         ) : faviconUrl && !faviconFailed ? (
                             <Image
                                 src={faviconUrl}
@@ -124,7 +178,7 @@ export function CitationPill({
                                 onError={() => setFaviconFailed(true)}
                             />
                         ) : (
-                            <FileText className="h-3 w-3 text-primary/40" />
+                            <TypeIcon className="h-3 w-3" style={{ color: 'var(--cite-text)' }} />
                         )}
                     </span>
                     <span className="truncate max-w-[120px]">{displayName}</span>
@@ -135,20 +189,21 @@ export function CitationPill({
                 side="top"
                 align="center"
                 onOpenAutoFocus={(e) => e.preventDefault()}
-                onMouseEnter={() => setIsOpen(true)}
-                onMouseLeave={() => setIsOpen(false)}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
             >
                 <div className="flex items-start gap-3">
-                    <div className="mt-0.5 h-8 w-8 rounded-full border border-border bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className={`mt-0.5 h-8 w-8 rounded-full border flex items-center justify-center shrink-0 overflow-hidden ${typeConfig.pillClass}`}
+                         style={{ borderColor: 'var(--cite-border)', backgroundColor: 'var(--cite-bg)' }}>
                         {isDocument ? (
-                            <FileText className="h-4 w-4 text-primary/70" />
+                            <TypeIcon className="h-4 w-4" style={{ color: 'var(--cite-text)' }} />
                         ) : (
                             <SourceFavicon url={source.url} size={32} className="h-8 w-8 object-cover" />
                         )}
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
                         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none flex items-center gap-1.5">
-                            <span>{isDocument ? 'Project Document' : displayName}</span>
+                            <span>{typeConfig.label}</span>
                             {isLowConfidence && (
                                 <span className="text-[9px] text-amber-500/80 font-semibold normal-case tracking-normal">⚠ Low confidence</span>
                             )}

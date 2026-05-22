@@ -2,12 +2,13 @@
 "use client"
 
 import * as React from "react"
-import { X, FileText, ZoomIn, ZoomOut, Maximize2, Loader2 } from "lucide-react"
+import { X, FileText, ZoomIn, ZoomOut, Maximize2, Loader2, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { PdfViewer } from "@/components/pdf/pdf-viewer"
 import type { ChatCitationSource } from "@/lib/citations"
+import { findHighlightRange } from "@/lib/highlight-utils"
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -109,61 +110,9 @@ function DocTextViewer({
             return <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">{text}</pre>
         }
 
-        // Build an index map mapping normalized text indices back to original text indices
-        let normalizedText = ''
-        let isSpace = false
-        const indexMap: number[] = []
+        const range = findHighlightRange(text, highlightText)
 
-        // To handle leading whitespace appropriately
-        const trimmedOriginalMatch = text.match(/^\s+/)
-        if (trimmedOriginalMatch) {
-            // we will skip mapping leading spaces into `normalizedText` or handle them carefully
-        }
-
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i]
-            if (/\s/.test(char)) {
-                if (!isSpace) {
-                    // Only add a single space to normalized text if we haven't just added one
-                    if (normalizedText.length > 0) { // skip leading spaces entirely
-                        normalizedText += ' '
-                        indexMap.push(i)
-                        isSpace = true
-                    }
-                }
-            } else {
-                normalizedText += char
-                indexMap.push(i)
-                isSpace = false
-            }
-        }
-        indexMap.push(text.length)
-
-        const normalizedSnippet = highlightText.replace(/\s+/g, ' ').trim()
-
-        // Try progressively shorter snippets for matching
-        let matchIndex = -1
-        let matchLength = 0
-        const searchLengths = [
-            Math.min(normalizedSnippet.length, 200),
-            Math.min(normalizedSnippet.length, 100),
-            Math.min(normalizedSnippet.length, 60),
-            Math.min(normalizedSnippet.length, 30),
-        ]
-
-        for (const len of searchLengths) {
-            if (len < 15) continue
-            const searchStr = normalizedSnippet.substring(0, len).toLowerCase()
-            const idx = normalizedText.toLowerCase().indexOf(searchStr)
-            if (idx !== -1) {
-                matchIndex = idx
-                // Extend match to full snippet length if possible
-                matchLength = Math.min(normalizedSnippet.length, normalizedText.length - idx)
-                break
-            }
-        }
-
-        if (matchIndex === -1) {
+        if (!range) {
             // No match found, show text with snippet callout at top
             return (
                 <div>
@@ -174,24 +123,23 @@ function DocTextViewer({
                         <p className="text-sm text-yellow-900 dark:text-yellow-200 leading-relaxed italic">
                             &ldquo;{highlightText.substring(0, 300)}{highlightText.length > 300 ? '…' : ''}&rdquo;
                         </p>
+                        <p className="text-[10px] text-yellow-600/60 dark:text-yellow-400/50 mt-1">
+                            Could not locate exact text in document
+                        </p>
                     </div>
                     <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">{text}</pre>
                 </div>
             )
         }
 
-        // Split original text using mapped indices
-        const originalStart = indexMap[matchIndex]
-        const originalEnd = indexMap[Math.min(matchIndex + matchLength, indexMap.length - 1)]
-
-        const before = text.substring(0, originalStart)
-        const match = text.substring(originalStart, originalEnd)
-        const after = text.substring(originalEnd)
+        const before = text.substring(0, range.start)
+        const match = text.substring(range.start, range.end)
+        const after = text.substring(range.end)
 
         return (
             <pre className="whitespace-pre-wrap text-sm leading-relaxed font-sans">
                 {before}
-                <mark className="doc-highlight-active bg-yellow-200 dark:bg-yellow-700/50 px-0.5 rounded-sm">{match}</mark>
+                <mark className="doc-highlight-active doc-highlight-glow bg-yellow-200 dark:bg-yellow-700/50 px-0.5 rounded-sm">{match}</mark>
                 {after}
             </pre>
         )
@@ -210,13 +158,22 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
     const [zoom, setZoom] = React.useState(1.0)
     const [pageCount, setPageCount] = React.useState<number | null>(null)
     const [pdfError, setPdfError] = React.useState(false)
+    const [copied, setCopied] = React.useState(false)
 
-    // Reset zoom when target changes
+    // Reset zoom and copied when target changes
     React.useEffect(() => {
         setZoom(1.0)
         setPageCount(null)
         setPdfError(false)
+        setCopied(false)
     }, [target?.fileId, target?.chunkIndex])
+
+    const handleCopy = React.useCallback(() => {
+        if (!target?.snippet) return
+        navigator.clipboard.writeText(target.snippet)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }, [target?.snippet])
 
     const isMobile = useIsMobile()
 
@@ -317,9 +274,24 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
             {/* ── Snippet Quote Bar ── */}
             {target.snippet && (
                 <div className="shrink-0 border-t bg-muted/20 px-4 py-3">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                        Cited Passage
-                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                            Cited Passage
+                        </p>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                            onClick={handleCopy}
+                            title="Copy cited snippet"
+                        >
+                            {copied ? (
+                                <Check className="h-3 w-3 text-emerald-500 animate-in fade-in zoom-in-50 duration-200" />
+                            ) : (
+                                <Copy className="h-3 w-3" />
+                            )}
+                        </Button>
+                    </div>
                     <p className="text-xs text-foreground/80 line-clamp-3 leading-relaxed">
                         &ldquo;{target.snippet.substring(0, 250)}{target.snippet.length > 250 ? "…" : ""}&rdquo;
                     </p>
