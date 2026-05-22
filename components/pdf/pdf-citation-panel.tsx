@@ -173,7 +173,7 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
         navigator.clipboard.writeText(target.snippet)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
-    }, [target?.snippet])
+    }, [target])
 
     const isMobile = useIsMobile()
 

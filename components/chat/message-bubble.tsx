@@ -17,7 +17,6 @@ import {
     isDocumentSource,
     getCitationSourceDisplayName,
 } from "@/lib/citations"
-import type { CitationEntry } from "@/lib/citations"
 import {
     processTextWithCitations as sharedProcessText,
     processNodeForCitations as sharedProcessNode,
