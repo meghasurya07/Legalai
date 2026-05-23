@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Paperclip, Globe, Wand2, UploadCloud, X, Cloud, Brain, Sparkles, Square } from "lucide-react"
+import { Paperclip, Globe, Wand2, UploadCloud, X, Cloud, Brain, Sparkles, Square, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { ModeBadges } from "@/components/chat/mode-badges"
 import { FileIcon } from "@/components/documents/file-icon"
 import { toast } from "sonner"
@@ -79,6 +80,15 @@ interface ChatInputProps {
     onFileDialogChange: (open: boolean) => void
 }
 
+interface PromptItem {
+    id: string
+    title: string
+    content: string
+    description: string | null
+    category: string
+    type: string
+}
+
 export function ChatInput({
     inputValue,
     onInputChange,
@@ -105,6 +115,98 @@ export function ChatInput({
     isFileDialogOpen,
     onFileDialogChange,
 }: ChatInputProps) {
+    const [prompts, setPrompts] = React.useState<PromptItem[]>([])
+    const [showSlashMenu, setShowSlashMenu] = React.useState(false)
+    const [slashSearch, setSlashSearch] = React.useState("")
+    const [selectedPromptIdx, setSelectedPromptIdx] = React.useState(0)
+    const slashMenuRef = React.useRef<HTMLDivElement>(null)
+
+    React.useEffect(() => {
+        const fetchPrompts = async () => {
+            try {
+                const res = await fetch("/api/prompt-library?limit=100")
+                if (res.ok) {
+                    setPrompts(await res.json())
+                }
+            } catch {
+                // Fail silently — don't block main chat interface
+            }
+        }
+        fetchPrompts()
+    }, [])
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (slashMenuRef.current && !slashMenuRef.current.contains(event.target as Node)) {
+                setShowSlashMenu(false)
+            }
+        }
+        if (showSlashMenu) {
+            document.addEventListener("mousedown", handleClickOutside)
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside)
+        }
+    }, [showSlashMenu])
+
+    const filteredPrompts = React.useMemo(() => {
+        if (!slashSearch) return prompts.slice(0, 8)
+        return prompts
+            .filter(p => 
+                p.title.toLowerCase().includes(slashSearch.toLowerCase()) ||
+                (p.description && p.description.toLowerCase().includes(slashSearch.toLowerCase()))
+            )
+            .slice(0, 8)
+    }, [prompts, slashSearch])
+
+    const insertPrompt = (prompt: PromptItem) => {
+        const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+        if (!textarea) return
+
+        const caretPos = textarea.selectionStart || 0
+        const textBeforeCaret = inputValue.substring(0, caretPos)
+        const textAfterCaret = inputValue.substring(caretPos)
+
+        const slashIdx = textBeforeCaret.lastIndexOf("/")
+        if (slashIdx === -1) return
+
+        const newText = textBeforeCaret.substring(0, slashIdx) + prompt.content + textAfterCaret
+        onInputChange(newText)
+        setShowSlashMenu(false)
+
+        setTimeout(() => {
+            textarea.focus()
+            const firstVarMatch = prompt.content.match(/\{\{([^}]+)\}\}/)
+            if (firstVarMatch && firstVarMatch.index !== undefined) {
+                const start = slashIdx + firstVarMatch.index
+                const end = start + firstVarMatch[0].length
+                textarea.setSelectionRange(start, end)
+            } else {
+                const newCaretPos = slashIdx + prompt.content.length
+                textarea.setSelectionRange(newCaretPos, newCaretPos)
+            }
+        }, 10)
+    }
+
+    const handleInputChangeInternal = (value: string) => {
+        onInputChange(value)
+
+        const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+        if (!textarea) return
+
+        const caretPos = textarea.selectionStart || 0
+        const textBeforeCaret = value.substring(0, caretPos)
+        
+        const match = textBeforeCaret.match(/(?:^|\s)\/(\w*)$/)
+        if (match) {
+            setShowSlashMenu(true)
+            setSlashSearch(match[1])
+            setSelectedPromptIdx(0)
+        } else {
+            setShowSlashMenu(false)
+        }
+    }
+
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const clipboardItems = Array.from(e.clipboardData?.items || [])
         const fileItems = clipboardItems.filter((item) => item.kind === 'file')
@@ -142,7 +244,60 @@ export function ChatInput({
     }
 
     return (
-        <div className={`w-full z-20 pb-6 pt-2 px-2 md:px-8 bg-transparent ${!hasMessages ? "mt-4 max-w-4xl mx-auto" : "mt-auto max-w-5xl mx-auto"}`}>
+        <div ref={slashMenuRef} className={`w-full z-20 pb-6 pt-2 px-2 md:px-8 bg-transparent relative ${!hasMessages ? "mt-4 max-w-4xl mx-auto" : "mt-auto max-w-5xl mx-auto"}`}>
+            {/* Slash autocomplete overlay (Harvey-style) */}
+            {showSlashMenu && filteredPrompts.length > 0 && (
+                <div className="absolute bottom-full left-4 md:left-10 mb-2 z-50 w-72 bg-card border border-border/60 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="px-2.5 py-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest border-b border-border/50 mb-1">
+                        Prompt Templates
+                    </div>
+                    {filteredPrompts.map((prompt, idx) => (
+                        <button
+                            key={prompt.id}
+                            type="button"
+                            onClick={() => insertPrompt(prompt)}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl transition-all duration-150 flex flex-col gap-0.5 ${idx === selectedPromptIdx ? "bg-muted text-foreground font-medium" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
+                        >
+                            <span className="text-xs font-semibold">{prompt.title}</span>
+                            {prompt.description && (
+                                <span className="text-[10px] opacity-80 line-clamp-1">{prompt.description}</span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Quick Prompt Chips (Legora-style) */}
+            {!hasMessages && inputValue.trim().length === 0 && uploadedFiles.length === 0 && prompts.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-center mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {prompts.slice(0, 4).map((prompt) => (
+                        <Button
+                            key={prompt.id}
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                                onInputChange(prompt.content)
+                                const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+                                if (textarea) {
+                                    setTimeout(() => {
+                                        textarea.focus()
+                                        const firstVarMatch = prompt.content.match(/\{\{([^}]+)\}\}/)
+                                        if (firstVarMatch && firstVarMatch.index !== undefined) {
+                                            textarea.setSelectionRange(firstVarMatch.index, firstVarMatch.index + firstVarMatch[0].length)
+                                        }
+                                    }, 10)
+                                }
+                            }}
+                             className="rounded-full bg-card hover:bg-muted border-border/60 text-xs text-muted-foreground hover:text-foreground shadow-sm gap-1.5 transition-all duration-200"
+                        >
+                            <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+                            {prompt.title}
+                        </Button>
+                    ))}
+                </div>
+            )}
+
             <div className="relative rounded-[2rem] border border-border/60 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-border overflow-hidden">
 
                 {/* Mode Badges */}
@@ -214,10 +369,33 @@ export function ChatInput({
                     placeholder={isLoading ? "AI is thinking..." : isImprovingPrompt ? "Rewriting prompt..." : "Ask Wesley anything..."}
                     className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                     value={inputValue}
-                    onChange={(e) => onInputChange(e.target.value)}
+                    onChange={(e) => handleInputChangeInternal(e.target.value)}
                     onPaste={handlePaste}
                     disabled={isLoading}
                     onKeyDown={(e) => {
+                        if (showSlashMenu && filteredPrompts.length > 0) {
+                            if (e.key === "ArrowDown") {
+                                e.preventDefault()
+                                setSelectedPromptIdx(prev => (prev + 1) % filteredPrompts.length)
+                                return
+                            }
+                            if (e.key === "ArrowUp") {
+                                e.preventDefault()
+                                setSelectedPromptIdx(prev => (prev - 1 + filteredPrompts.length) % filteredPrompts.length)
+                                return
+                            }
+                            if (e.key === "Enter") {
+                                e.preventDefault()
+                                insertPrompt(filteredPrompts[selectedPromptIdx])
+                                return
+                            }
+                            if (e.key === "Escape") {
+                                e.preventDefault()
+                                setShowSlashMenu(false)
+                                return
+                            }
+                        }
+
                         if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault()
                             onSend()
@@ -269,6 +447,51 @@ export function ChatInput({
                                 </div>
                             </DialogContent>
                         </Dialog>
+
+                        {/* Prompts Popover (Harvey/Legora-style Directory) */}
+                        {!isLoading && prompts.length > 0 && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground h-8 px-2 md:px-3">
+                                        <BookOpen className="h-4 w-4" />
+                                        <span className="hidden md:inline">Prompts</span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-0 rounded-2xl overflow-hidden border border-border/60 shadow-2xl bg-card" align="start">
+                                    <div className="p-4 border-b bg-muted/20">
+                                        <h3 className="font-semibold text-sm">Prompt Library</h3>
+                                        <p className="text-[11px] text-muted-foreground">Select a legal template to inject into your chat</p>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+                                        {prompts.map((prompt) => (
+                                            <button
+                                                key={prompt.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    onInputChange(prompt.content)
+                                                    const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+                                                    if (textarea) {
+                                                        setTimeout(() => {
+                                                            textarea.focus()
+                                                            const firstVarMatch = prompt.content.match(/\{\{([^}]+)\}\}/)
+                                                            if (firstVarMatch && firstVarMatch.index !== undefined) {
+                                                                textarea.setSelectionRange(firstVarMatch.index, firstVarMatch.index + firstVarMatch[0].length)
+                                                            }
+                                                        }, 10)
+                                                    }
+                                                }}
+                                                className="w-full text-left px-3 py-2 rounded-xl hover:bg-muted/60 transition-colors flex flex-col gap-0.5"
+                                            >
+                                                <span className="text-xs font-semibold text-foreground">{prompt.title}</span>
+                                                {prompt.description && (
+                                                    <span className="text-[10px] text-muted-foreground line-clamp-2">{prompt.description}</span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        )}
 
                         {/* Web Search toggle */}
                         <TooltipProvider>
