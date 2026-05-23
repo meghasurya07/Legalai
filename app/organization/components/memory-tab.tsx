@@ -209,7 +209,7 @@ export default function MemoryTab({ canManage }: { canManage: boolean }) {
 
             {/* Org Stats */}
             {orgStats && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10">
                         <CardContent className="pt-4 pb-3 px-4">
                             <span className="text-xs text-muted-foreground uppercase tracking-wide">Active Memories</span>
@@ -233,7 +233,7 @@ export default function MemoryTab({ canManage }: { canManage: boolean }) {
 
             {/* Search & Filters */}
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <div className="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 min-w-0 w-full sm:w-auto">
                     <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input

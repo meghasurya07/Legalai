@@ -45,10 +45,10 @@ export function CrossReferenceMatrix({ results, project, anchorDocumentId }: Cro
                         <div className="p-2.5 bg-primary/10 rounded-md shrink-0">
                             <FileText className="w-6 h-6 text-primary" />
                         </div>
-                        <div>
-                            <h4 className="font-medium text-lg mb-1">{anchorDoc?.name || "Unknown Anchor"}</h4>
+                        <div className="min-w-0 flex-1">
+                            <h4 className="font-medium text-lg mb-1 truncate" title={anchorDoc?.name}>{anchorDoc?.name || "Unknown Anchor"}</h4>
                             {results.length > 0 && (
-                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                <p className="text-sm text-muted-foreground leading-relaxed break-words">
                                     <span className="font-medium text-foreground">Clause / Topic:</span> {results[0].clauseName} <br/>
                                     <span className="font-medium text-foreground">Anchor Summary:</span> {results[0].anchorSummary}
                                 </p>
@@ -69,12 +69,12 @@ export function CrossReferenceMatrix({ results, project, anchorDocumentId }: Cro
                             return (
                                 <div key={i} className={`bg-card border rounded-lg overflow-hidden shadow-sm transition-all hover:shadow-md ${res.isContradiction ? "border-l-4 border-l-orange-500" : "border-l-4 border-l-emerald-500"}`}>
                                     {/* Card Header */}
-                                    <div className="px-5 py-3 border-b flex justify-between items-center bg-muted/20">
-                                        <div className="font-medium flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-muted-foreground" />
-                                            {targetDoc?.name || "Unknown Target"}
+                                    <div className="px-5 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 min-w-0">
+                                        <div className="font-medium flex items-center gap-2 min-w-0 flex-1">
+                                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            <span className="truncate" title={targetDoc?.name}>{targetDoc?.name || "Unknown Target"}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             {res.isContradiction ? (
                                                 <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 font-medium">Contradiction / Deviation</Badge>
                                             ) : (

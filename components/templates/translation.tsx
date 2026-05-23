@@ -191,7 +191,7 @@ export default function Translation() {
                         </Card>
                     )}
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                         <Button onClick={handleDownload} className="gap-2">
                             <Download className="h-4 w-4" />
                             Download Translation

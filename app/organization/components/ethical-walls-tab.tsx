@@ -182,8 +182,8 @@ export default function EthicalWallsTab({ canManage, members }: {
                         <div className="space-y-4">
                             {walls.map(wall => (
                                 <div key={wall.id} className="rounded-lg border p-4 space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3 flex-wrap">
                                             <h4 className="font-semibold">{wall.name}</h4>
                                             <Badge variant={wall.status === 'active' ? 'default' : 'secondary'}>
                                                 {wall.status === 'active' ? (
@@ -192,7 +192,7 @@ export default function EthicalWallsTab({ canManage, members }: {
                                             </Badge>
                                         </div>
                                         {canManage && (
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 <Button variant="outline" size="sm" onClick={() => handleToggleStatus(wall)}>
                                                     {wall.status === 'active' ? 'Deactivate' : 'Activate'}
                                                 </Button>
@@ -204,21 +204,21 @@ export default function EthicalWallsTab({ canManage, members }: {
                                         )}
                                     </div>
                                     {wall.description && <p className="text-sm text-muted-foreground">{wall.description}</p>}
-                                    <div className="flex gap-6 text-sm">
-                                        <div>
+                                    <div className="flex flex-col md:flex-row gap-2 md:gap-6 text-sm">
+                                        <div className="break-words min-w-0">
                                             <span className="text-muted-foreground">Members: </span>
                                             <span className="font-medium">{wall.members.length}</span>
                                             {wall.members.length > 0 && (
-                                                <span className="text-muted-foreground ml-1">
+                                                <span className="text-muted-foreground ml-1 break-words">
                                                     ({wall.members.map(m => m.user_name || 'Unknown').join(', ')})
                                                 </span>
                                             )}
                                         </div>
-                                        <div>
+                                        <div className="break-words min-w-0">
                                             <span className="text-muted-foreground">Projects: </span>
                                             <span className="font-medium">{wall.projects.length}</span>
                                             {wall.projects.length > 0 && (
-                                                <span className="text-muted-foreground ml-1">
+                                                <span className="text-muted-foreground ml-1 break-words">
                                                     ({wall.projects.map(p => p.title || 'Untitled').join(', ')})
                                                 </span>
                                             )}

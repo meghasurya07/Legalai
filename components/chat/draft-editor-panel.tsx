@@ -295,7 +295,7 @@ export function DraftEditorPanel({
                             disabled={isSaving}
                         >
                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save
+                            <span className="hidden md:inline">Save</span>
                         </Button>
                     )}
                     {savedDraftId && (
@@ -306,7 +306,7 @@ export function DraftEditorPanel({
                             onClick={handleOpenFullPage}
                         >
                             <Maximize2 className="h-3 w-3" />
-                            Full Editor
+                            <span className="hidden md:inline">Full Editor</span>
                         </Button>
                     )}
                     <Button

@@ -84,12 +84,12 @@ function ProjectContent() {
                     </Button>
                     <span className="font-medium text-sm flex-1 truncate">{isMobile ? project.title : 'Back to Documents'}</span>
                 </div>
-                <div className="flex gap-2 w-full">
+                <div className="flex flex-wrap gap-2 w-full">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => router.push(`/documents/${projectId}/cross-reference`)}
-                        className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-blue-600/10 border-blue-600/30 text-blue-700 hover:bg-blue-600/20 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 justify-center"
+                        className="flex-1 min-w-[120px] h-7 px-2 gap-1.5 text-[11px] bg-blue-600/10 border-blue-600/30 text-blue-700 hover:bg-blue-600/20 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 justify-center"
                         title="Open Cross-Reference"
                     >
                         <Play className="h-3 w-3 shrink-0" />
@@ -99,7 +99,7 @@ function ProjectContent() {
                         variant="outline"
                         size="sm"
                         onClick={() => router.push(`/documents/${projectId}/tabular-review`)}
-                        className="flex-1 h-7 px-2 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 justify-center"
+                        className="flex-1 min-w-[120px] h-7 px-2 gap-1.5 text-[11px] bg-emerald-600/10 border-emerald-600/30 text-emerald-700 hover:bg-emerald-600/20 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 justify-center"
                         title="Open Tabular Review"
                     >
                         <Play className="h-3 w-3 shrink-0" />

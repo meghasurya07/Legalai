@@ -129,8 +129,8 @@ export default function PromptLibraryPage() {
                     </div>
 
                     {/* Search + Create */}
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="relative flex-1 max-w-md">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+                        <div className="relative w-full sm:max-w-md">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search prompts..."
@@ -139,7 +139,7 @@ export default function PromptLibraryPage() {
                                 className="pl-9 h-9"
                             />
                         </div>
-                        <Button onClick={() => { setEditPrompt(null); setShowCreate(true) }} className="gap-1.5 h-9">
+                        <Button onClick={() => { setEditPrompt(null); setShowCreate(true) }} className="gap-1.5 h-9 w-full sm:w-auto shrink-0">
                             <Plus className="h-4 w-4" /> Create New
                         </Button>
                     </div>
@@ -158,7 +158,7 @@ export default function PromptLibraryPage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex items-center gap-3 mb-6">
+                    <div className="flex flex-wrap items-center gap-3 mb-6">
                         <Select value={category} onValueChange={setCategory}>
                             <SelectTrigger className="w-[160px] h-8 text-xs">
                                 <SelectValue placeholder="Category" />
@@ -344,7 +344,7 @@ function CreateEditModal({ prompt, onClose, onSaved }: { prompt: PromptItem | nu
                     <DialogTitle>{isEdit ? 'Edit Prompt' : 'Create New Prompt'}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div><Label>Title *</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. NDA Clause Review" /></div>
                         <div><Label>Category</Label>
                             <Select value={cat} onValueChange={setCat}>
@@ -357,7 +357,7 @@ function CreateEditModal({ prompt, onClose, onSaved }: { prompt: PromptItem | nu
                     <div><Label>Instruction *</Label>
                         <Textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Write your prompt... Use {{variable_name}} for dynamic fields." className="min-h-[120px]" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div><Label>Type</Label>
                             <Select value={type} onValueChange={setType}><SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent><SelectItem value="prompt">Prompt</SelectItem><SelectItem value="example">Example</SelectItem><SelectItem value="playbook">Playbook</SelectItem></SelectContent>

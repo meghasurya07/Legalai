@@ -34,6 +34,7 @@ import {
     SidebarRail,
     SidebarGroup,
     SidebarGroupContent,
+    useSidebar,
 } from "@/components/ui/sidebar"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -53,6 +54,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const router = useRouter()
     const { user } = useUser()
     const { settings: userSettings } = useUserSettings()
+    const { setOpenMobile } = useSidebar()
+
+    const navigateTo = (path: string, options?: { refresh?: boolean }) => {
+        router.push(path)
+        if (options?.refresh) {
+            router.refresh()
+        }
+        setOpenMobile(false)
+    }
 
     const userName = userSettings.user_name || user?.name || "User Name"
     const userEmail = user?.email || "user@example.com"
@@ -93,21 +103,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <SidebarMenuItem>
-                                <SidebarMenuButton tooltip="New Chat" className="mb-2 rounded-xl" onClick={() => { router.push('/'); router.refresh() }}>
+                                <SidebarMenuButton tooltip="New Chat" className="mb-2 rounded-xl" onClick={() => navigateTo('/', { refresh: true })}>
                                     <MessageSquarePlus className="text-muted-foreground" />
                                     <span className="font-medium">New Chat</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <div className="mx-3 my-2 border-t border-border" />
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/' || pathname === '/chat'} tooltip="Workspace" onClick={() => router.push('/')}>
+                                <SidebarMenuButton isActive={pathname === '/' || pathname === '/chat'} tooltip="Workspace" onClick={() => navigateTo('/')}>
                                     <LayoutGrid />
                                     <span>Workspace</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
 
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname?.startsWith('/documents')} tooltip="Documents" onClick={() => router.push('/documents')}>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/documents')} tooltip="Documents" onClick={() => navigateTo('/documents')}>
                                     <BookOpen />
                                     <span>Documents</span>
                                 </SidebarMenuButton>
@@ -132,7 +142,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         <SidebarMenuButton
                                             isActive={pathname === '/calendar/schedule'}
                                             tooltip="Schedule"
-                                            onClick={() => router.push('/calendar/schedule')}
+                                            onClick={() => navigateTo('/calendar/schedule')}
                                             className="h-8"
                                         >
                                             <Calendar className="h-4 w-4" />
@@ -143,7 +153,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         <SidebarMenuButton
                                             isActive={pathname === '/calendar/deadlines'}
                                             tooltip="Deadlines"
-                                            onClick={() => router.push('/calendar/deadlines')}
+                                            onClick={() => navigateTo('/calendar/deadlines')}
                                             className="h-8"
                                         >
                                             <CalendarClock className="h-4 w-4" />
@@ -154,25 +164,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </Collapsible>
 
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => router.push('/templates')}>
+                                <SidebarMenuButton isActive={pathname === '/templates'} tooltip="Templates" onClick={() => navigateTo('/templates')}>
                                     <Library />
                                     <span>Templates</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname?.startsWith('/prompt-library')} tooltip="Prompt Library" onClick={() => router.push('/prompt-library')}>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/prompt-library')} tooltip="Prompt Library" onClick={() => navigateTo('/prompt-library')}>
                                     <BookMarked />
                                     <span>Prompt Library</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname?.startsWith('/drafts')} tooltip="Drafts" onClick={() => router.push('/drafts')}>
+                                <SidebarMenuButton isActive={pathname?.startsWith('/drafts')} tooltip="Drafts" onClick={() => navigateTo('/drafts')}>
                                     <FileEdit />
                                     <span>Drafts</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                             <SidebarMenuItem>
-                                <SidebarMenuButton isActive={pathname === '/recent-chats'} tooltip="Recent Chats" onClick={() => router.push('/recent-chats')}>
+                                <SidebarMenuButton isActive={pathname === '/recent-chats'} tooltip="Recent Chats" onClick={() => navigateTo('/recent-chats')}>
                                     <History />
                                     <span>Recent Chats</span>
                                 </SidebarMenuButton>
@@ -218,19 +228,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuGroup>
-                                    <DropdownMenuItem onClick={() => router.push('/settings')}>
+                                    <DropdownMenuItem onClick={() => navigateTo('/settings')}>
                                         <Settings className="mr-2 h-4 w-4" />
                                         <span>Settings</span>
                                     </DropdownMenuItem>
                                     
                                     {isFirmAdmin && (
-                                        <DropdownMenuItem onClick={() => router.push('/organization')}>
+                                        <DropdownMenuItem onClick={() => navigateTo('/organization')}>
                                             <Building2 className="mr-2 h-4 w-4" />
                                             <span>Organization</span>
                                         </DropdownMenuItem>
                                     )}
 
-                                    <DropdownMenuItem onClick={() => router.push('/help')}>
+                                    <DropdownMenuItem onClick={() => navigateTo('/help')}>
                                         <HelpCircle className="mr-2 h-4 w-4" />
                                         <span>Help</span>
                                     </DropdownMenuItem>

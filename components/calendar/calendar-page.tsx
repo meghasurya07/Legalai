@@ -265,22 +265,30 @@ export function CalendarPage({ tab }: CalendarPageProps) {
                 ) : (
                     <>
                         {cal.view === "month" && (
-                            <CalendarMonthView
-                                currentDate={cal.currentDate}
-                                getItemsForDay={cal.getItemsForDay}
-                                isToday={cal.isToday}
-                                onDayClick={handleDayClick}
-                                onItemClick={handleItemClick}
-                            />
+                            <div className="flex-1 overflow-x-auto min-w-0">
+                                <div className="min-w-[768px] md:min-w-0 h-full flex flex-col">
+                                    <CalendarMonthView
+                                        currentDate={cal.currentDate}
+                                        getItemsForDay={cal.getItemsForDay}
+                                        isToday={cal.isToday}
+                                        onDayClick={handleDayClick}
+                                        onItemClick={handleItemClick}
+                                    />
+                                </div>
+                            </div>
                         )}
                         {cal.view === "week" && (
-                            <CalendarWeekView
-                                currentDate={cal.currentDate}
-                                getItemsForDay={cal.getItemsForDay}
-                                isToday={cal.isToday}
-                                onDayClick={handleDayClick}
-                                onItemClick={handleItemClick}
-                            />
+                            <div className="flex-1 overflow-x-auto min-w-0">
+                                <div className="min-w-[768px] md:min-w-0 h-full flex flex-col">
+                                    <CalendarWeekView
+                                        currentDate={cal.currentDate}
+                                        getItemsForDay={cal.getItemsForDay}
+                                        isToday={cal.isToday}
+                                        onDayClick={handleDayClick}
+                                        onItemClick={handleItemClick}
+                                    />
+                                </div>
+                            </div>
                         )}
                         {cal.view === "day" && (
                             <CalendarDayView
@@ -347,7 +355,7 @@ export function CalendarPage({ tab }: CalendarPageProps) {
             </div>
 
             {/* Stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
                 {[
                     { label: "Upcoming", value: cal.stats.upcoming, icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
                     { label: "Overdue", value: cal.stats.overdue, icon: AlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30", pulse: cal.stats.overdue > 0 },

@@ -264,18 +264,20 @@ export default function AuditTab() {
                         </div>
                     ) : (
                         <>
-                            {/* Table header */}
-                            <div className="grid grid-cols-[1fr_1.2fr_1fr_0.8fr_auto] gap-4 px-4 py-3 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                <span>Timestamp</span>
-                                <span>Action</span>
-                                <span>User</span>
-                                <span>Target</span>
-                                <span className="w-8"></span>
-                            </div>
+                            <div className="overflow-x-auto w-full">
+                                <div className="min-w-[650px] w-full">
+                                    {/* Table header */}
+                                    <div className="grid grid-cols-[1fr_1.2fr_1fr_0.8fr_auto] gap-4 px-4 py-3 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                        <span>Timestamp</span>
+                                        <span>Action</span>
+                                        <span>User</span>
+                                        <span>Target</span>
+                                        <span className="w-8"></span>
+                                    </div>
 
-                            {/* Table rows */}
-                            <div className="divide-y">
-                                {entries.map(entry => (
+                                    {/* Table rows */}
+                                    <div className="divide-y">
+                                        {entries.map(entry => (
                                     <div key={entry.id}>
                                         <button
                                             className="grid grid-cols-[1fr_1.2fr_1fr_0.8fr_auto] gap-4 px-4 py-3 w-full text-left hover:bg-muted/40 transition-colors items-center"
@@ -353,6 +355,8 @@ export default function AuditTab() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    </div>
 
                             {/* Pagination */}
                             {totalPages > 1 && (

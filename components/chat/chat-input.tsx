@@ -344,7 +344,7 @@ export function ChatInput({
                                             />
                                             <label
                                                 htmlFor="confidence-mode-toggle"
-                                                className="text-xs font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                                                className="text-xs font-medium text-muted-foreground cursor-pointer select-none whitespace-nowrap hidden sm:inline"
                                             >
                                                 Verification
                                             </label>

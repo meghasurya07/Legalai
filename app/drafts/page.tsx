@@ -267,7 +267,7 @@ export default function DraftsPage() {
                             className="pl-9"
                         />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-full sm:w-32">
                             <SelectValue placeholder="Status" />

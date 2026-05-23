@@ -19,7 +19,6 @@ import {
 } from "@/lib/citations"
 import type { CitationEntry } from "@/lib/citations"
 import dynamic from "next/dynamic"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 // Extracted sub-components and hook
@@ -129,11 +128,19 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     }, [])
 
     const hasMessages = messages.length > 0
-    const isMobile = useIsMobile()
+    const [isDesktopSplit, setIsDesktopSplit] = React.useState(true)
+
+    React.useEffect(() => {
+        const mql = window.matchMedia("(min-width: 1024px)")
+        const onChange = () => setIsDesktopSplit(mql.matches)
+        mql.addEventListener("change", onChange)
+        setIsDesktopSplit(mql.matches)
+        return () => mql.removeEventListener("change", onChange)
+    }, [])
 
     return (
         <div className="flex h-full w-full bg-background relative overflow-hidden">
-            <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting && !isMobile ? 'w-[45%]' : 'flex-1'}`}>
+            <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting && isDesktopSplit ? 'w-[45%]' : 'flex-1'}`}>
                 <div className="flex flex-col h-full w-full max-w-6xl mx-auto p-2 sm:p-3 md:p-4 relative">
 
                     {/* Preview Dialog */}
@@ -227,7 +234,10 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         onSend={handleSend}
                         onStop={handleStop}
                         onImprovePrompt={handleImprovePrompt}
-                        onFileUpload={handleFileUpload}
+                        onFileUpload={(e) => {
+                            handleFileUpload(e)
+                            setIsFileDialogOpen(false)
+                        }}
                         onPasteFiles={(files) => addFilesToUploadQueue(files, {
                             successMessage: (count) => `Added ${count} image${count === 1 ? '' : 's'} from clipboard`
                         })}
@@ -253,7 +263,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 </div>
             </div>
             {/* Draft Editor Panel (Harvey-style split pane) */}
-            {isDrafting && !isMobile && (
+            {isDrafting && isDesktopSplit && (
                 <div className="w-[55%] h-full shrink-0 transition-all duration-300 ease-in-out">
                     <DraftEditorPanel
                         isOpen={isDrafting}
@@ -266,7 +276,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                 </div>
             )}
             {/* Draft Editor Panel — Sheet overlay on mobile */}
-            {isDrafting && isMobile && (
+            {isDrafting && !isDesktopSplit && (
                 <Sheet open={isDrafting} onOpenChange={(open) => !open && closeDraftPanel()}>
                     <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
                         <SheetTitle className="sr-only">Draft Editor</SheetTitle>

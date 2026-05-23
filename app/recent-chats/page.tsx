@@ -10,10 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatDistanceToNow } from "date-fns"
-import { MessageSquare, Folder, Workflow, Loader2, Trash2, Clock, ArrowRight, Sparkles, Pin, PinOff, Pencil, Check, X } from "lucide-react"
+import { MessageSquare, Folder, Workflow, Loader2, Trash2, Clock, ArrowRight, Sparkles, Pin, PinOff, Pencil, Check, X, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import { useDocuments } from "@/context/vault-context"
 import { Project } from "@/types"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface Conversation {
     id: string
@@ -263,31 +269,37 @@ export default function RecentChatsPage() {
                         </div>
                     ) : (
                         <>
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm truncate flex items-center gap-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                     {conv.pinned && <Pin className="h-3.5 w-3.5 text-primary shrink-0" />}
-                                    {conv.title || 'New Conversation'}
-                                </span>
-                                {activeTab === 'all' && getTypeBadge(conv.type)}
+                                    <span className="font-medium text-sm truncate">
+                                        {conv.title || 'New Conversation'}
+                                    </span>
+                                </div>
+                                {activeTab === 'all' && (
+                                    <div className="shrink-0">
+                                        {getTypeBadge(conv.type)}
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-2 mt-0.5 min-w-0 w-full text-xs text-muted-foreground">
                                 {isVaultType(conv.type) && project && (
-                                    <span className="text-xs text-muted-foreground truncate">{project.title}</span>
+                                    <span className="truncate max-w-[120px] sm:max-w-[200px]" title={project.title}>{project.title}</span>
                                 )}
                                 {isWorkflowType(conv.type) && workflow && (
-                                    <span className="text-xs text-muted-foreground truncate">{workflow.title}</span>
+                                    <span className="truncate max-w-[120px] sm:max-w-[200px]" title={workflow.title}>{workflow.title}</span>
                                 )}
                                 {((isVaultType(conv.type) && project) || (isWorkflowType(conv.type) && workflow)) && (
-                                    <span className="text-muted-foreground/40">•</span>
+                                    <span className="text-muted-foreground/40 shrink-0">•</span>
                                 )}
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="flex items-center gap-1 shrink-0">
                                     <Clock className="h-3 w-3" />
                                     {formatDistanceToNow(new Date(conv.updatedAt), { addSuffix: true })}
                                 </span>
                                 {conv.messageCount && conv.messageCount > 0 && (
                                     <>
-                                        <span className="text-muted-foreground/40">•</span>
-                                        <span className="text-xs text-muted-foreground">
+                                        <span className="text-muted-foreground/40 shrink-0">•</span>
+                                        <span className="shrink-0">
                                             {conv.messageCount} message{conv.messageCount !== 1 ? 's' : ''}
                                         </span>
                                     </>
@@ -299,49 +311,90 @@ export default function RecentChatsPage() {
 
                 {/* Actions */}
                 {!isRenaming && (
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
-                            title={conv.pinned ? 'Unpin' : 'Pin'}
-                            onClick={(e) => { e.stopPropagation(); handlePin(conv) }}
-                        >
-                            {conv.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            title="Rename"
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                setRenamingId(conv.id)
-                                setRenameValue(conv.title || '')
-                            }}
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            title="Open"
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                if (conv.projectId) {
-                                    router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
-                                } else if (conv.workflowId) {
-                                    router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
-                                } else {
-                                    router.push(`/chat/${conv.id}`)
-                                }
-                            }}
-                        >
-                            <ArrowRight className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            title="Delete"
-                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(conv) }}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    <>
+                        {/* Mobile & Tablet Actions (Dropdown) */}
+                        <div className="lg:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handlePin(conv)}>
+                                        {conv.pinned ? <PinOff className="h-4 w-4 mr-2" /> : <Pin className="h-4 w-4 mr-2" />}
+                                        <span>{conv.pinned ? 'Unpin' : 'Pin'}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                        setRenamingId(conv.id)
+                                        setRenameValue(conv.title || '')
+                                    }}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        <span>Rename</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                        if (conv.projectId) {
+                                            router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
+                                        } else if (conv.workflowId) {
+                                            router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
+                                        } else {
+                                            router.push(`/chat/${conv.id}`)
+                                        }
+                                    }}>
+                                        <ArrowRight className="h-4 w-4 mr-2" />
+                                        <span>Open</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(conv)}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        <span>Delete</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Desktop Actions (Hover) */}
+                        <div className="hidden lg:flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                title={conv.pinned ? 'Unpin' : 'Pin'}
+                                onClick={() => handlePin(conv)}
+                            >
+                                {conv.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                title="Rename"
+                                onClick={() => {
+                                    setRenamingId(conv.id)
+                                    setRenameValue(conv.title || '')
+                                }}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                title="Open"
+                                onClick={() => {
+                                    if (conv.projectId) {
+                                        router.push(`/documents/${conv.projectId}/chat/${conv.id}`)
+                                    } else if (conv.workflowId) {
+                                        router.push(`/templates/${conv.workflowId}/chat/${conv.id}`)
+                                    } else {
+                                        router.push(`/chat/${conv.id}`)
+                                    }
+                                }}
+                            >
+                                <ArrowRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                title="Delete"
+                                onClick={() => setDeleteTarget(conv)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </>
                 )}
             </div>
         )
@@ -369,7 +422,7 @@ export default function RecentChatsPage() {
                 <div className="max-w-5xl mx-auto w-full px-4 sm:px-8 py-6 sm:py-8 space-y-8">
                     {/* Stats bar */}
                     {!isLoading && conversations.length > 0 && (
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             {[
                                 { label: 'Total', value: stats.total, color: 'from-slate-500/10 to-transparent border-slate-500/20' },
                                 { label: 'Assistant', value: stats.assistant, color: 'from-blue-500/10 to-transparent border-blue-500/20' },
