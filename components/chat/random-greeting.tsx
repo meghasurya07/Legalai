@@ -31,12 +31,19 @@ function getGreetings(name?: string | null): string[] {
     ]
 }
 
+/**
+ * Returns a random greeting string.
+ * Safe to call on the client only (reads localStorage).
+ */
+export function getRandomGreeting(): string {
+    if (typeof window === "undefined") return GENERIC_GREETINGS[0]
+    const cachedName = localStorage.getItem('vault_user_name')
+    const greetings = getGreetings(cachedName)
+    return greetings[Math.floor(Math.random() * greetings.length)]
+}
+
 export default function RandomGreeting() {
-    const [greeting] = React.useState(() => {
-        const cachedName = localStorage.getItem('vault_user_name')
-        const greetings = getGreetings(cachedName)
-        return greetings[Math.floor(Math.random() * greetings.length)]
-    })
+    const [greeting] = React.useState(() => getRandomGreeting())
 
     // Sync localStorage cache in background for next visit
     React.useEffect(() => {
@@ -54,3 +61,4 @@ export default function RandomGreeting() {
 
     return <>{greeting}</>
 }
+

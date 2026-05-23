@@ -33,7 +33,7 @@ import {
     parseDocumentCitationUrl,
 } from "@/lib/citations"
 import type { CitationEntry } from "@/lib/citations"
-import dynamic from "next/dynamic"
+import { getRandomGreeting } from "@/components/chat/random-greeting"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 // Extracted sub-components and hook
@@ -183,7 +183,7 @@ interface ChatInterfaceProps {
     initialConversationId?: string
 }
 
-const RandomGreeting = dynamic(() => import("@/components/chat/random-greeting"), { ssr: false })
+
 
 /** Convert message content to ChatCitationSource[] using the dual-format parser. */
 function getSourcesFromContent(content: string): ChatCitationSource[] {
@@ -236,6 +236,22 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const [openCitationsIndex, setOpenCitationsIndex] = React.useState<number | null>(null)
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
     const [pdfViewerTarget, setPdfViewerTarget] = React.useState<PdfCitationTarget | null>(null)
+
+    // ─── Stable greeting (persists even when tab is idle) ────────
+    const [greeting] = React.useState(() => getRandomGreeting())
+    // Sync user name cache in background for next visit
+    React.useEffect(() => {
+        fetch('/api/user/settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.data?.user_name) {
+                    localStorage.setItem('vault_user_name', data.data.user_name)
+                } else {
+                    localStorage.removeItem('vault_user_name')
+                }
+            })
+            .catch(() => { })
+    }, [])
 
     // ─── Citation / PDF Viewer helpers ───────────────────────────
     const closeCitationsSidebar = () => {
@@ -333,7 +349,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 animate-in fade-in zoom-in-95 duration-700">
                             <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6 mb-6">
                                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
-                                    {mode === "project" ? projectTitle : <RandomGreeting />}
+                                    {mode === "project" ? projectTitle : greeting}
                                 </h1>
                             </div>
 
