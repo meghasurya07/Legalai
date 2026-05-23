@@ -44,7 +44,12 @@ export async function applyMemoryDecay(organizationId?: string): Promise<{
     `
 
     if (organizationId) {
-        query += ` AND organization_id = '${organizationId}'`
+        const { validateUUID } = await import('@/lib/validation')
+        const validOrgId = validateUUID(organizationId)
+        if (!validOrgId) {
+            throw new Error('Invalid organization UUID')
+        }
+        query += ` AND organization_id = '${validOrgId}'`
     }
 
     const { data, error } = await supabase.rpc('exec_sql', { query_text: query })

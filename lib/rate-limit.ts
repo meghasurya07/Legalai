@@ -12,16 +12,6 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>()
 
-// Clean up expired entries every 5 minutes
-setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of store) {
-        if (now > entry.resetAt) {
-            store.delete(key)
-        }
-    }
-}, 5 * 60 * 1000)
-
 export interface RateLimitConfig {
     /** Maximum requests allowed in the window */
     maxRequests: number
@@ -42,20 +32,40 @@ export interface RateLimitResult {
 export function checkRateLimit(key: string, config: RateLimitConfig): RateLimitResult {
     const now = Date.now()
     const windowMs = config.windowSeconds * 1000
-    const entry = store.get(key)
 
-    if (!entry || now > entry.resetAt) {
+    // 1. Lazy cleanup of expired entry for the current key
+    const entry = store.get(key)
+    if (entry && now > entry.resetAt) {
+        store.delete(key)
+    }
+
+    // 2. Proactive bounded pruning of other expired keys when Map size grows large
+    // This runs in the request context but is capped at 10 deletions to keep latency ultra-low.
+    if (store.size > 2000) {
+        let pruned = 0
+        for (const [k, e] of store.entries()) {
+            if (now > e.resetAt) {
+                store.delete(k)
+                pruned++
+            }
+            if (pruned >= 10) break
+        }
+    }
+
+    const currentEntry = store.get(key)
+
+    if (!currentEntry) {
         // New window
         store.set(key, { count: 1, resetAt: now + windowMs })
         return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + windowMs }
     }
 
-    if (entry.count >= config.maxRequests) {
-        return { allowed: false, remaining: 0, resetAt: entry.resetAt }
+    if (currentEntry.count >= config.maxRequests) {
+        return { allowed: false, remaining: 0, resetAt: currentEntry.resetAt }
     }
 
-    entry.count++
-    return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt }
+    currentEntry.count++
+    return { allowed: true, remaining: config.maxRequests - currentEntry.count, resetAt: currentEntry.resetAt }
 }
 
 // ── Preset rate limit configurations ──────────────────────────

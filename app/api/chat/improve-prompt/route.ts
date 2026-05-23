@@ -27,6 +27,17 @@ export async function POST(req: Request) {
     try {
         const auth = await requireAuth()
         if (auth instanceof Response) return auth
+        const { userId } = auth
+
+        // Rate limit prompt improvement requests (max 30/min per user)
+        const { checkRateLimit, RATE_LIMIT_AI } = await import('@/lib/rate-limit')
+        const { allowed } = checkRateLimit(`improve-prompt:${userId}`, RATE_LIMIT_AI)
+        if (!allowed) {
+            return new Response(JSON.stringify({ error: 'Too many requests. Please slow down.' }), {
+                status: 429,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
 
         const { prompt } = await req.json()
 
