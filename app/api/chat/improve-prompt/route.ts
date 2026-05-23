@@ -10,17 +10,17 @@ const SYSTEM_PROMPT = `
 You are an expert Legal AI Prompt Engineer. Your entire purpose is to take a user's rough, potentially vague, or simple input and rewrite it into a highly professional and precise prompt designed to get the best possible response from a senior legal AI assistant.
 
 CRITICAL INSTRUCTIONS:
-1. DO NOT ANSWER the user's question or provide legal advice. You are ONLY rewriting their input to be a better prompt.
-2. ENHANCE the prompt by specifying a clear role (e.g., "Act as a senior corporate attorney") AND instructing the AI to rely on provided context or documents if applicable.
-3. BE COMPREHENSIVE BUT OPEN-ENDED. If the user asks for a "summary", do NOT restrict the output to a rigid bulleted list or specific arbitrary points unless the user asked for them. Instead, instruct the AI to provide a "comprehensive, professional summary covering all key material terms, risks, and obligations." Make sure no important details would be missed.
-4. Keep the rewritten prompt written from the USER's perspective (e.g., "I need you to..." or "Act as...").
-5. If the user's input is already very good, just refine its tone to be highly professional.
-6. DO NOT wrap the output in quotes. Just output the raw rewritten text.
-7. Remember, you are writing the instructions that the *next* AI will follow.
+1. FIRST: Evaluate whether the user's input is a genuine, meaningful request. If the input is random characters, keyboard spam, gibberish, nonsensical text, or has no discernible intent, respond with EXACTLY: "[INVALID]" and nothing else. Examples of invalid input: "asdfsadsad", "hjkl;;", "aaaa", "test123test", "xyzxyz", random letter sequences.
+2. DO NOT ANSWER the user's question or provide legal advice. You are ONLY rewriting their input to be a better prompt.
+3. ENHANCE the prompt by specifying a clear role (e.g., "Act as a senior corporate attorney") AND instructing the AI to rely on provided context or documents if applicable.
+4. KEEP IT CONCISE. The improved prompt MUST be 2-3 sentences maximum. Do NOT write paragraphs. Be precise and direct.
+5. Keep the rewritten prompt written from the USER's perspective (e.g., "I need you to..." or "Act as...").
+6. If the user's input is already very good, just refine its tone to be highly professional.
+7. DO NOT wrap the output in quotes. Just output the raw rewritten text.
 
 Example Transformation:
 User: "summarize this contract"
-You: "Act as an expert commercial attorney. Please review the provided contract and produce a comprehensive summary. Ensure you capture all key material terms, major obligations of both parties, critical dates, and any notable risks or unusual clauses. Keep the output highly professional and well-structured, capturing all necessary details without missing any critical key points."
+You: "Act as an expert commercial attorney. Review the provided contract and produce a comprehensive summary covering all key material terms, obligations, critical dates, and notable risks or unusual clauses."
 `
 
 export async function POST(req: Request) {
@@ -45,10 +45,31 @@ export async function POST(req: Request) {
             return new Response('Invalid prompt format', { status: 400 })
         }
 
+        const trimmed = prompt.trim()
+
+        // Reject too-short inputs (less than 3 real characters)
+        if (trimmed.length < 3) {
+            return new Response(JSON.stringify({ error: 'Please enter a longer prompt to improve.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
+
+        // Basic gibberish detection: reject if no vowels or real words
+        const hasVowels = /[aeiouAEIOU]/.test(trimmed)
+        const hasSpaces = /\s/.test(trimmed)
+        const uniqueChars = new Set(trimmed.toLowerCase().replace(/\s/g, '')).size
+        if ((!hasVowels || uniqueChars < 3) && !hasSpaces) {
+            return new Response(JSON.stringify({ error: 'Your input doesn\'t appear to be a valid prompt. Please enter a meaningful question or instruction.' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
+
         const result = streamText({
             model: openai(AI_MODELS.promptImprovement),
             system: SYSTEM_PROMPT.trim(),
-            messages: [{ role: 'user', content: prompt }],
+            messages: [{ role: 'user', content: trimmed }],
             temperature: AI_TEMPERATURES.creative,
         })
 

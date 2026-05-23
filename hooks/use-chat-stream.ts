@@ -233,6 +233,14 @@ export function useChatStream({
     const handleImprovePrompt = async () => {
         if (!inputValue.trim() || isImprovingPrompt || isLoading) return
 
+        const trimmedInput = inputValue.trim()
+
+        // Client-side: reject very short input
+        if (trimmedInput.length < 3) {
+            toast.warning("Please enter a longer prompt to improve.")
+            return
+        }
+
         setIsImprovingPrompt(true)
         const originalInput = inputValue
         setInputValue("")
@@ -243,11 +251,17 @@ export function useChatStream({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
-                body: JSON.stringify({ prompt: originalInput })
+                body: JSON.stringify({ prompt: trimmedInput })
             })
 
             if (!response.ok) {
-                toast.error("Failed to improve prompt")
+                // Try to extract a user-friendly error message from the response
+                try {
+                    const errorData = await response.json()
+                    toast.warning(errorData.error || "Failed to improve prompt")
+                } catch {
+                    toast.error("Failed to improve prompt")
+                }
                 setInputValue(originalInput)
                 return
             }
@@ -264,6 +278,13 @@ export function useChatStream({
                     newText += chunk
                     setInputValue(newText)
                 }
+            }
+
+            // If the AI flagged this as invalid/gibberish, restore original and notify
+            if (newText.trim() === '[INVALID]' || newText.trim().startsWith('[INVALID]')) {
+                toast.warning("That doesn't look like a valid prompt. Please enter a meaningful question or instruction.")
+                setInputValue(originalInput)
+                return
             }
         } catch {
             toast.error("An error occurred while improving the prompt")
