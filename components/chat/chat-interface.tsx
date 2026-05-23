@@ -237,8 +237,11 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
     const [pdfViewerTarget, setPdfViewerTarget] = React.useState<PdfCitationTarget | null>(null)
 
-    // ─── Stable greeting (persists even when tab is idle) ────────
-    const [greeting] = React.useState(() => getRandomGreeting())
+    // ─── Stable greeting (deferred to client to avoid SSR hydration mismatch) ──
+    const [greeting, setGreeting] = React.useState("")
+    React.useEffect(() => {
+        setGreeting(getRandomGreeting())
+    }, [])
     // Sync user name cache in background for next visit
     React.useEffect(() => {
         fetch('/api/user/settings')
