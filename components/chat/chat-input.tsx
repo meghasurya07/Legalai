@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Paperclip, Globe, Wand2, UploadCloud, X, Cloud, Brain, Sparkles, Square, BookOpen } from "lucide-react"
+import { Paperclip, Globe, Wand2, UploadCloud, X, Cloud, Brain, Sparkles, Square, BookOpen, Scale, Briefcase, FileText, ShieldCheck, Search, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -89,6 +89,48 @@ interface PromptItem {
     type: string
 }
 
+function getCategoryMeta(category: string | null | undefined) {
+    const cat = (category || "General").toLowerCase()
+    if (cat.includes("corp") || cat.includes("m&a") || cat.includes("business")) {
+        return {
+            icon: Briefcase,
+            color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+            label: "Corporate",
+            theme: "amber"
+        }
+    }
+    if (cat.includes("litig") || cat.includes("court") || cat.includes("gavel")) {
+        return {
+            icon: Scale,
+            color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
+            label: "Litigation",
+            theme: "rose"
+        }
+    }
+    if (cat.includes("compliance") || cat.includes("risk") || cat.includes("regulatory")) {
+        return {
+            icon: ShieldCheck,
+            color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+            label: "Compliance",
+            theme: "emerald"
+        }
+    }
+    if (cat.includes("nda") || cat.includes("contract") || cat.includes("agree")) {
+        return {
+            icon: FileText,
+            color: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+            label: "Contracts",
+            theme: "blue"
+        }
+    }
+    return {
+        icon: Sparkles,
+        color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
+        label: "General",
+        theme: "indigo"
+    }
+}
+
 export function ChatInput({
     inputValue,
     onInputChange,
@@ -120,6 +162,55 @@ export function ChatInput({
     const [slashSearch, setSlashSearch] = React.useState("")
     const [selectedPromptIdx, setSelectedPromptIdx] = React.useState(0)
     const slashMenuRef = React.useRef<HTMLDivElement>(null)
+
+    // States for the advanced Prompts Popover (Harvey/Legora style)
+    const [popoverSearch, setPopoverSearch] = React.useState("")
+    const [popoverCategory, setPopoverCategory] = React.useState("All")
+    const [selectedPopoverPrompt, setSelectedPopoverPrompt] = React.useState<PromptItem | null>(null)
+    const [promptVariables, setPromptVariables] = React.useState<Record<string, string>>({})
+
+    // Keep popover selection synchronized with filter changes
+    const filteredPopoverPrompts = React.useMemo(() => {
+        return prompts.filter((p) => {
+            const matchesSearch = p.title.toLowerCase().includes(popoverSearch.toLowerCase()) || 
+                                 (p.description && p.description.toLowerCase().includes(popoverSearch.toLowerCase()))
+            
+            if (popoverCategory === "All") return matchesSearch
+            
+            const meta = getCategoryMeta(p.category)
+            return meta.label.toLowerCase() === popoverCategory.toLowerCase() && matchesSearch
+        })
+    }, [prompts, popoverSearch, popoverCategory])
+
+    // Auto-select the first prompt when list changes
+    React.useEffect(() => {
+        if (filteredPopoverPrompts.length > 0) {
+            // Only auto-select if current selection is not in the new filtered list
+            setSelectedPopoverPrompt(prev => {
+                if (prev && filteredPopoverPrompts.some(p => p.id === prev.id)) {
+                    return prev
+                }
+                return filteredPopoverPrompts[0]
+            })
+        } else {
+            setSelectedPopoverPrompt(null)
+        }
+    }, [filteredPopoverPrompts])
+
+    // Whenever selected prompt changes, parse its variable placeholders
+    React.useEffect(() => {
+        if (selectedPopoverPrompt) {
+            const matches = Array.from(selectedPopoverPrompt.content.matchAll(/\{\{([^}]+)\}\}/g))
+            const variables = Array.from(new Set(matches.map((m) => m[1])))
+            const initialVars: Record<string, string> = {}
+            variables.forEach((v) => {
+                initialVars[v] = ""
+            })
+            setPromptVariables(initialVars)
+        } else {
+            setPromptVariables({})
+        }
+    }, [selectedPopoverPrompt])
 
     React.useEffect(() => {
         const fetchPrompts = async () => {
@@ -245,30 +336,43 @@ export function ChatInput({
 
     return (
         <div ref={slashMenuRef} className={`w-full z-20 pb-6 pt-2 px-2 md:px-8 bg-transparent relative ${!hasMessages ? "mt-4 max-w-4xl mx-auto" : "mt-auto max-w-5xl mx-auto"}`}>
-            {/* Slash autocomplete overlay (Harvey-style) */}
+            {/* Slash autocomplete overlay (Harvey/Legora-style) */}
             {showSlashMenu && filteredPrompts.length > 0 && (
-                <div className="absolute bottom-full left-4 md:left-10 mb-2 z-50 w-72 bg-card border border-border/60 rounded-2xl shadow-2xl max-h-60 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <div className="px-2.5 py-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest border-b border-border/50 mb-1">
-                        Prompt Templates
+                <div className="absolute bottom-full left-2 right-2 sm:left-4 sm:right-auto md:left-10 mb-3 z-50 sm:w-80 bg-card border border-border/60 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.4)] max-h-60 sm:max-h-72 overflow-y-auto p-1.5 space-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="px-2.5 py-2 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest border-b border-border/50 mb-1.5 flex justify-between items-center">
+                        <span>Legal Templates</span>
+                        <span>{filteredPrompts.length} matching</span>
                     </div>
-                    {filteredPrompts.map((prompt, idx) => (
-                        <button
-                            key={prompt.id}
-                            type="button"
-                            onClick={() => insertPrompt(prompt)}
-                            className={`w-full text-left px-2.5 py-2 rounded-xl transition-all duration-150 flex flex-col gap-0.5 ${idx === selectedPromptIdx ? "bg-muted text-foreground font-medium" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
-                        >
-                            <span className="text-xs font-semibold">{prompt.title}</span>
-                            {prompt.description && (
-                                <span className="text-[10px] opacity-80 line-clamp-1">{prompt.description}</span>
-                            )}
-                        </button>
-                    ))}
+                    {filteredPrompts.map((prompt, idx) => {
+                        const meta = getCategoryMeta(prompt.category)
+                        const Icon = meta.icon
+                        return (
+                            <button
+                                key={prompt.id}
+                                type="button"
+                                onClick={() => insertPrompt(prompt)}
+                                className={`w-full text-left px-3 py-2.5 rounded-xl transition-all duration-150 flex items-center gap-3 ${idx === selectedPromptIdx ? "bg-muted/90 text-foreground font-medium shadow-sm scale-[0.99]" : "hover:bg-muted/40 text-muted-foreground hover:text-foreground"}`}
+                            >
+                                <div className={`p-1.5 rounded-lg shrink-0 ${meta.color.split(" ")[1]} ${meta.color.split(" ")[0]}`}>
+                                    <Icon className="h-3.5 w-3.5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-1">
+                                        <span className="text-xs font-semibold text-foreground truncate">{prompt.title}</span>
+                                        <span className="text-[9px] px-2 py-0.5 rounded-full border border-border bg-muted/40 text-muted-foreground shrink-0">{meta.label}</span>
+                                    </div>
+                                    {prompt.description && (
+                                        <span className="text-[10px] opacity-75 line-clamp-1 mt-0.5">{prompt.description}</span>
+                                    )}
+                                </div>
+                            </button>
+                        )
+                    })}
                 </div>
             )}
 
-            {/* Quick Prompt Chips (Legora-style) */}
-            {!hasMessages && inputValue.trim().length === 0 && uploadedFiles.length === 0 && prompts.length > 0 && (
+            {/* Quick Prompt Chips (Legora-style) - Replaced by beautiful infinite marquee */}
+            {false && !hasMessages && inputValue.trim().length === 0 && uploadedFiles.length === 0 && prompts.length > 0 && (
                 <div className="flex flex-wrap gap-2 justify-center mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {prompts.slice(0, 4).map((prompt) => (
                         <Button
@@ -366,7 +470,7 @@ export function ChatInput({
                 {/* Text input */}
                 <Textarea
                     id="chat-input"
-                    placeholder={isLoading ? "AI is thinking..." : isImprovingPrompt ? "Rewriting prompt..." : "Ask Wesley anything..."}
+                    placeholder={isLoading ? "AI is thinking..." : isImprovingPrompt ? "Rewriting prompt..." : "Ask Wesley anything — type / for templates"}
                     className={`${hasMessages ? "min-h-[44px]" : "min-h-[120px]"} max-h-[50vh] overflow-y-auto w-full resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 p-4 text-base ${(isThinking || isWebSearch || isDeepResearch) && mode !== "project" ? "pt-10" : ""}`}
                     value={inputValue}
                     onChange={(e) => handleInputChangeInternal(e.target.value)}
@@ -457,37 +561,265 @@ export function ChatInput({
                                         <span className="hidden md:inline">Prompts</span>
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-80 p-0 rounded-2xl overflow-hidden border border-border/60 shadow-2xl bg-card" align="start">
-                                    <div className="p-4 border-b bg-muted/20">
-                                        <h3 className="font-semibold text-sm">Prompt Library</h3>
-                                        <p className="text-[11px] text-muted-foreground">Select a legal template to inject into your chat</p>
+                                <PopoverContent className="w-[95vw] sm:w-[440px] md:w-[740px] max-w-[95vw] p-0 rounded-2xl overflow-hidden border border-border/60 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] bg-card" align="start">
+                                    {/* 1. Header with Search */}
+                                    <div className="p-3 sm:p-4 border-b bg-muted/15 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                                        <div>
+                                            <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+                                                <BookOpen className="h-4 w-4 text-primary" />
+                                                Prompt Directory
+                                            </h3>
+                                            <p className="text-[11px] text-muted-foreground mt-0.5">Customize and inject premium legal templates instantly</p>
+                                        </div>
+                                        <div className="relative w-full sm:w-48 md:w-56 shrink-0">
+                                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                            <Input
+                                                type="text"
+                                                placeholder="Search templates..."
+                                                value={popoverSearch}
+                                                onChange={(e) => setPopoverSearch(e.target.value)}
+                                                className="h-8.5 pl-8 pr-7 text-xs bg-background/50 rounded-lg border-border/60 focus-visible:ring-1 focus-visible:ring-ring/25"
+                                            />
+                                            {popoverSearch && (
+                                                <button
+                                                    onClick={() => setPopoverSearch("")}
+                                                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="max-h-64 overflow-y-auto p-1.5 space-y-0.5">
-                                        {prompts.map((prompt) => (
-                                            <button
-                                                key={prompt.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    onInputChange(prompt.content)
-                                                    const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
-                                                    if (textarea) {
-                                                        setTimeout(() => {
-                                                            textarea.focus()
-                                                            const firstVarMatch = prompt.content.match(/\{\{([^}]+)\}\}/)
-                                                            if (firstVarMatch && firstVarMatch.index !== undefined) {
-                                                                textarea.setSelectionRange(firstVarMatch.index, firstVarMatch.index + firstVarMatch[0].length)
-                                                            }
-                                                        }, 10)
-                                                    }
-                                                }}
-                                                className="w-full text-left px-3 py-2 rounded-xl hover:bg-muted/60 transition-colors flex flex-col gap-0.5"
-                                            >
-                                                <span className="text-xs font-semibold text-foreground">{prompt.title}</span>
-                                                {prompt.description && (
-                                                    <span className="text-[10px] text-muted-foreground line-clamp-2">{prompt.description}</span>
+
+                                    {/* 2. Split Body */}
+                                    <div className="grid grid-cols-1 md:grid-cols-12 h-[50vh] sm:h-[55vh] md:h-[400px] max-h-[400px] overflow-hidden">
+                                        
+                                        {/* ─── LEFT COLUMN (List & Filters) ─── */}
+                                        <div className={`col-span-1 md:col-span-5 border-r border-border/50 flex flex-col h-full overflow-hidden bg-muted/5 ${selectedPopoverPrompt ? 'hidden md:flex' : 'flex'}`}>
+                                            
+                                            {/* Category Tab Pills */}
+                                            <div className="flex gap-1.5 p-2 overflow-x-auto no-scrollbar border-b border-border/40 shrink-0 bg-background/30">
+                                                {["All", "Corporate", "Litigation", "Contracts", "Compliance"].map((cat) => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => setPopoverCategory(cat)}
+                                                        className={`text-[10px] font-medium px-2.5 py-1 rounded-full transition-all shrink-0 ${popoverCategory === cat ? "bg-primary text-primary-foreground font-semibold" : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Prompts Cards List */}
+                                            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin scrollbar-thumb-muted">
+                                                {filteredPopoverPrompts.length === 0 ? (
+                                                    <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                                                        <Info className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                                                        <span className="text-[11px] font-medium text-muted-foreground">No prompts found</span>
+                                                    </div>
+                                                ) : (
+                                                    filteredPopoverPrompts.map((prompt) => {
+                                                        const meta = getCategoryMeta(prompt.category)
+                                                        const Icon = meta.icon
+                                                        const isSelected = selectedPopoverPrompt?.id === prompt.id
+                                                        return (
+                                                            <button
+                                                                key={prompt.id}
+                                                                type="button"
+                                                                onClick={() => setSelectedPopoverPrompt(prompt)}
+                                                                className={`w-full text-left p-2.5 rounded-xl transition-all duration-150 flex items-start gap-2.5 border ${isSelected ? "bg-card border-primary/20 shadow-[0_2px_8px_rgba(0,0,0,0.03)]" : "bg-transparent border-transparent hover:bg-muted/50 text-muted-foreground"}`}
+                                                            >
+                                                                <div className={`p-1.5 rounded-lg mt-0.5 shrink-0 ${isSelected ? meta.color.split(" ")[1] + " " + meta.color.split(" ")[0] : "bg-muted text-muted-foreground"}`}>
+                                                                    <Icon className="h-3.5 w-3.5" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center justify-between gap-1">
+                                                                        <span className={`text-[11px] font-semibold truncate ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>{prompt.title}</span>
+                                                                    </div>
+                                                                    {prompt.description && (
+                                                                        <p className="text-[10px] leading-relaxed line-clamp-2 mt-0.5 text-muted-foreground/80">{prompt.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        )
+                                                    })
                                                 )}
-                                            </button>
-                                        ))}
+                                            </div>
+                                        </div>
+
+                                        {/* ─── RIGHT COLUMN (Variables & Preview Form) ─── */}
+                                        <div className={`col-span-1 md:col-span-7 flex flex-col h-full overflow-hidden bg-card ${selectedPopoverPrompt ? 'flex' : 'hidden md:flex'}`}>
+                                            {selectedPopoverPrompt ? (
+                                                <div className="flex flex-col h-full overflow-hidden">
+                                                    
+                                                    {/* Scrollable details and form parameters */}
+                                                    <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-thin scrollbar-thumb-muted">
+                                                        {/* Mobile back button */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedPopoverPrompt(null)}
+                                                            className="md:hidden flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground mb-1 transition-colors"
+                                                        >
+                                                            <span>←</span> Back to templates
+                                                        </button>
+                                                        
+                                                        {/* Metadata header */}
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                                                                    {selectedPopoverPrompt.type || "Prompt"}
+                                                                </span>
+                                                                <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+                                                                <span className="text-[10px] text-primary bg-primary/10 border border-primary/10 px-1.5 py-0.5 rounded-full font-medium">
+                                                                    {getCategoryMeta(selectedPopoverPrompt.category).label}
+                                                                </span>
+                                                            </div>
+                                                            <h4 className="font-semibold text-sm text-foreground mt-1">{selectedPopoverPrompt.title}</h4>
+                                                            {selectedPopoverPrompt.description && (
+                                                                <p className="text-[11px] text-muted-foreground leading-relaxed mt-1.5">{selectedPopoverPrompt.description}</p>
+                                                            )}
+                                                        </div>
+
+                                                        <hr className="border-border/40" />
+
+                                                        {/* Dynamic Form Parameter inputs */}
+                                                        {Object.keys(promptVariables).length > 0 ? (
+                                                            <div className="space-y-3.5">
+                                                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                                                    <Wand2 className="h-3 w-3 text-primary animate-pulse" />
+                                                                    Template Parameters
+                                                                </div>
+                                                                <div className="grid gap-3">
+                                                                    {Object.keys(promptVariables).map((v) => {
+                                                                        // Beautify variable label
+                                                                        const label = v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                                                                        return (
+                                                                            <div key={v} className="space-y-1">
+                                                                                <label className="text-[10px] font-medium text-foreground">{label}</label>
+                                                                                <Input
+                                                                                    type="text"
+                                                                                    placeholder={`Value for {{${v}}}`}
+                                                                                    value={promptVariables[v]}
+                                                                                    onChange={(e) => {
+                                                                                        setPromptVariables((prev) => ({
+                                                                                            ...prev,
+                                                                                            [v]: e.target.value,
+                                                                                        }))
+                                                                                    }}
+                                                                                    className="h-8 text-xs bg-background border-border/60 rounded-md focus-visible:ring-1 focus-visible:ring-ring/20"
+                                                                                />
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-muted/15 border border-border/45 rounded-xl p-3 flex items-start gap-2.5 text-muted-foreground text-[10px] leading-relaxed">
+                                                                <Info className="h-4 w-4 shrink-0 text-muted-foreground/60 mt-0.5" />
+                                                                This prompt template does not require any parameters and is ready to insert.
+                                                            </div>
+                                                        )}
+
+                                                        {/* Interactive Live Preview Box */}
+                                                        <div className="space-y-1.5">
+                                                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                                Template Text Preview
+                                                            </div>
+                                                            <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-[10.5px] leading-relaxed text-foreground/80 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                                                {(() => {
+                                                                    const text = selectedPopoverPrompt.content
+                                                                    // Highlight variables in preview
+                                                                    const parts: React.ReactNode[] = []
+                                                                    let lastIdx = 0
+                                                                    const regex = /\{\{([^}]+)\}\}/g
+                                                                    let match
+                                                                    let keyIdx = 0
+                                                                    while ((match = regex.exec(text)) !== null) {
+                                                                        const start = match.index
+                                                                        const end = regex.lastIndex
+                                                                        const varName = match[1]
+                                                                        const varValue = promptVariables[varName] || `{{${varName}}}`
+
+                                                                        // Push preceding text
+                                                                        if (start > lastIdx) {
+                                                                            parts.push(text.substring(lastIdx, start))
+                                                                        }
+
+                                                                        // Push highlighted placeholder
+                                                                        parts.push(
+                                                                            <span
+                                                                                key={keyIdx++}
+                                                                                className={`px-1 rounded border text-[10px] font-semibold transition-all ${
+                                                                                    promptVariables[varName]
+                                                                                        ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                                                                        : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                                                                }`}
+                                                                            >
+                                                                                {varValue}
+                                                                            </span>
+                                                                        )
+                                                                        lastIdx = end
+                                                                    }
+                                                                    if (lastIdx < text.length) {
+                                                                        parts.push(text.substring(lastIdx))
+                                                                    }
+                                                                    return parts.length > 0 ? parts : text
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Footer insert button */}
+                                                    <div className="p-2.5 sm:p-3 border-t bg-muted/15 flex items-center justify-between gap-2 sm:gap-3 shrink-0">
+                                                        <a
+                                                            href="/prompt-library"
+                                                            className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1.5"
+                                                        >
+                                                            Open Library
+                                                            <span className="opacity-60 font-normal">→</span>
+                                                        </a>
+                                                        <Button
+                                                            size="sm"
+                                                            className="gap-1.5 h-8.5 rounded-lg text-xs font-semibold px-4"
+                                                            onClick={() => {
+                                                                // Merge template text with parameters
+                                                                let finalContent = selectedPopoverPrompt.content
+                                                                Object.keys(promptVariables).forEach((v) => {
+                                                                    const placeholder = `{{${v}}}`
+                                                                    const val = promptVariables[v].trim() || placeholder
+                                                                    finalContent = finalContent.replaceAll(placeholder, val)
+                                                                })
+
+                                                                onInputChange(finalContent)
+                                                                const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+                                                                if (textarea) {
+                                                                    setTimeout(() => {
+                                                                        textarea.focus()
+                                                                        // If there were any unfilled parameters, select them
+                                                                        const unfilledMatch = finalContent.match(/\{\{([^}]+)\}\}/)
+                                                                        if (unfilledMatch && unfilledMatch.index !== undefined) {
+                                                                            textarea.setSelectionRange(unfilledMatch.index, unfilledMatch.index + unfilledMatch[0].length)
+                                                                        } else {
+                                                                            // Otherwise place cursor at the end
+                                                                            textarea.setSelectionRange(finalContent.length, finalContent.length)
+                                                                        }
+                                                                    }, 10)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Sparkles className="h-3.5 w-3.5" />
+                                                            Use Template
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                                                    <Info className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                                                    <span className="text-[11px] font-medium text-muted-foreground">Select a template</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </PopoverContent>
                             </Popover>

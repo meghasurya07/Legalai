@@ -2,8 +2,23 @@
 
 import * as React from "react"
 
-import { Sparkles } from "lucide-react"
-import { FileText, Table } from "lucide-react"
+import {
+    Sparkles,
+    FileText,
+    Table,
+    UserX,
+    Key,
+    TrendingUp,
+    ShieldCheck,
+    Landmark,
+    Lock,
+    ClipboardList,
+    HelpCircle,
+    Calculator,
+    CloudLightning,
+    ShieldAlert,
+    Briefcase
+} from "lucide-react"
 import { FilePreviewContent } from "@/components/documents/file-preview-content"
 import { Attachment } from "@/types"
 import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
@@ -26,6 +41,137 @@ import { useChatStream } from "@/hooks/use-chat-stream"
 import { MessageBubble } from "@/components/chat/message-bubble"
 import { ChatInput } from "@/components/chat/chat-input"
 import { DraftEditorPanel } from "@/components/chat/draft-editor-panel"
+
+const COLOR_CLASSES: Record<string, { bg: string, text: string, hover: string }> = {
+    rose: {
+        bg: "bg-rose-500/10 dark:bg-rose-500/20",
+        text: "text-rose-600 dark:text-rose-400",
+        hover: "hover:border-rose-500/50 hover:shadow-[0_0_15px_rgba(244,63,94,0.15)] dark:hover:shadow-[0_0_15px_rgba(244,63,94,0.25)]"
+    },
+    amber: {
+        bg: "bg-amber-500/10 dark:bg-amber-500/20",
+        text: "text-amber-600 dark:text-amber-400",
+        hover: "hover:border-amber-500/50 hover:shadow-[0_0_15px_rgba(245,158,11,0.15)] dark:hover:shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+    },
+    emerald: {
+        bg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+        text: "text-emerald-600 dark:text-emerald-400",
+        hover: "hover:border-emerald-500/50 hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] dark:hover:shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+    },
+    blue: {
+        bg: "bg-blue-500/10 dark:bg-blue-500/20",
+        text: "text-blue-600 dark:text-blue-400",
+        hover: "hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_0_15px_rgba(59,130,246,0.25)]"
+    },
+    purple: {
+        bg: "bg-purple-500/10 dark:bg-purple-500/20",
+        text: "text-purple-600 dark:text-purple-400",
+        hover: "hover:border-purple-500/50 hover:shadow-[0_0_15px_rgba(168,85,247,0.15)] dark:hover:shadow-[0_0_15px_rgba(168,85,247,0.25)]"
+    },
+    violet: {
+        bg: "bg-violet-500/10 dark:bg-violet-500/20",
+        text: "text-violet-600 dark:text-violet-400",
+        hover: "hover:border-violet-500/50 hover:shadow-[0_0_15px_rgba(139,92,246,0.15)] dark:hover:shadow-[0_0_15px_rgba(139,92,246,0.25)]"
+    },
+    pink: {
+        bg: "bg-pink-500/10 dark:bg-pink-500/20",
+        text: "text-pink-600 dark:text-pink-400",
+        hover: "hover:border-pink-500/50 hover:shadow-[0_0_15px_rgba(236,72,153,0.15)] dark:hover:shadow-[0_0_15px_rgba(236,72,153,0.25)]"
+    },
+    sky: {
+        bg: "bg-sky-500/10 dark:bg-sky-500/20",
+        text: "text-sky-600 dark:text-sky-400",
+        hover: "hover:border-sky-500/50 hover:shadow-[0_0_15px_rgba(14,165,233,0.15)] dark:hover:shadow-[0_0_15px_rgba(14,165,233,0.25)]"
+    },
+    indigo: {
+        bg: "bg-indigo-500/10 dark:bg-indigo-500/20",
+        text: "text-indigo-600 dark:text-indigo-400",
+        hover: "hover:border-indigo-500/50 hover:shadow-[0_0_15px_rgba(99,102,241,0.15)] dark:hover:shadow-[0_0_15px_rgba(99,102,241,0.25)]"
+    },
+    orange: {
+        bg: "bg-orange-500/10 dark:bg-orange-500/20",
+        text: "text-orange-600 dark:text-orange-400",
+        hover: "hover:border-orange-500/50 hover:shadow-[0_0_15px_rgba(249,115,22,0.15)] dark:hover:shadow-[0_0_15px_rgba(249,115,22,0.25)]"
+    }
+}
+
+const ROW1_PROMPTS = [
+    {
+        title: "What are my rights when getting fired?",
+        content: "Explain my employment rights and severance entitlements under labor law if I am laid off or fired without cause. What steps should I take immediately?",
+        icon: UserX,
+        color: "rose"
+    },
+    {
+        title: "Create a rental agreement.",
+        content: "Draft a comprehensive residential rental agreement for a {{property_type}} in {{state}}. Include terms for security deposit, maintenance, subletting, and termination.",
+        icon: Key,
+        color: "amber"
+    },
+    {
+        title: "Steps to start a business.",
+        content: "Generate a step-by-step legal checklist for starting a new business entity (LLC or Corporation) in {{state}}, covering registration, licensing, and tax requirements.",
+        icon: TrendingUp,
+        color: "emerald"
+    },
+    {
+        title: "Review a non-disclosure agreement.",
+        content: "Review this NDA and assess each clause against standards:\n- Confidentiality scope: Should be mutual\n- Duration: Should not exceed {{max_years}} years\n- Permitted disclosures: Must include employees and advisors on need-to-know\n- Governing law: Preferred {{jurisdiction}}",
+        icon: ShieldCheck,
+        color: "blue"
+    },
+    {
+        title: "Draft a board resolution.",
+        content: "Draft a corporate board resolution authorizing the company to {{action_description}}, with standard recitals, resolutions, and signature blocks.",
+        icon: Landmark,
+        color: "purple"
+    },
+    {
+        title: "IP transfer clause review.",
+        content: "Review this contract's Intellectual Property transfer clause. Ensure all work product is fully assigned to the company and that there are no hidden license-backs or pre-existing IP claims.",
+        icon: Lock,
+        color: "violet"
+    }
+]
+
+const ROW2_PROMPTS = [
+    {
+        title: "Legal checklist before marriage.",
+        content: "Create a comprehensive legal checklist of assets, prenuptial considerations, and marital property rights before marriage under the laws of {{state}}.",
+        icon: ClipboardList,
+        color: "pink"
+    },
+    {
+        title: "How to file a consumer complaint?",
+        content: "What are the legal options and steps to file a consumer complaint against a business for deceptive trade practices or defective products in {{state}}?",
+        icon: HelpCircle,
+        color: "emerald"
+    },
+    {
+        title: "Duties of an accountant?",
+        content: "What are the fiduciary duties and legal liabilities of an accountant or CPA under professional standards when managing corporate financial statements?",
+        icon: Calculator,
+        color: "amber"
+    },
+    {
+        title: "Force majeure trigger events.",
+        content: "Analyze if the force majeure clause in this contract adequately covers pandemic-related supply chain disruptions, government restrictions, and labor shortages.",
+        icon: CloudLightning,
+        color: "sky"
+    },
+    {
+        title: "GDPR compliance check.",
+        content: "Evaluate our privacy policy and data collection practices against GDPR requirements, focusing on user consent, data minimization, right to be forgotten, and cross-border transfers.",
+        icon: ShieldAlert,
+        color: "indigo"
+    },
+    {
+        title: "Share Purchase Agreement review.",
+        content: "Review the attached Share Purchase Agreement (SPA) and identify indemnity provisions, flags for uncapped liability, and missing standard representations and warranties.",
+        icon: Briefcase,
+        color: "orange"
+    }
+]
 
 interface ChatInterfaceProps {
     onMessageSent?: () => void
@@ -138,6 +284,20 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         return () => mql.removeEventListener("change", onChange)
     }, [])
 
+    const handleMarqueeClick = React.useCallback((content: string) => {
+        setInputValue(content)
+        const textarea = document.getElementById("chat-input") as HTMLTextAreaElement | null
+        if (textarea) {
+            setTimeout(() => {
+                textarea.focus()
+                const match = content.match(/\{\{([^}]+)\}\}/)
+                if (match && match.index !== undefined) {
+                    textarea.setSelectionRange(match.index, match.index + match[0].length)
+                }
+            }, 10)
+        }
+    }, [setInputValue])
+
     return (
         <div className="flex h-full w-full bg-background relative overflow-hidden">
             <div className={`flex flex-col h-full min-w-0 bg-background relative overflow-hidden transition-all duration-300 ease-in-out ${isDrafting && isDesktopSplit ? 'w-[45%]' : 'flex-1'}`}>
@@ -171,10 +331,59 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     {/* Landing Page — visible when no messages */}
                     {!hasMessages && (
                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 animate-in fade-in zoom-in-95 duration-700">
-                            <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6">
+                            <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6 mb-6">
                                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
                                     {mode === "project" ? projectTitle : <RandomGreeting />}
                                 </h1>
+                            </div>
+
+                            {/* Scrolling Prompt Marquee */}
+                            <div className="w-full max-w-4xl mx-auto flex flex-col gap-1.5 sm:gap-2.5 mt-0 px-1 sm:px-2 select-none marquee-mask hover-pause">
+                                {/* Row 1: Left-to-Right */}
+                                <div className="w-full overflow-hidden relative">
+                                    <div className="animate-marquee-right flex gap-1.5 sm:gap-2.5">
+                                        {[...ROW1_PROMPTS, ...ROW1_PROMPTS].map((prompt, i) => {
+                                            const IconComponent = prompt.icon
+                                            const colors = COLOR_CLASSES[prompt.color] || COLOR_CLASSES.blue
+                                            return (
+                                                <button
+                                                    key={`r1-${i}`}
+                                                    type="button"
+                                                    onClick={() => handleMarqueeClick(prompt.content)}
+                                                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-border/30 bg-card/50 dark:bg-card/30 text-[10px] sm:text-xs text-foreground/70 hover:text-foreground hover:bg-card/80 dark:hover:bg-card/60 transition-all duration-200 shrink-0 ${colors.hover}`}
+                                                >
+                                                    <span className={`${colors.text}`}>
+                                                        <IconComponent className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                                                    </span>
+                                                    <span className="font-medium whitespace-nowrap">{prompt.title}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Row 2: Right-to-Left */}
+                                <div className="w-full overflow-hidden relative">
+                                    <div className="animate-marquee-left flex gap-1.5 sm:gap-2.5">
+                                        {[...ROW2_PROMPTS, ...ROW2_PROMPTS].map((prompt, i) => {
+                                            const IconComponent = prompt.icon
+                                            const colors = COLOR_CLASSES[prompt.color] || COLOR_CLASSES.blue
+                                            return (
+                                                <button
+                                                    key={`r2-${i}`}
+                                                    type="button"
+                                                    onClick={() => handleMarqueeClick(prompt.content)}
+                                                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full border border-border/30 bg-card/50 dark:bg-card/30 text-[10px] sm:text-xs text-foreground/70 hover:text-foreground hover:bg-card/80 dark:hover:bg-card/60 transition-all duration-200 shrink-0 ${colors.hover}`}
+                                                >
+                                                    <span className={`${colors.text}`}>
+                                                        <IconComponent className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                                                    </span>
+                                                    <span className="font-medium whitespace-nowrap">{prompt.title}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

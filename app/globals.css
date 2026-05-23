@@ -683,3 +683,70 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
+
+/* ─── Infinite Scrolling Marquee Prompts ─── */
+@keyframes marquee-left {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes marquee-right {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 45s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marquee-right 45s linear infinite;
+  will-change: transform;
+}
+
+/* Pause animation on hover */
+.hover-pause:hover .animate-marquee-left,
+.hover-pause:hover .animate-marquee-right {
+  animation-play-state: paused;
+}
+
+/* Premium gradient mask to fade edges of marquee */
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+}
+
+/* Mobile: tighter fade edge, faster scroll for smaller viewports */
+@media (max-width: 640px) {
+  .marquee-mask {
+    mask-image: linear-gradient(to right, transparent, white 5%, white 95%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, white 5%, white 95%, transparent);
+  }
+  .animate-marquee-left {
+    animation-duration: 30s;
+  }
+  .animate-marquee-right {
+    animation-duration: 30s;
+  }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-left,
+  .animate-marquee-right {
+    animation: none;
+  }
+}
