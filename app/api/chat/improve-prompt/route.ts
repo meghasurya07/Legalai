@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger'
 import { openai } from "@ai-sdk/openai"
 import { streamText } from 'ai'
 import { requireAuth } from '@/lib/auth/require-auth'
-import { AI_MODELS, AI_TEMPERATURES } from "@/lib/ai/config"
+import { AI_MODELS } from "@/lib/ai/config"
 
 export const maxDuration = 60; // 60 seconds is plenty for a quick rewrite
 
@@ -70,7 +70,6 @@ export async function POST(req: Request) {
             model: openai(AI_MODELS.promptImprovement),
             system: SYSTEM_PROMPT.trim(),
             messages: [{ role: 'user', content: trimmed }],
-            temperature: AI_TEMPERATURES.creative,
         })
 
         return result.toTextStreamResponse()
