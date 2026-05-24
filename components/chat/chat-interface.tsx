@@ -237,11 +237,8 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
     const [isCitationsSidebarOpen, setIsCitationsSidebarOpen] = React.useState(false)
     const [pdfViewerTarget, setPdfViewerTarget] = React.useState<PdfCitationTarget | null>(null)
 
-    // ─── Stable greeting (deferred to client to avoid SSR hydration mismatch) ──
-    const [greeting, setGreeting] = React.useState("")
-    React.useEffect(() => {
-        setGreeting(getRandomGreeting())
-    }, [])
+    // ─── Stable greeting (lazy initializer — never empty, survives tab suspension) ──
+    const [greeting] = React.useState(() => getRandomGreeting())
     // Sync user name cache in background for next visit
     React.useEffect(() => {
         fetch('/api/user/settings')
@@ -351,7 +348,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                     {!hasMessages && (
                         <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 animate-in fade-in zoom-in-95 duration-700">
                             <div className="flex flex-col items-center max-w-2xl mx-auto space-y-6 mb-6">
-                                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight">
+                                <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif text-center text-foreground/90 tracking-tight leading-tight" suppressHydrationWarning>
                                     {mode === "project" ? projectTitle : greeting}
                                 </h1>
                             </div>
