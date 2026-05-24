@@ -4,7 +4,7 @@ import * as React from "react"
 import {
     Loader2, FileText, Shield, Copy, Check,
     AlertTriangle, Swords, ChevronDown, ChevronUp,
-    Target
+    Target, RotateCcw, Filter
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,8 @@ import { DuplicateFileModal } from "@/components/documents/duplicate-file-modal"
 import { ToolPageLayout } from "@/components/templates/tool-page-layout"
 import { FileUploadZone } from "@/components/documents/file-upload-zone"
 import { useTemplateWorkflow } from "@/components/templates/use-template-workflow"
+import { TemplateResultHeader } from "@/components/templates/template-result-header"
+import { TemplateProcessing } from "@/components/templates/template-processing"
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -87,11 +89,38 @@ const DEFAULT_STYLE = {
     badgeBg: "bg-muted text-muted-foreground",
 }
 
-const SEVERITY_CONFIG: Record<string, { label: string; variant: 'destructive' | 'default' | 'secondary'; dot: string }> = {
-    critical: { label: "CRITICAL", variant: "destructive", dot: "bg-red-500" },
-    high: { label: "HIGH", variant: "default", dot: "bg-orange-500" },
-    medium: { label: "MEDIUM", variant: "secondary", dot: "bg-yellow-500" },
+const SEVERITY_CONFIG: Record<string, { label: string; variant: 'destructive' | 'default' | 'secondary'; dot: string; order: number }> = {
+    critical: { label: "CRITICAL", variant: "destructive", dot: "bg-red-500", order: 0 },
+    high: { label: "HIGH", variant: "default", dot: "bg-orange-500", order: 1 },
+    medium: { label: "MEDIUM", variant: "secondary", dot: "bg-yellow-500", order: 2 },
 }
+
+// ─── Markdown Export ─────────────────────────────────────
+
+function formatRedTeamAsMarkdown(r: RedTeamResult): string {
+    let md = `# Red Team Contract Analysis\n\n`
+    md += `**Overall Risk Score:** ${r.overallRiskScore?.toFixed(1) || 'N/A'} / 10\n\n`
+    md += `## Summary\n${r.overallSummary}\n\n`
+    md += `## Attacks Identified (${r.attacks?.length || 0})\n\n`
+    const sorted = [...(r.attacks || [])].sort((a, b) => (SEVERITY_CONFIG[a.severity]?.order ?? 9) - (SEVERITY_CONFIG[b.severity]?.order ?? 9))
+    sorted.forEach((attack, i) => {
+        md += `### ${i + 1}. ${attack.attackTitle} [${attack.severity?.toUpperCase()}]\n`
+        md += `**Persona:** ${attack.personaIcon} ${attack.persona}\n`
+        md += `**Category:** ${attack.category}\n\n`
+        md += `**Targeted Clause:** "${attack.clauseQuoted}"\n\n`
+        md += `**Attack:** ${attack.attack}\n\n`
+        md += `**Defensive Revision:** ${attack.defensiveRevision}\n\n---\n\n`
+    })
+    return md
+}
+
+// ─── Processing steps ────────────────────────────────────
+
+const PROCESSING_STEPS = [
+    { label: "Uploading contract", detail: "Preparing document for adversarial analysis..." },
+    { label: "Extracting clauses", detail: "Parsing contract structure and provisions..." },
+    { label: "Deploying opposing counsel", detail: "6 AI personas attacking every clause..." },
+]
 
 // ─── Attack Card ─────────────────────────────────────────
 
@@ -126,6 +155,9 @@ function AttackCard({ attack, index }: { attack: Attack; index: number }) {
                                     <span className={`inline-block h-1.5 w-1.5 rounded-full ${severity.dot} mr-1`} />
                                     {severity.label}
                                 </Badge>
+                                {attack.category && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{attack.category}</Badge>
+                                )}
                             </div>
                             <h3 className="text-[15px] font-semibold leading-tight">
                                 #{index + 1} — {attack.attackTitle}
@@ -228,9 +260,16 @@ export default function RedTeam() {
         result,
         runWithFile,
         reset,
+        error,
+        retry,
+        generatedAt,
+        processingStep,
+        elapsedSeconds,
     } = useTemplateWorkflow<RedTeamResult>({
         apiEndpoint: '/api/templates/red-team',
     })
+
+    const [severityFilter, setSeverityFilter] = React.useState<string | null>(null)
 
     const handleRedTeam = async () => {
         if (!contractFile) {
@@ -243,10 +282,26 @@ export default function RedTeam() {
         await runWithFile(formData, "Red Team analysis complete!")
     }
 
+    // Sort attacks by severity (critical first) and apply filter
+    const sortedAttacks = React.useMemo(() => {
+        const attacks = [...(result?.attacks || [])]
+        attacks.sort((a, b) => (SEVERITY_CONFIG[a.severity]?.order ?? 9) - (SEVERITY_CONFIG[b.severity]?.order ?? 9))
+        if (severityFilter) {
+            return attacks.filter(a => a.severity === severityFilter)
+        }
+        return attacks
+    }, [result?.attacks, severityFilter])
+
     // Count attacks by severity
     const criticalCount = result?.attacks?.filter(a => a.severity === 'critical').length || 0
     const highCount = result?.attacks?.filter(a => a.severity === 'high').length || 0
     const mediumCount = result?.attacks?.filter(a => a.severity === 'medium').length || 0
+
+    const handleCopyAllDefenses = async () => {
+        const defenses = (result?.attacks || []).map((a, i) => `${i + 1}. ${a.attackTitle}: ${a.defensiveRevision}`).join('\n\n')
+        await navigator.clipboard.writeText(defenses)
+        toast.success("All defensive revisions copied!")
+    }
 
     return (
         <ToolPageLayout
@@ -255,7 +310,26 @@ export default function RedTeam() {
             icon={<Target className="h-4 w-4" />}
             accentColor="bg-red-500/10 text-red-600 dark:text-red-400"
         >
-            {!result ? (
+            {isRunning ? (
+                <TemplateProcessing
+                    steps={PROCESSING_STEPS}
+                    activeStep={processingStep}
+                    elapsedSeconds={elapsedSeconds}
+                    accentColor="text-red-600 dark:text-red-400"
+                />
+            ) : error && !result ? (
+                <div className="max-w-md mx-auto text-center py-12">
+                    <div className="h-14 w-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle className="h-6 w-6 text-red-500" />
+                    </div>
+                    <h3 className="text-base font-semibold mb-2">Analysis Failed</h3>
+                    <p className="text-sm text-muted-foreground mb-6">{error}</p>
+                    <div className="flex items-center justify-center gap-3">
+                        <Button onClick={retry} variant="default" className="gap-2"><RotateCcw className="h-4 w-4" /> Retry</Button>
+                        <Button onClick={reset} variant="outline">Start Over</Button>
+                    </div>
+                </div>
+            ) : !result ? (
                 /* ─── Upload Section ──────────────────────────── */
                 <Card className="max-w-2xl mx-auto border-dashed">
                     <CardHeader>
@@ -269,6 +343,15 @@ export default function RedTeam() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <FileUploadZone id="red-team-contract" file={contractFile} onFileSelect={handleFileSelect} />
+
+                        {contractFile && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <p className="text-xs font-medium truncate flex-1">{contractFile.name}</p>
+                                <span className="text-[10px] text-muted-foreground">{(contractFile.size / 1024).toFixed(1)} KB</span>
+                            </div>
+                        )}
+
                         <Button
                             onClick={handleRedTeam}
                             disabled={!contractFile || isRunning}
@@ -287,11 +370,41 @@ export default function RedTeam() {
                                 </>
                             )}
                         </Button>
+
+                        {/* Persona preview */}
+                        <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">AI Opposing Counsel Personas</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                {Object.entries(PERSONA_STYLES).map(([name, s]) => (
+                                    <span key={name} className={`text-[11px] flex items-center gap-1.5 ${s.text}`}>
+                                        <div className={`h-1.5 w-1.5 rounded-full ${s.border.replace('border-l-', 'bg-')}`} />
+                                        {name}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             ) : (
                 /* ─── Results: War Room ──────────────────────── */
-                <div className="space-y-6">
+                <div className="space-y-5">
+                    <TemplateResultHeader
+                        title="Red Team Report"
+                        icon={<Target className="h-3.5 w-3.5" />}
+                        accentColor="bg-red-500/10 text-red-600 dark:text-red-400"
+                        generatedAt={generatedAt || undefined}
+                        onReset={reset}
+                        resetLabel="New Red Team"
+                        copyContent={formatRedTeamAsMarkdown(result)}
+                        downloadContent={formatRedTeamAsMarkdown(result)}
+                        downloadFilename={`red-team-report-${new Date().toISOString().split('T')[0]}.md`}
+                    >
+                        <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={handleCopyAllDefenses}>
+                            <Shield className="h-3 w-3" />
+                            Copy All Defenses
+                        </Button>
+                    </TemplateResultHeader>
+
                     {/* Overall Risk Score */}
                     <Card className="border-red-500/30 bg-red-500/[0.02]">
                         <CardHeader className="pb-3">
@@ -324,24 +437,59 @@ export default function RedTeam() {
                         </CardContent>
                     </Card>
 
-                    {/* Attack Cards */}
-                    <div>
-                        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                    {/* Severity Filter */}
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                             <Swords className="h-4 w-4" />
-                            {(result.attacks || []).length} Attack{(result.attacks || []).length !== 1 ? 's' : ''} Identified
+                            {sortedAttacks.length} Attack{sortedAttacks.length !== 1 ? 's' : ''}{severityFilter ? ` (${severityFilter})` : ''}
                         </h2>
-                        <div className="space-y-4">
-                            {(result.attacks || []).map((attack, i) => (
-                                <AttackCard key={i} attack={attack} index={i} />
-                            ))}
+                        <div className="flex items-center gap-1.5">
+                            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Button
+                                variant={severityFilter === null ? "default" : "ghost"}
+                                size="sm"
+                                className="h-7 text-[11px] px-2"
+                                onClick={() => setSeverityFilter(null)}
+                            >All</Button>
+                            {criticalCount > 0 && (
+                                <Button
+                                    variant={severityFilter === 'critical' ? "destructive" : "ghost"}
+                                    size="sm"
+                                    className="h-7 text-[11px] px-2"
+                                    onClick={() => setSeverityFilter(severityFilter === 'critical' ? null : 'critical')}
+                                >Critical ({criticalCount})</Button>
+                            )}
+                            {highCount > 0 && (
+                                <Button
+                                    variant={severityFilter === 'high' ? "default" : "ghost"}
+                                    size="sm"
+                                    className="h-7 text-[11px] px-2"
+                                    onClick={() => setSeverityFilter(severityFilter === 'high' ? null : 'high')}
+                                >High ({highCount})</Button>
+                            )}
+                            {mediumCount > 0 && (
+                                <Button
+                                    variant={severityFilter === 'medium' ? "secondary" : "ghost"}
+                                    size="sm"
+                                    className="h-7 text-[11px] px-2"
+                                    onClick={() => setSeverityFilter(severityFilter === 'medium' ? null : 'medium')}
+                                >Medium ({mediumCount})</Button>
+                            )}
                         </div>
                     </div>
 
-                    {/* Reset */}
-                    <Button onClick={reset} variant="outline" className="gap-2">
-                        <FileText className="h-4 w-4" />
-                        Red Team Another Contract
-                    </Button>
+                    {/* Attack Cards */}
+                    <div className="space-y-4">
+                        {sortedAttacks.map((attack, i) => (
+                            <AttackCard key={i} attack={attack} index={i} />
+                        ))}
+                        {sortedAttacks.length === 0 && severityFilter && (
+                            <div className="text-center py-8">
+                                <p className="text-sm text-muted-foreground">No {severityFilter} severity attacks found.</p>
+                                <Button variant="link" size="sm" onClick={() => setSeverityFilter(null)}>Show all attacks</Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
