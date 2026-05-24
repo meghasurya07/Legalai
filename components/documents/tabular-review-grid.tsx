@@ -38,10 +38,14 @@ function CellContent({ cell, onRun }: { cell?: ReviewCell; onRun: () => void }) 
 
     if (cell.status === "error") {
         return (
-            <div className="flex items-center gap-1 px-3 h-[36px] text-red-400">
+            <button
+                onClick={onRun}
+                className="flex items-center gap-1.5 px-3 h-[36px] text-red-400 hover:text-red-500 hover:bg-red-500/5 transition-colors w-full"
+                title="Click to retry extraction"
+            >
                 <AlertCircle className="h-3 w-3 shrink-0" />
-                <span className="text-[13px]">Error</span>
-            </div>
+                <span className="text-[13px]">Retry</span>
+            </button>
         )
     }
 

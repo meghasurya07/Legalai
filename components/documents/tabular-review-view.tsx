@@ -39,7 +39,14 @@ const FALLBACK_COLUMNS: ReviewColumn[] = [
     { id: "key_obligations", name: "Key Obligations", prompt: "What are the main obligations of each party? Be concise.", width: 220, order: 4 },
 ]
 
+/** Max document text sent per API call (chars). ~50K chars ≈ 15 pages of dense legal text. */
+const MAX_DOC_TEXT_CHARS = 50000
 
+/** Number of documents processed concurrently. 5 is safe with 60 req/min rate limit. */
+const CONCURRENT_BATCH_SIZE = 5
+
+/** Max retry attempts for a single document extraction */
+const MAX_RETRIES = 3
 
 function getCellKey(documentId: string, columnId: string) {
     return `${documentId}__${columnId}`
@@ -217,7 +224,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
                     documentId: docId,
                     columnPrompt: column.prompt,
                     columnName: column.name,
-                    documentText: docText.slice(0, 15000),
+                    documentText: docText.slice(0, MAX_DOC_TEXT_CHARS),
                 })
             })
 
@@ -250,7 +257,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     }, [projectId])
 
     // ──────────────────────────────────────────────────
-    // 3. Batch extraction for a document
+    // 3. Batch extraction for a document (with retry + backoff)
     // ──────────────────────────────────────────────────
     const runDocumentBatch = useCallback(async (doc: DocumentFile, targetColumns: ReviewColumn[]) => {
         if (targetColumns.length === 0) return
@@ -263,48 +270,69 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
             return next
         })
 
-        try {
-            const response = await fetch("/api/tabular-review/extract-batch", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    projectId,
-                    documentId: doc.id,
-                    documentText: doc.extracted_text || "",
-                    columns: targetColumns.map(c => ({ id: c.id, name: c.name, prompt: c.prompt }))
+        let lastError: Error | null = null
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                const response = await fetch("/api/tabular-review/extract-batch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        projectId,
+                        documentId: doc.id,
+                        documentText: doc.extracted_text || "",
+                        columns: targetColumns.map(c => ({ id: c.id, name: c.name, prompt: c.prompt }))
+                    })
                 })
-            })
 
-            if (!response.ok) throw new Error("Batch extraction failed")
-            const data = await response.json()
+                // Handle rate limiting — read Retry-After from response
+                if (response.status === 429) {
+                    const body = await response.json().catch(() => ({}))
+                    const retryAfter = body.retryAfter || parseInt(response.headers.get('Retry-After') || '0') || (2 ** attempt * 2)
+                    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000))
+                    continue // Retry this attempt
+                }
 
-            setCells(prev => {
-                const next = new Map(prev)
-                for (const col of targetColumns) {
-                    const content = data.results?.[col.id] || "—"
-                    next.set(getCellKey(doc.id, col.id), {
-                        documentId: doc.id,
-                        columnId: col.id,
-                        content,
-                        status: "completed"
-                    })
+                if (!response.ok) throw new Error(`Extraction failed (${response.status})`)
+                const data = await response.json()
+
+                setCells(prev => {
+                    const next = new Map(prev)
+                    for (const col of targetColumns) {
+                        const content = data.results?.[col.id] || "—"
+                        next.set(getCellKey(doc.id, col.id), {
+                            documentId: doc.id,
+                            columnId: col.id,
+                            content,
+                            status: "completed"
+                        })
+                    }
+                    return next
+                })
+                return // Success — exit retry loop
+            } catch (err) {
+                lastError = err instanceof Error ? err : new Error(String(err))
+                if (attempt < MAX_RETRIES - 1) {
+                    // Exponential backoff: 2s, 4s, 8s
+                    await new Promise(resolve => setTimeout(resolve, 2 ** (attempt + 1) * 1000))
                 }
-                return next
-            })
-        } catch {
-            setCells(prev => {
-                const next = new Map(prev)
-                for (const col of targetColumns) {
-                    next.set(getCellKey(doc.id, col.id), {
-                        documentId: doc.id,
-                        columnId: col.id,
-                        content: "Error extracting",
-                        status: "error"
-                    })
-                }
-                return next
-            })
+            }
         }
+
+        // All retries exhausted — mark cells as error
+        console.error(`[Tabular Review] Failed after ${MAX_RETRIES} attempts for doc "${doc.name}":`, lastError)
+        setCells(prev => {
+            const next = new Map(prev)
+            for (const col of targetColumns) {
+                next.set(getCellKey(doc.id, col.id), {
+                    documentId: doc.id,
+                    columnId: col.id,
+                    content: "Error extracting",
+                    status: "error"
+                })
+            }
+            return next
+        })
     }, [projectId])
 
     // ──────────────────────────────────────────────────
@@ -339,10 +367,9 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
         setRunProgress({ total: totalCells, completed: initialCompleted })
         let currentCompleted = initialCompleted
 
-        // Process a few documents concurrently
-        const batchSize = 3
-        for (let i = 0; i < docTasks.length; i += batchSize) {
-            const batch = docTasks.slice(i, i + batchSize)
+        // Process documents concurrently in batches
+        for (let i = 0; i < docTasks.length; i += CONCURRENT_BATCH_SIZE) {
+            const batch = docTasks.slice(i, i + CONCURRENT_BATCH_SIZE)
             await Promise.all(
                 batch.map(({ doc, cols }) =>
                     runDocumentBatch(doc, cols).then(() => {
@@ -380,9 +407,8 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
 
         let currentCompleted = 0
 
-        const batchSize = 3
-        for (let i = 0; i < docsWithText.length; i += batchSize) {
-            const batch = docsWithText.slice(i, i + batchSize)
+        for (let i = 0; i < docsWithText.length; i += CONCURRENT_BATCH_SIZE) {
+            const batch = docsWithText.slice(i, i + CONCURRENT_BATCH_SIZE)
             await Promise.all(
                 batch.map((doc) =>
                     runDocumentBatch(doc, columns).then(() => {
@@ -410,7 +436,7 @@ export function TabularReviewView({ project, projectId }: TabularReviewViewProps
     }, [isRunning, docsWithText, columns, runDocumentBatch, saveToDatabase])
 
     // ──────────────────────────────────────────────────
-    // 5. Auto-run extraction after columns are set
+    // 6. Auto-run extraction after columns are set
     // ──────────────────────────────────────────────────
     useEffect(() => {
         if (isGeneratingColumns) return

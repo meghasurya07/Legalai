@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiError } from '@/lib/api-utils'
 import { AI_MODELS, AI_TOKENS, AI_TEMPERATURES } from '@/lib/ai/config'
 import { requireAuth } from '@/lib/auth/require-auth'
-import { checkRateLimit, RATE_LIMIT_HEAVY } from '@/lib/rate-limit'
+import { checkRateLimit, RATE_LIMIT_BATCH } from '@/lib/rate-limit'
 import { resolveOpenAIClient } from '@/lib/byok'
 import { logger } from '@/lib/logger'
 
@@ -17,8 +17,15 @@ export async function POST(request: NextRequest) {
         const { userId } = auth
         if (!userId) return apiError('Unauthorized', 401)
 
-        const { allowed } = checkRateLimit(userId, RATE_LIMIT_HEAVY)
-        if (!allowed) return apiError('Too many requests', 429)
+        const rateLimitResult = checkRateLimit(userId, RATE_LIMIT_BATCH)
+        if (!rateLimitResult.allowed) {
+            const retryAfterMs = rateLimitResult.resetAt - Date.now()
+            const retryAfterSeconds = Math.ceil(retryAfterMs / 1000)
+            return new Response(JSON.stringify({ error: 'Too many requests', retryAfter: retryAfterSeconds }), {
+                status: 429,
+                headers: { 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSeconds) }
+            })
+        }
 
         const { projectId, documentId, documentText, columns } = await request.json()
 
@@ -73,7 +80,7 @@ Respond in this exact JSON format:
 ${columnInstructions}
 
 DOCUMENT TEXT:
-${documentText.slice(0, 15000)}
+${documentText.slice(0, 50000)}
 
 Respond with JSON containing results for each column ID.`
                 }

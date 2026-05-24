@@ -76,8 +76,11 @@ export const RATE_LIMIT_AI: RateLimitConfig = { maxRequests: 30, windowSeconds: 
 /** Chat route: 20 messages per minute per user */
 export const RATE_LIMIT_CHAT: RateLimitConfig = { maxRequests: 20, windowSeconds: 60 }
 
-/** Heavy AI routes (batch extraction, deep research): 10 per minute */
+/** Heavy AI routes (deep research, etc.): 10 per minute */
 export const RATE_LIMIT_HEAVY: RateLimitConfig = { maxRequests: 10, windowSeconds: 60 }
+
+/** Batch extraction (tabular review): 60 per minute to support 100+ doc reviews */
+export const RATE_LIMIT_BATCH: RateLimitConfig = { maxRequests: 60, windowSeconds: 60 }
 
 /** File uploads: 20 per minute per user */
 export const RATE_LIMIT_UPLOAD: RateLimitConfig = { maxRequests: 20, windowSeconds: 60 }
