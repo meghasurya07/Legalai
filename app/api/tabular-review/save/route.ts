@@ -101,25 +101,29 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Save chat messages (replace all for this project)
-        if (chatMessages && Array.isArray(chatMessages) && chatMessages.length > 0) {
+        if (chatMessages && Array.isArray(chatMessages)) {
+            // Always delete existing messages first (handles clear-chat case)
             await supabase
                 .from('tabular_review_messages')
                 .delete()
                 .eq('project_id', projectId)
 
-            const msgRows = chatMessages.map((msg: { role: string; content: string }, i: number) => ({
-                project_id: projectId,
-                role: msg.role,
-                content: msg.content,
-                order: i,
-            }))
+            // Re-insert only if there are messages to save
+            if (chatMessages.length > 0) {
+                const msgRows = chatMessages.map((msg: { role: string; content: string }, i: number) => ({
+                    project_id: projectId,
+                    role: msg.role,
+                    content: msg.content,
+                    order: i,
+                }))
 
-            const { error: msgError } = await supabase
-                .from('tabular_review_messages')
-                .insert(msgRows)
+                const { error: msgError } = await supabase
+                    .from('tabular_review_messages')
+                    .insert(msgRows)
 
-            if (msgError) {
-                logger.error('Tabular Review Save] Message save error:', 'Error', msgError)
+                if (msgError) {
+                    logger.error('Tabular Review Save] Message save error:', 'Error', msgError)
+                }
             }
         }
 
