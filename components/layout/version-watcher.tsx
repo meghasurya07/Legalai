@@ -5,9 +5,13 @@ import { useEffect, useRef, useCallback } from "react"
 import { toast } from "sonner"
 import { Info } from "lucide-react"
 
+/** Minimum seconds between version checks (prevents spam from HMR, tab switches, etc.) */
+const CHECK_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
+
 export function VersionWatcher() {
     const toastShownRef = useRef(false)
     const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
+    const lastCheckRef = useRef<number>(0)
 
     const showUpdateToast = useCallback(() => {
         toast.custom((t) => (
@@ -48,6 +52,11 @@ export function VersionWatcher() {
         // Stop checking if we already showed the toast
         if (toastShownRef.current) return
 
+        // Cooldown: skip if we checked less than 5 minutes ago
+        const now = Date.now()
+        if (now - lastCheckRef.current < CHECK_COOLDOWN_MS) return
+        lastCheckRef.current = now
+
         try {
             const res = await fetch('/api/version', { cache: 'no-store' })
             if (!res.ok) return
@@ -80,9 +89,9 @@ export function VersionWatcher() {
         checkVersion()
 
         // Check every 5 minutes
-        checkIntervalRef.current = setInterval(checkVersion, 5 * 60 * 1000)
+        checkIntervalRef.current = setInterval(checkVersion, CHECK_COOLDOWN_MS)
 
-        // Also check when user returns to the tab
+        // Also check when user returns to the tab (cooldown prevents rapid fire)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 checkVersion()

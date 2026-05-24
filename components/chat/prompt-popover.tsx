@@ -158,6 +158,8 @@ export function PromptPopover({ prompts, isLoading, onInsert }: PromptPopoverPro
                             <button
                                 onClick={() => setSearch("")}
                                 className="absolute right-2 top-2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted"
+                                aria-label="Clear search"
+                                title="Clear search"
                             >
                                 <X className="h-3 w-3" />
                             </button>
