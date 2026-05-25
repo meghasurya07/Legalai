@@ -2,6 +2,7 @@
  * Document Intelligence — Types
  * 
  * Shared TypeScript types for document analysis and clause extraction.
+ * M12: Added confidence scores on extracted fields.
  */
 
 // Supported clause types for legal document analysis
@@ -30,24 +31,32 @@ export interface DocumentAnalysis {
     governingLaw: string | null
     keyObligations: Obligation[]
     risks: Risk[]
+    /** M12: Overall analysis confidence (0.0-1.0) */
+    confidence?: number
     createdAt?: string
 }
 
 export interface Party {
     name: string
     role: string
+    /** M12: Confidence in party identification (0.0-1.0) */
+    confidence?: number
 }
 
 export interface Obligation {
     party: string
     obligation: string
     deadline?: string
+    /** M12: Confidence in obligation extraction (0.0-1.0) */
+    confidence?: number
 }
 
 export interface Risk {
     category: string
     description: string
     severity: 'high' | 'medium' | 'low'
+    /** M12: Confidence in risk assessment (0.0-1.0) */
+    confidence?: number
 }
 
 export interface DocumentClause {
@@ -59,6 +68,8 @@ export interface DocumentClause {
     sectionNumber: string | null
     content: string
     chunkRef: string | null
+    /** M12: Confidence in clause classification (0.0-1.0) */
+    confidence?: number
     createdAt?: string
 }
 

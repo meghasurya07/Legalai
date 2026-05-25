@@ -25,6 +25,7 @@ export type UseCase =
   | 'vault_insights'
   | 'project_summary'
   | 'red_team_analysis'
+  | 'session_summary'
 
 interface PromptResult {
   systemPrompt: string
@@ -384,6 +385,24 @@ Rules:
 - Summarize factually from provided data only.
 - Highlight the most critical risks and obligations.`,
     userPrompt: `Generate a matter summary from this project intelligence:\n\n${truncateText(String(input.text || ''))}`
+  }),
+
+  session_summary: (input) => ({
+    systemPrompt: `You are a legal session analyst. Summarize a conversation session into structured intelligence.
+Return a JSON object:
+{
+  "topics": ["Main topics discussed"],
+  "decisions": ["Decisions made during the session"],
+  "open_questions": ["Unresolved questions"],
+  "key_facts": ["Important facts established"],
+  "risks": ["Risks identified"],
+  "next_steps": ["Recommended next actions"]
+}
+Rules:
+- Be concise but complete.
+- Only include items actually discussed, not inferred.
+- Prioritize legally significant items.`,
+    userPrompt: `Summarize this conversation session:\n\n${truncateText(String(input.conversation || ''))}`
   })
 }
 

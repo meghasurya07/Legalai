@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger'
 import { callAI } from '@/lib/ai/client'
 import { AI_MODELS, AI_TOKENS } from '@/lib/ai/config'
 import { buildMetadataPrompt } from './prompts'
+import { MetadataSchema } from './schemas'
 import type { Party, Obligation, Risk } from './types'
 
 export interface ExtractedMetadata {
@@ -48,6 +49,36 @@ export async function extractMetadata(text: string): Promise<ExtractedMetadata> 
         })
 
         const parsed = JSON.parse(result)
+
+        // H14: Zod schema validation with graceful fallback
+        const zodResult = MetadataSchema.safeParse(parsed)
+        if (zodResult.success) {
+            const v = zodResult.data
+            return {
+                parties: v.parties.map(p => ({
+                    name: String(p.name || ''),
+                    role: String(p.role || ''),
+                    confidence: p.confidence
+                })),
+                effectiveDate: v.effective_date || null,
+                governingLaw: v.governing_law || null,
+                terminationClause: v.termination_clause || null,
+                keyObligations: v.key_obligations.map(o => ({
+                    party: String(o.party || ''),
+                    obligation: String(o.obligation || ''),
+                    deadline: o.deadline || undefined,
+                    confidence: o.confidence
+                })),
+                risks: v.risks.map(r => ({
+                    category: String(r.category || ''),
+                    description: String(r.description || ''),
+                    severity: r.severity,
+                    confidence: r.confidence
+                }))
+            }
+        }
+
+        logger.warn('doc-intel/metadata', 'Zod validation failed, using raw parsed', zodResult.error.issues)
 
         return {
             parties: Array.isArray(parsed.parties) ? parsed.parties.map((p: Record<string, string>) => ({

@@ -286,12 +286,22 @@ export async function detectAndPersistPreferences(params: {
  * Sets confidence to 1.0 and marks as user-confirmed.
  */
 export async function confirmPreference(memoryId: string): Promise<boolean> {
+    // Read existing metadata first to avoid overwriting
+    const { data: existing } = await supabase
+        .from('memories')
+        .select('metadata')
+        .eq('id', memoryId)
+        .eq('memory_type', 'preference')
+        .single()
+
+    const existingMetadata = (existing?.metadata as Record<string, unknown>) || {}
+
     const { error } = await supabase
         .from('memories')
         .update({
             confidence: 1.0,
             authority_weight: 1.0,
-            metadata: { user_confirmed: true, confirmed_at: new Date().toISOString() },
+            metadata: { ...existingMetadata, user_confirmed: true, confirmed_at: new Date().toISOString() },
             updated_at: new Date().toISOString(),
         })
         .eq('id', memoryId)
@@ -304,11 +314,21 @@ export async function confirmPreference(memoryId: string): Promise<boolean> {
  * Dismiss a detected preference (user doesn't want it).
  */
 export async function dismissPreference(memoryId: string): Promise<boolean> {
+    // Read existing metadata first to avoid overwriting
+    const { data: existing } = await supabase
+        .from('memories')
+        .select('metadata')
+        .eq('id', memoryId)
+        .eq('memory_type', 'preference')
+        .single()
+
+    const existingMetadata = (existing?.metadata as Record<string, unknown>) || {}
+
     const { error } = await supabase
         .from('memories')
         .update({
             is_active: false,
-            metadata: { dismissed: true, dismissed_at: new Date().toISOString() },
+            metadata: { ...existingMetadata, dismissed: true, dismissed_at: new Date().toISOString() },
             updated_at: new Date().toISOString(),
         })
         .eq('id', memoryId)

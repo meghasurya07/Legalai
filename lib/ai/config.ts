@@ -14,38 +14,38 @@
 
 export const AI_MODELS = {
     /** Main chat / assistant — standard responses */
-    chat: 'gpt-5.4-mini',
+    chat: process.env.AI_MODEL_CHAT || 'gpt-5.4-mini',
     /** Chat — web search mode (must support web_search tool) */
-    chatWebSearch: 'gpt-5.4-mini',
+    chatWebSearch: process.env.AI_MODEL_WEB_SEARCH || 'gpt-5.4-mini',
     /** Chat — thinking / reasoning mode (requires reasoning-capable model: o4-mini, o3, gpt-5) */
-    chatThinking: 'o4-mini',
+    chatThinking: process.env.AI_MODEL_THINKING || 'o4-mini',
     /** Chat — deep research mode (requires verified org: o3-deep-research, o4-mini-deep-research) */
-    chatDeepResearch: 'o4-mini-deep-research',
+    chatDeepResearch: process.env.AI_MODEL_DEEP_RESEARCH || 'o4-mini-deep-research',
     /** Title generation — ultra-cheap nano model for generating short conversation titles */
-    titleGeneration: 'gpt-5-nano',
+    titleGeneration: process.env.AI_MODEL_TITLE || 'gpt-5-nano',
     /** Document Intelligence — summaries, metadata, clause extraction */
-    docIntel: 'gpt-5.4-mini',
+    docIntel: process.env.AI_MODEL_DOC_INTEL || 'gpt-5.4-mini',
     /** Trust & Insight layer — conflicts, insights, project summaries */
-    trust: 'gpt-5.4-mini',
+    trust: process.env.AI_MODEL_TRUST || 'gpt-5.4-mini',
     /** Tabular Review — column suggestion & data extraction */
-    tabularReview: 'gpt-5.4-mini',
+    tabularReview: process.env.AI_MODEL_TABULAR || 'gpt-5.4-mini',
     /** Company research — web search for company profiles */
-    companyResearch: 'gpt-5.4-mini',
+    companyResearch: process.env.AI_MODEL_COMPANY || 'gpt-5.4-mini',
     /** Prompt Improvement — rewriting user inputs (nano: lightweight rewrite) */
-    promptImprovement: 'gpt-5-nano',
+    promptImprovement: process.env.AI_MODEL_PROMPT || 'gpt-5-nano',
     /** Calendar — date/deadline extraction from legal documents */
-    calendar: 'gpt-5.4-mini',
+    calendar: process.env.AI_MODEL_CALENDAR || 'gpt-5.4-mini',
     /** Drafting — document generation from project files and templates */
-    drafting: 'gpt-5.4-mini',
+    drafting: process.env.AI_MODEL_DRAFTING || 'gpt-5.4-mini',
     /** Redline — smart redlining and document comparison */
-    redline: 'gpt-5.4-mini',
+    redline: process.env.AI_MODEL_REDLINE || 'gpt-5.4-mini',
     /** Editor — slash commands (summarize, rewrite, tone) */
-    editor: 'gpt-5.4-mini',
+    editor: process.env.AI_MODEL_EDITOR || 'gpt-5.4-mini',
     /** Copilot — ghost text auto-completion (nano: high-frequency, cost-efficient) */
-    copilot: 'gpt-5.4-nano',
-    /** Embedding model for RAG vector search */
-    embedding: 'text-embedding-3-small',
-} as const
+    copilot: process.env.AI_MODEL_COPILOT || 'gpt-5.4-nano',
+    /** H3: Embedding model for RAG vector search — upgraded to text-embedding-3-large (3072d) */
+    embedding: process.env.AI_MODEL_EMBEDDING || 'text-embedding-3-large',
+}
 
 export type AIModelKey = keyof typeof AI_MODELS
 
@@ -125,7 +125,8 @@ export const AI_TOKENS = {
 
 export const EMBEDDING_CONFIG = {
     model: AI_MODELS.embedding,
-    dimensions: 1536,
+    /** H3: 3072 dims for text-embedding-3-large; set AI_MODEL_EMBEDDING=text-embedding-3-small and this to 1536 to downgrade */
+    dimensions: parseInt(process.env.EMBEDDING_DIMENSIONS || '3072', 10),
     batchSize: 100,
 } as const
 

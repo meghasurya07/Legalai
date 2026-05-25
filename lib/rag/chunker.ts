@@ -6,6 +6,7 @@
  */
 
 import { RAG_CONFIG } from '@/lib/ai/config'
+import { encode } from 'gpt-tokenizer'
 
 export interface Chunk {
     content: string
@@ -13,6 +14,8 @@ export interface Chunk {
     chunkIndex: number
     pageNumber?: number
     sectionHeading?: string
+    /** H4: Context prefix prepended for contextual chunking */
+    contextPrefix?: string
 }
 
 interface ChunkOptions {
@@ -27,9 +30,13 @@ const DEFAULTS: Required<ChunkOptions> = {
     overlapPercent: RAG_CONFIG.chunking.overlapPercent,
 }
 
-// Approximate token count (~4 chars per token for English, OpenAI compatible)
+/**
+ * C4: Accurate token estimation using gpt-tokenizer.
+ * Fast-path for very short strings (< 20 chars) to avoid overhead.
+ */
 function estimateTokens(text: string): number {
-    return Math.ceil(text.length / 4)
+    if (text.length < 20) return Math.ceil(text.length / 4)
+    return encode(text).length
 }
 
 // Detect section headings from text patterns
@@ -253,4 +260,30 @@ function getOverlapSentences(sentences: string[], overlapTokens: number): string
         tokens += st
     }
     return result
+}
+
+/**
+ * Anthropic-style Contextual Chunking.
+ *
+ * Chunks the text normally via chunkText(), then prepends a brief document-level
+ * context string to each chunk's content so embeddings capture document-wide meaning.
+ *
+ * @param text - The full extracted text from a document
+ * @param documentSummary - A short description or summary of the document (truncated to 200 chars)
+ * @param options - Chunking configuration (forwarded to chunkText)
+ * @returns Array of context-enriched chunks
+ */
+export function chunkTextWithContext(text: string, documentSummary: string, options?: ChunkOptions): Chunk[] {
+    const chunks = chunkText(text, options)
+
+    const truncatedSummary = documentSummary.length > 200
+        ? documentSummary.slice(0, 200)
+        : documentSummary
+
+    return chunks.map(chunk => ({
+        ...chunk,
+        content: `[Context: ${truncatedSummary}] ${chunk.content}`,
+        contextPrefix: `[Context: ${truncatedSummary}]`,
+        tokenCount: estimateTokens(`[Context: ${truncatedSummary}] ${chunk.content}`),
+    }))
 }

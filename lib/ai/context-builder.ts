@@ -3,6 +3,7 @@ import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, RAG_GROU
 import { retrieveMemories, assembleMemoryContext, buildMemoryAttribution } from '@/lib/memory'
 import type { MemoryRetrievalResult } from '@/lib/memory'
 import { logger } from '@/lib/logger'
+import { encode } from 'gpt-tokenizer'
 
 interface AttachedFile {
     id?: string
@@ -111,7 +112,7 @@ export async function buildChatContext(
                             fileName: f.name,
                             fileUrl: `https://upload.local/file/${encodeURIComponent(f.name)}`,
                             content: currentChunk.trim(),
-                            tokenCount: Math.ceil(currentChunk.length / 4),
+                            tokenCount: encode(currentChunk).length,
                             chunkIndex: chunkIndex++,
                             similarity: 1.0,
                             pageNumber: null,
@@ -129,7 +130,7 @@ export async function buildChatContext(
                         fileName: f.name,
                         fileUrl: `https://upload.local/file/${encodeURIComponent(f.name)}`,
                         content: currentChunk.trim(),
-                        tokenCount: Math.ceil(currentChunk.length / 4),
+                        tokenCount: encode(currentChunk).length,
                         chunkIndex: chunkIndex,
                         similarity: 1.0,
                         pageNumber: null,
@@ -174,7 +175,7 @@ async function appendLegacyProjectContext(userContent: string, projectId: string
     if (projectFiles && projectFiles.length > 0) {
         userContent += `\n\n--- PROJECT CONTEXT (${projectFiles.length} files) ---\n`
         projectFiles.forEach(f => {
-            const text = f.extracted_text?.slice(0, 20000) || ''
+            const text = f.extracted_text?.slice(0, 50000) || ''
             userContent += `\nFILE: ${f.name}\nCONTENT:\n${text}\n----------------\n`
         })
         userContent += `\n[INSTRUCTION: Use the above PROJECT CONTEXT to answer the user's query. Cite specific files if relevant.]`

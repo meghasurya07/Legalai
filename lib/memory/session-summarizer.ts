@@ -110,6 +110,34 @@ export async function summarizeSession(params: SummarizeParams): Promise<{
         if (result) memoriesCreated++
     }
 
+    // Promote open questions as insights (so they surface in future sessions)
+    for (const question of summary.openQuestions) {
+        const result = await promoteToMemory({
+            projectId,
+            organizationId,
+            userId,
+            conversationId,
+            content: `[Open Question] ${question}`,
+            type: 'insight',
+            importance: 3,
+        })
+        if (result) memoriesCreated++
+    }
+
+    // Promote next steps as procedures (actionable follow-ups)
+    for (const step of summary.nextSteps) {
+        const result = await promoteToMemory({
+            projectId,
+            organizationId,
+            userId,
+            conversationId,
+            content: `[Next Step] ${step}`,
+            type: 'procedure',
+            importance: 3,
+        })
+        if (result) memoriesCreated++
+    }
+
     // 3. Detect user preferences from the conversation
     const userMessages = messages
         .filter(m => m.role === 'user')
@@ -137,7 +165,7 @@ async function generateSummary(messages: SessionMessage[]): Promise<SessionSumma
         .join('\n\n')
 
     try {
-        const { result } = await callAI('session_summary' as Parameters<typeof callAI>[0], {
+        const { result } = await callAI('session_summary', {
             conversation: transcript,
         }, {
             jsonMode: true,

@@ -78,7 +78,7 @@ async function applyDecayRowByRow(organizationId?: string): Promise<{
 }> {
     let query = supabase
         .from('memories')
-        .select('id, decay_weight')
+        .select('id, decay_weight, importance, reinforcement_count, memory_type')
         .eq('is_active', true)
         .eq('is_pinned', false)
         .gt('decay_weight', 0.01)
@@ -98,7 +98,27 @@ async function applyDecayRowByRow(organizationId?: string): Promise<{
     let newlyStale = 0
 
     for (const mem of memories) {
-        const newWeight = (mem.decay_weight as number) * DECAY_RATE
+        // M7: Semantic importance for decay rates
+        const importance = (mem.importance as number) || 3
+        const reinforcementCount = (mem.reinforcement_count as number) || 0
+        const memoryType = mem.memory_type as string
+
+        // Calculate effective decay rate based on importance
+        let effectiveDecayRate = DECAY_RATE
+        if (importance >= 4) {
+            effectiveDecayRate = 1 - ((1 - DECAY_RATE) * 0.5) // 50% slower decay
+        }
+        if (reinforcementCount >= 3) {
+            effectiveDecayRate = 1 - ((1 - effectiveDecayRate) * 0.5) // Additional 50% slower (= 25% of original)
+        }
+
+        let newWeight = (mem.decay_weight as number) * effectiveDecayRate
+
+        // M7: Decision and risk memories have a minimum decay floor
+        if (memoryType === 'decision' || memoryType === 'risk') {
+            newWeight = Math.max(newWeight, 0.2)
+        }
+
         const wasAboveThreshold = (mem.decay_weight as number) >= STALE_THRESHOLD
         const isNowBelowThreshold = newWeight < STALE_THRESHOLD
 
@@ -266,8 +286,8 @@ export async function processFeedback(params: {
             .insert({
                 memory_id: memoryId,
                 conversation_id: params.conversationId,
-                was_helpful: rating === 'positive',
-                accessed_at: new Date().toISOString(),
+                was_cited: true,
+                feedback: rating,
             })
             .then(() => { })
     }
@@ -325,17 +345,30 @@ export async function getStaleMemories(params: {
  * Bulk archive stale memories (soft delete).
  */
 export async function archiveStaleMemories(memoryIds: string[]): Promise<number> {
-    const { data } = await supabase
-        .from('memories')
-        .update({
-            is_active: false,
-            updated_at: new Date().toISOString(),
-            metadata: { archived_reason: 'stale_auto' },
-        })
-        .in('id', memoryIds)
-        .select('id')
+    if (memoryIds.length === 0) return 0
 
-    return data?.length || 0
+    // Read existing metadata for all memories to avoid overwriting
+    const { data: existingMemories } = await supabase
+        .from('memories')
+        .select('id, metadata')
+        .in('id', memoryIds)
+
+    let archived = 0
+    for (const mem of existingMemories || []) {
+        const existingMetadata = (mem.metadata as Record<string, unknown>) || {}
+        const { error } = await supabase
+            .from('memories')
+            .update({
+                is_active: false,
+                updated_at: new Date().toISOString(),
+                metadata: { ...existingMetadata, archived_reason: 'stale_auto', archived_at: new Date().toISOString() },
+            })
+            .eq('id', mem.id)
+
+        if (!error) archived++
+    }
+
+    return archived
 }
 
 // ═══════════════════════════════════════════════════
@@ -362,12 +395,20 @@ export async function promoteToFirmPatterns(organizationId: string): Promise<num
     let promoted = 0
 
     for (const mem of candidates) {
-        // Check if pattern already exists
+        // M10: Improved dedup — use normalized 200-char prefix for matching
+        const contentNormalized = (mem.content as string)
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 200)
+
+        // Check if pattern already exists with similar content
         const { data: existing } = await supabase
             .from('firm_patterns')
             .select('id')
             .eq('organization_id', organizationId)
-            .ilike('description', `%${(mem.content as string).substring(0, 50)}%`)
+            .ilike('description', `%${contentNormalized.substring(0, 100)}%`)
             .limit(1)
 
         if (existing && existing.length > 0) continue
@@ -396,4 +437,96 @@ export async function promoteToFirmPatterns(organizationId: string): Promise<num
     }
 
     return promoted
+}
+
+// ═══════════════════════════════════════════════════
+// M8: IMPORTANCE RE-EVALUATION
+// ═══════════════════════════════════════════════════
+
+/**
+ * M8: Re-evaluate memory importance based on actual usage patterns.
+ * 
+ * Upgrades:
+ * - Memories with reinforcement_count >= 5 but importance < 4 → boost to 4
+ *   (frequently reinforced = important, regardless of initial assessment)
+ * 
+ * Downgrades:
+ * - Memories with importance >= 4 but decay_weight < 0.3 and reinforcement_count < 2
+ *   → reduce importance by 1 (high-importance but never used = overrated)
+ */
+export async function reevaluateImportance(projectId: string): Promise<{
+    upgraded: number
+    downgraded: number
+}> {
+    let upgraded = 0
+    let downgraded = 0
+
+    try {
+        // 1. Find undervalued memories (high usage, low importance)
+        const { data: undervalued } = await supabase
+            .from('memories')
+            .select('id, importance, reinforcement_count')
+            .eq('project_id', projectId)
+            .eq('is_active', true)
+            .gte('reinforcement_count', 5)
+            .lt('importance', 4)
+            .limit(50)
+
+        if (undervalued && undervalued.length > 0) {
+            for (const mem of undervalued) {
+                await supabase
+                    .from('memories')
+                    .update({
+                        importance: 4,
+                        updated_at: new Date().toISOString(),
+                        metadata: {
+                            importance_upgraded_at: new Date().toISOString(),
+                            importance_upgraded_reason: 'high_reinforcement',
+                            previous_importance: mem.importance,
+                        },
+                    })
+                    .eq('id', mem.id)
+                upgraded++
+            }
+        }
+
+        // 2. Find overvalued memories (high importance, low usage)
+        const { data: overvalued } = await supabase
+            .from('memories')
+            .select('id, importance, decay_weight, reinforcement_count')
+            .eq('project_id', projectId)
+            .eq('is_active', true)
+            .gte('importance', 4)
+            .lt('decay_weight', 0.3)
+            .lt('reinforcement_count', 2)
+            .limit(50)
+
+        if (overvalued && overvalued.length > 0) {
+            for (const mem of overvalued) {
+                const newImportance = Math.max(1, (mem.importance as number) - 1)
+                await supabase
+                    .from('memories')
+                    .update({
+                        importance: newImportance,
+                        updated_at: new Date().toISOString(),
+                        metadata: {
+                            importance_downgraded_at: new Date().toISOString(),
+                            importance_downgraded_reason: 'low_usage',
+                            previous_importance: mem.importance,
+                        },
+                    })
+                    .eq('id', mem.id)
+                downgraded++
+            }
+        }
+
+        if (upgraded > 0 || downgraded > 0) {
+            logger.info("memory/learning-loop", `[M8] Importance re-evaluation: ${upgraded} upgraded, ${downgraded} downgraded`)
+        }
+
+        return { upgraded, downgraded }
+    } catch (err) {
+        logger.error("memory/learning-loop", '[M8] Importance re-evaluation failed', err)
+        return { upgraded: 0, downgraded: 0 }
+    }
 }

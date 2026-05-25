@@ -5,7 +5,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
-import { AI_TOKENS } from '@/lib/ai/config'
+import { AI_TOKENS, AI_MODELS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
@@ -43,7 +43,8 @@ export async function generateProjectSummary(projectId: string): Promise<boolean
         // 2. AI summary
         const { result } = await callAI('project_summary', { text: context }, {
             jsonMode: true,
-            maxTokens: AI_TOKENS.trust
+            maxTokens: AI_TOKENS.trust,
+            model: AI_MODELS.trust,
         })
 
         const parsed = parseAIJSON(result, undefined)

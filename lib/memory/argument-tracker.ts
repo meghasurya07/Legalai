@@ -28,7 +28,7 @@ export interface ArgumentRecord {
     practice_area?: string
     strength_assessment: number  // 0.0 - 1.0
     outcome?: ArgumentOutcome
-    outcome_details?: string
+    outcome_notes?: string
     counter_arguments?: string[]
     supporting_evidence?: string[]
     source_conversation_id?: string
@@ -38,22 +38,19 @@ export interface ArgumentRecord {
 }
 
 export type ArgumentType =
+    | 'offense'         // Offensive arguments
+    | 'defense'         // Defensive arguments
     | 'procedural'      // Procedural/technical arguments
-    | 'substantive'     // Core legal merits
     | 'evidentiary'     // Evidence-based arguments
-    | 'policy'          // Policy/public interest arguments
-    | 'contractual'     // Contract interpretation
     | 'statutory'       // Statutory interpretation
-    | 'precedent'       // Precedent-based arguments
-    | 'equitable'       // Equitable/fairness arguments
+    | 'constitutional'  // Constitutional arguments
 
 export type ArgumentOutcome =
-    | 'accepted'        // Argument was accepted by the court/tribunal
-    | 'rejected'        // Argument was rejected
-    | 'partially_accepted'
+    | 'won'             // Argument was accepted by the court/tribunal
+    | 'lost'            // Argument was rejected
     | 'settled'         // Matter settled before ruling
     | 'pending'         // Outcome not yet known
-    | 'withdrawn'       // Argument was withdrawn
+    | 'partial'         // Partially accepted
 
 // ─── Extraction ──────────────────────────────────────────
 
@@ -79,7 +76,7 @@ Return JSON:
   "arguments": [
     {
       "argument_text": "The complete argument statement",
-      "argument_type": "procedural|substantive|evidentiary|policy|contractual|statutory|precedent|equitable",
+      "argument_type": "offense|defense|procedural|evidentiary|statutory|constitutional",
       "legal_basis": "The law, statute, or precedent the argument relies on (if mentioned)",
       "jurisdiction": "The jurisdiction (if identifiable)",
       "practice_area": "The area of law (e.g., corporate, IP, employment)",
@@ -115,7 +112,7 @@ Rules:
                 jurisdiction: arg.jurisdiction || undefined,
                 practice_area: arg.practice_area || undefined,
                 strength_assessment: Math.max(0, Math.min(1, parseFloat(arg.strength_assessment) || 0.5)),
-                outcome: 'pending',
+                outcome: 'pending' as ArgumentOutcome,
                 counter_arguments: Array.isArray(arg.counter_arguments) ? arg.counter_arguments : [],
                 supporting_evidence: Array.isArray(arg.supporting_evidence) ? arg.supporting_evidence : [],
                 source_conversation_id: conversationId,
@@ -149,13 +146,11 @@ export async function persistArguments(args: ArgumentRecord[]): Promise<void> {
 
             // Check for duplicate arguments (semantic dedup)
             if (embedding) {
-                const { data: existing } = await supabase.rpc('match_memories', {
+                const { data: existing } = await supabase.rpc('match_arguments', {
                     query_embedding: JSON.stringify(embedding),
                     match_threshold: 0.9,
                     match_count: 1,
-                    filter_project_id: arg.project_id,
-                    filter_org_id: null,
-                    filter_types: ['argument'],
+                    filter_org_id: arg.organization_id || null,
                 })
 
                 if (existing && existing.length > 0) {
@@ -174,8 +169,8 @@ export async function persistArguments(args: ArgumentRecord[]): Promise<void> {
                 jurisdiction: arg.jurisdiction || null,
                 practice_area: arg.practice_area || null,
                 strength_assessment: arg.strength_assessment,
-                outcome: arg.outcome || 'pending',
-                outcome_details: arg.outcome_details || null,
+                outcome: arg.outcome || 'pending' as ArgumentOutcome,
+                outcome_notes: arg.outcome_notes || null,
                 counter_arguments: arg.counter_arguments || [],
                 supporting_evidence: arg.supporting_evidence || [],
                 source_conversation_id: arg.source_conversation_id || null,
@@ -195,15 +190,14 @@ export async function persistArguments(args: ArgumentRecord[]): Promise<void> {
 export async function updateArgumentOutcome(
     argumentId: string,
     outcome: ArgumentOutcome,
-    outcomeDetails?: string
+    outcomeNotes?: string
 ): Promise<void> {
     try {
         await supabase
             .from('arguments')
             .update({
                 outcome,
-                outcome_details: outcomeDetails || null,
-                updated_at: new Date().toISOString(),
+                outcome_notes: outcomeNotes || null,
             })
             .eq('id', argumentId)
     } catch (err) {
@@ -256,8 +250,8 @@ export async function getArgumentPatterns(
         }
 
         const total = data.length
-        const accepted = data.filter(d => d.outcome === 'accepted' || d.outcome === 'partially_accepted').length
-        const rejected = data.filter(d => d.outcome === 'rejected').length
+        const accepted = data.filter(d => d.outcome === 'won' || d.outcome === 'partial').length
+        const rejected = data.filter(d => d.outcome === 'lost').length
 
         // Group by type
         const byType: Record<string, { total: number; success: number }> = {}
@@ -265,7 +259,7 @@ export async function getArgumentPatterns(
             const type = row.argument_type as string
             if (!byType[type]) byType[type] = { total: 0, success: 0 }
             byType[type].total++
-            if (row.outcome === 'accepted' || row.outcome === 'partially_accepted') {
+            if (row.outcome === 'won' || row.outcome === 'partial') {
                 byType[type].success++
             }
         }
@@ -293,8 +287,8 @@ export async function getArgumentPatterns(
 
 function validateArgumentType(type: string): ArgumentType {
     const valid: ArgumentType[] = [
-        'procedural', 'substantive', 'evidentiary', 'policy',
-        'contractual', 'statutory', 'precedent', 'equitable',
+        'offense', 'defense', 'procedural', 'evidentiary',
+        'statutory', 'constitutional',
     ]
-    return valid.includes(type as ArgumentType) ? (type as ArgumentType) : 'substantive'
+    return valid.includes(type as ArgumentType) ? (type as ArgumentType) : 'offense'
 }

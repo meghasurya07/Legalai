@@ -1,4 +1,6 @@
 import mammoth from 'mammoth'
+import { createWorker } from 'tesseract.js'
+import { read, utils } from 'xlsx'
 import { logger } from '@/lib/logger'
 
 /**
@@ -30,6 +32,22 @@ export async function extractText(file: File): Promise<string> {
                 const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default
                 const data = await pdfParse(Buffer.from(buffer))
                 logger.info("ai/extract-text", `[extractText] PDF extracted: ${data.text.length} chars`)
+
+                // C10: OCR fallback for scanned PDFs
+                if (data.text.trim().length < 100) {
+                    logger.info("ai/extract-text", '[extractText] PDF text too short, attempting OCR...')
+                    try {
+                        const worker = await createWorker('eng')
+                        const { data: ocrData } = await worker.recognize(Buffer.from(buffer))
+                        await worker.terminate()
+                        logger.info("ai/extract-text", `[extractText] OCR extracted: ${ocrData.text.length} chars`)
+                        return ocrData.text
+                    } catch (ocrError) {
+                        logger.error('lib', `[extractText] OCR fallback failed:`, ocrError)
+                        return data.text
+                    }
+                }
+
                 return data.text
             } catch (pdfError) {
                 logger.error('lib', `[extractText] PDF extraction error:`, pdfError)
@@ -82,8 +100,45 @@ export async function extractText(file: File): Promise<string> {
             return text
         }
 
+        // M14: Excel (.xlsx, .xls) support
+        if (
+            fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            fileType === 'application/vnd.ms-excel' ||
+            fileName.endsWith('.xlsx') ||
+            fileName.endsWith('.xls')
+        ) {
+            logger.info("ai/extract-text", `[extractText] Detected Excel file, using xlsx`)
+            const workbook = read(Buffer.from(buffer))
+            const sheets: string[] = []
+            for (const sheetName of workbook.SheetNames) {
+                const sheet = workbook.Sheets[sheetName]
+                const csv = utils.sheet_to_csv(sheet)
+                sheets.push(`--- Sheet: ${sheetName} ---\n\n${csv}`)
+            }
+            const text = sheets.join('\n\n')
+            logger.info("ai/extract-text", `[extractText] Excel extracted: ${text.length} chars from ${workbook.SheetNames.length} sheet(s)`)
+            return text
+        }
+
+        // M14: .doc support (try mammoth, fallback to error)
+        if (
+            fileType === 'application/msword' ||
+            fileName.endsWith('.doc')
+        ) {
+            logger.info("ai/extract-text", `[extractText] Detected .doc file, trying mammoth`)
+            try {
+                const result = await mammoth.convertToHtml({ buffer: Buffer.from(buffer) })
+                const text = result.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                logger.info("ai/extract-text", `[extractText] .doc extracted: ${text.length} chars`)
+                return text
+            } catch (docError) {
+                logger.error('lib', `[extractText] .doc extraction failed:`, docError)
+                return `[File: ${file.name} - Legacy .doc format could not be extracted. Please convert to .docx]`
+            }
+        }
+
         // Reject known binary formats that can't be text-decoded
-        const binaryExtensions = ['.xlsx', '.xls', '.pptx', '.ppt', '.doc', '.zip', '.rar',
+        const binaryExtensions = ['.pptx', '.ppt', '.zip', '.rar',
             '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.mp3', '.mp4', '.wav', '.avi']
         if (binaryExtensions.some(ext => fileName.endsWith(ext))) {
             logger.info("ai/extract-text", `[extractText] Binary file format not supported: ${file.name}`)

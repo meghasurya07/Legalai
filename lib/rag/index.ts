@@ -4,7 +4,7 @@
  * Re-exports all RAG components for clean imports.
  */
 
-export { chunkText, type Chunk } from './chunker'
+export { chunkText, chunkTextWithContext, type Chunk } from './chunker'
 export { embedText, embedChunks, type EmbeddingResult } from './embeddings'
 export { ingestFile, deleteFileChunks } from './ingest'
 export {

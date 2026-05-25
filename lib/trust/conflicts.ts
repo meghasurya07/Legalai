@@ -3,10 +3,14 @@
  * 
  * Compares clauses across documents within a project to
  * identify contradictions (governing law, jurisdiction, etc.).
+ * 
+ * KEY UPGRADES:
+ * - H31: Incremental detection — re-runs when new clauses exist since last run
+ * - H32: Increased clause comparison limits (10 per type vs 6)
  */
 
 import { callAI } from '@/lib/ai/client'
-import { AI_TOKENS } from '@/lib/ai/config'
+import { AI_TOKENS, AI_MODELS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveClauses } from '@/lib/document-intelligence'
@@ -16,23 +20,18 @@ import { logger } from '@/lib/logger'
 /**
  * Detect conflicts across project documents.
  * Compares clauses of the same type from different files.
+ * 
+ * Incremental: only re-runs if new clauses have been added since the last run.
+ * Pass `options.force` to bypass the incremental check.
  */
-export async function detectConflicts(projectId: string): Promise<number> {
+export async function detectConflicts(
+    projectId: string,
+    options?: { force?: boolean }
+): Promise<number> {
     try {
         logger.info("trust/conflicts", `[Trust] Starting conflict detection for project ${projectId}`)
 
-        // 1. Check for existing conflicts (avoid re-running)
-        const { count: existing } = await supabase
-            .from('project_conflicts')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', projectId)
-
-        if (existing && existing > 0) {
-            logger.info("trust/conflicts", `[Trust] Conflicts already detected (${existing}), skipping`)
-            return existing
-        }
-
-        // 2. Get all clauses for this project
+        // 1. Get all clauses for this project
         const clauses = await retrieveClauses(projectId)
 
         if (clauses.length < 2) {
@@ -40,7 +39,49 @@ export async function detectConflicts(projectId: string): Promise<number> {
             return 0
         }
 
-        // 3. Group clauses by type and find cross-document pairs
+        // 2. Check if re-detection is needed (incremental)
+        if (!options?.force) {
+            const { count: existing } = await supabase
+                .from('project_conflicts')
+                .select('*', { count: 'exact', head: true })
+                .eq('project_id', projectId)
+
+            // If conflicts already exist, check if any new clauses were added
+            if (existing && existing > 0) {
+                // Get the latest conflict's created_at
+                const { data: latestConflict } = await supabase
+                    .from('project_conflicts')
+                    .select('created_at')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single()
+
+                if (latestConflict) {
+                    // Check if any document_clauses were created after the last conflict run
+                    const { count: newClauses } = await supabase
+                        .from('document_clauses')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('project_id', projectId)
+                        .gt('created_at', latestConflict.created_at)
+
+                    if (!newClauses || newClauses === 0) {
+                        logger.info("trust/conflicts", `[Trust] No new clauses since last detection (${existing} existing conflicts), skipping`)
+                        return existing
+                    }
+
+                    logger.info("trust/conflicts", `[Trust] ${newClauses} new clauses detected, re-running conflict analysis`)
+                }
+            }
+        }
+
+        // 3. Clear old conflicts before re-running (incremental refresh)
+        await supabase
+            .from('project_conflicts')
+            .delete()
+            .eq('project_id', projectId)
+
+        // 4. Group clauses by type and find cross-document pairs
         const byType = new Map<string, typeof clauses>()
         for (const c of clauses) {
             const list = byType.get(c.clauseType) || []
@@ -48,7 +89,7 @@ export async function detectConflicts(projectId: string): Promise<number> {
             byType.set(c.clauseType, list)
         }
 
-        // 4. For each clause type with multiple files, check for conflicts
+        // 5. For each clause type with multiple files, check for conflicts
         const conflictClauses: string[] = []
         const clauseFileMap: Array<{ type: string; fileId: string; content: string }> = []
 
@@ -56,9 +97,9 @@ export async function detectConflicts(projectId: string): Promise<number> {
             const fileIds = new Set(typeClauses.map(c => c.fileId))
             if (fileIds.size < 2) continue // Need cross-doc
 
-            // Take up to 2 per file for comparison
-            for (const c of typeClauses.slice(0, 6)) {
-                conflictClauses.push(`[${type}] (File: ${c.fileId}): ${c.content.slice(0, 300)}`)
+            // Take up to 10 per clause type for more thorough comparison (H32)
+            for (const c of typeClauses.slice(0, 10)) {
+                conflictClauses.push(`[${type}] (File: ${c.fileId}): ${c.content.slice(0, 400)}`)
                 clauseFileMap.push({ type, fileId: c.fileId, content: c.content })
             }
         }
@@ -68,18 +109,20 @@ export async function detectConflicts(projectId: string): Promise<number> {
             return 0
         }
 
-        // 5. AI-powered conflict analysis
+        // 6. AI-powered conflict analysis
         const { result } = await callAI('conflict_detection', {
             text: conflictClauses.join('\n\n')
         }, {
             jsonMode: true,
-            maxTokens: AI_TOKENS.trust
+            maxTokens: AI_TOKENS.trust,
+            temperature: 0.1, // Low temperature for precise factual analysis
+            model: AI_MODELS.trust,
         })
 
         const parsed = parseAIJSON(result, undefined)
         const conflicts = Array.isArray(parsed?.conflicts) ? parsed.conflicts : []
 
-        // 6. Persist conflicts
+        // 7. Persist conflicts
         let count = 0
         for (const conflict of conflicts) {
             const { error } = await supabase

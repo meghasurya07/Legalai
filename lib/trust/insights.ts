@@ -6,7 +6,7 @@
  */
 
 import { callAI } from '@/lib/ai/client'
-import { AI_TOKENS } from '@/lib/ai/config'
+import { AI_TOKENS, AI_MODELS } from '@/lib/ai/config'
 import { supabase } from '@/lib/supabase/server'
 import { parseAIJSON } from '@/lib/api-utils'
 import { retrieveProjectAnalysis, retrieveClauses } from '@/lib/document-intelligence'
@@ -51,10 +51,11 @@ export async function generateVaultInsights(projectId: string): Promise<number> 
             return 0
         }
 
-        // 3. AI insight generation
+        // 3. AI insight generation — H37: uses dedicated trust model
         const { result } = await callAI('vault_insights', { text: context }, {
             jsonMode: true,
-            maxTokens: AI_TOKENS.trust
+            maxTokens: AI_TOKENS.trust,
+            model: AI_MODELS.trust,
         })
 
         const parsed = parseAIJSON(result, undefined)

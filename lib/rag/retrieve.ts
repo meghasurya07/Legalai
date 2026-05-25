@@ -1,14 +1,50 @@
 /**
- * RAG Retrieval Engine
+ * RAG Retrieval Engine — Production Upgrade
  * 
- * Retrieves relevant document chunks for a query, scoped to a project.
- * Enforces cross-file diversity and token limits.
+ * KEY UPGRADES:
+ * - Hybrid search: BM25 full-text + vector cosine with Reciprocal Rank Fusion (RRF)
+ * - Similarity threshold: minimum 0.5 (configurable) — no more irrelevant chunks
+ * - Chunk adjacency merging: neighboring chunks from same file are merged for coherence
+ * - Graceful fallback: if hybrid search RPC is unavailable, falls back to vector-only
+ * - C2: Keyword-overlap re-ranking — boosts chunks with more query term matches
+ * - H1: HyDE (Hypothetical Document Embeddings) — generates hypothetical answer for better embedding
+ * - H2: Conversational context enrichment — recent messages improve follow-up retrieval
+ * - M3: In-memory embedding cache — prevents re-embedding identical queries
+ * - M6: Retrieval quality metrics — logs search mode, scores, and latency
  */
 
 import { embedText } from './embeddings'
 import { supabase } from '@/lib/supabase/server'
 import { RAG_CONFIG } from '@/lib/ai/config'
-import { logger } from '@/lib/logger'
+import { logger, logEvent } from '@/lib/logger'
+
+/**
+ * M3: Simple in-memory LRU cache for query embeddings.
+ * Prevents re-embedding the same query string multiple times.
+ * Cache is process-scoped — cleared on server restart.
+ */
+const EMBEDDING_CACHE_MAX = 200
+const embeddingCache = new Map<string, { embedding: number[]; timestamp: number }>()
+
+function getCachedEmbedding(key: string): number[] | null {
+    const entry = embeddingCache.get(key)
+    if (!entry) return null
+    // Expire after 10 minutes
+    if (Date.now() - entry.timestamp > 10 * 60 * 1000) {
+        embeddingCache.delete(key)
+        return null
+    }
+    return entry.embedding
+}
+
+function setCachedEmbedding(key: string, embedding: number[]): void {
+    // Evict oldest entries if cache is full
+    if (embeddingCache.size >= EMBEDDING_CACHE_MAX) {
+        const oldest = embeddingCache.keys().next().value
+        if (oldest) embeddingCache.delete(oldest)
+    }
+    embeddingCache.set(key, { embedding, timestamp: Date.now() })
+}
 
 export interface RetrievedChunk {
     id: string
@@ -21,37 +57,71 @@ export interface RetrievedChunk {
     similarity: number
     pageNumber: number | null
     sectionHeading: string | null
+    /** RRF combined score (hybrid search) — may be undefined for vector-only fallback */
+    rrfScore?: number
+    /** BM25 text rank score — may be undefined for vector-only fallback */
+    textRank?: number
 }
 
 export interface RetrievalResult {
     chunks: RetrievedChunk[]
     totalTokens: number
     fileIds: string[]
+    /** Indicates whether hybrid search was used */
+    searchMode: 'hybrid' | 'vector'
 }
 
 interface RetrievalOptions {
     topK?: number
     maxTokens?: number
     maxChunksPerFile?: number
+    /** Minimum similarity score (0-1). Chunks below this are discarded. Default: 0.5 */
+    similarityThreshold?: number
     /** If set, restrict results to only this file ID */
     fileId?: string
+    /** Enable/disable adjacency merging. Default: true */
+    mergeAdjacentChunks?: boolean
+    /** Enable keyword-overlap re-ranking after initial retrieval (C2). Default: true */
+    reRank?: boolean
+    /** Enable HyDE: generate hypothetical answer before embedding (H1). Default: false — adds latency */
+    useHyDE?: boolean
+    /** H2: Recent conversation messages for contextual retrieval. Last 2-3 user messages help with follow-ups like "tell me more about that" */
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+    /** M1: Metadata filters — applied post-fetch to narrow results by file attributes */
+    metadataFilters?: {
+        fileType?: string       // filter by file MIME type
+        fileName?: string       // filter by filename pattern (ILIKE)
+        uploadedAfter?: string  // ISO date — only files uploaded after this date
+        uploadedBefore?: string // ISO date
+    }
+    /** M2: Enable MMR (Maximal Marginal Relevance) diversity re-ordering. Default: false */
+    useMMR?: boolean
 }
 
-const DEFAULTS: Required<RetrievalOptions> = {
+const DEFAULTS: Required<Omit<RetrievalOptions, 'conversationHistory' | 'metadataFilters'>> = {
     topK: RAG_CONFIG.retrieval.topK,
     maxTokens: RAG_CONFIG.retrieval.maxTokens,
     maxChunksPerFile: RAG_CONFIG.retrieval.maxChunksPerFile,
+    similarityThreshold: 0.5,
     fileId: '',
+    mergeAdjacentChunks: true,
+    reRank: true,
+    useHyDE: false,
+    useMMR: false,
 }
 
 /**
  * Retrieve the most relevant document chunks for a query within a project.
  * 
+ * Uses hybrid search (BM25 + vector + RRF) when available, with graceful
+ * fallback to vector-only search if the hybrid RPC hasn't been deployed.
+ * 
  * Enforces:
  * - Project scope (no cross-project leakage)
+ * - Similarity threshold (configurable, default 0.5)
  * - File diversity (max N chunks per file)
  * - Token budget (≈3000 tokens total context)
- * - Similarity ordering
+ * - Chunk adjacency merging (neighboring chunks from same file)
  */
 export async function retrieveRelevantChunks(
     projectId: string,
@@ -68,32 +138,96 @@ export async function retrieveRelevantChunks(
             logger.info("rag/retrieve", `[RAG Retrieve] Detected file reference → filtering to file ${targetFileId}`)
         }
 
-        // 2. Embed the query
-        const queryEmbedding = await embedText(query)
+        // 2. Build enriched query with conversational context (H2)
+        let embeddingInput = query
+        if (options?.conversationHistory && options.conversationHistory.length > 0) {
+            // Take last 3 user messages for context (avoid diluting with too much history)
+            const recentUserMsgs = options.conversationHistory
+                .filter(m => m.role === 'user')
+                .slice(-3)
+                .map(m => m.content.slice(0, 200))
+            if (recentUserMsgs.length > 0) {
+                embeddingInput = `${recentUserMsgs.join(' ')} ${query}`
+            }
+        }
 
-        // 3. Fetch more candidates than needed for diversity filtering
-        // If targeting a single file, fetch more candidates from it
+        // 3. Optionally expand with HyDE
+        if (opts.useHyDE) {
+            try {
+                embeddingInput = await hydeExpandQuery(query)
+                logger.info("rag/retrieve", `[RAG HyDE] Expanded query: "${query.slice(0, 50)}..." → ${embeddingInput.length} chars`)
+            } catch {
+                logger.info("rag/retrieve", '[RAG HyDE] Expansion failed, using original query')
+            }
+        }
+
+        // 4. Embed the query (M3: use cache to avoid re-embedding identical queries)
+        let queryEmbedding = getCachedEmbedding(embeddingInput)
+        if (!queryEmbedding) {
+            queryEmbedding = await embedText(embeddingInput)
+            setCachedEmbedding(embeddingInput, queryEmbedding)
+        }
+
+        // 3. Fetch candidates — try hybrid first, fallback to vector-only
+        // With re-ranking (C2), fetch more candidates initially then re-rank down
+        const reRankMultiplier = opts.reRank ? 3 : 1
         const candidateCount = targetFileId
-            ? Math.min(opts.topK * 4, 30)
-            : Math.min(opts.topK * 3, 20)
+            ? Math.min(opts.topK * 4 * reRankMultiplier, 50)
+            : Math.min(opts.topK * 3 * reRankMultiplier, 30)
 
-        const { data: candidates, error } = await supabase.rpc('match_file_chunks', {
-            query_embedding: JSON.stringify(queryEmbedding),
-            match_project_id: projectId,
-            match_count: candidateCount,
-        })
+        let candidates: Record<string, unknown>[] | null = null
+        let searchMode: 'hybrid' | 'vector' = 'hybrid'
 
-        if (error) {
-            logger.error('[RAG Retrieve] RPC error:', 'Error occurred', error)
-            return { chunks: [], totalTokens: 0, fileIds: [] }
+        // Try hybrid search first
+        try {
+            const { data, error } = await supabase.rpc('match_file_chunks_hybrid', {
+                query_embedding: JSON.stringify(queryEmbedding),
+                query_text: query,
+                match_project_id: projectId,
+                match_count: candidateCount,
+                similarity_threshold: opts.similarityThreshold,
+            })
+
+            if (!error && data && data.length > 0) {
+                candidates = data
+                searchMode = 'hybrid'
+            } else if (error) {
+                logger.info("rag/retrieve", `[RAG Retrieve] Hybrid search unavailable (${error.message}), falling back to vector-only`)
+            }
+        } catch {
+            logger.info("rag/retrieve", '[RAG Retrieve] Hybrid search not available, using vector-only fallback')
+        }
+
+        // Fallback to vector-only search
+        if (!candidates) {
+            searchMode = 'vector'
+            const { data, error } = await supabase.rpc('match_file_chunks', {
+                query_embedding: JSON.stringify(queryEmbedding),
+                match_project_id: projectId,
+                match_count: candidateCount,
+            })
+
+            if (error) {
+                logger.error('[RAG Retrieve] RPC error:', 'Error occurred', error)
+                return { chunks: [], totalTokens: 0, fileIds: [], searchMode: 'vector' }
+            }
+
+            candidates = data || []
         }
 
         if (!candidates || candidates.length === 0) {
             logger.info("rag/retrieve", `[RAG Retrieve] No chunks found for project ${projectId}`)
-            return { chunks: [], totalTokens: 0, fileIds: [] }
+            return { chunks: [], totalTokens: 0, fileIds: [], searchMode }
         }
 
-        // 4. If a specific file is targeted, filter candidates to only that file
+        // 4. Apply similarity threshold (for vector-only fallback — hybrid already filters)
+        if (searchMode === 'vector') {
+            candidates = candidates.filter(
+                (c: Record<string, unknown>) => (c.similarity as number) >= opts.similarityThreshold
+            )
+        }
+
+        // 5. If a specific file is targeted, filter candidates to only that file
         const filteredCandidates = targetFileId
             ? candidates.filter((c: Record<string, unknown>) => c.file_id === targetFileId)
             : candidates
@@ -102,10 +236,14 @@ export async function retrieveRelevantChunks(
             logger.info("rag/retrieve", `[RAG Retrieve] No chunks found for file ${targetFileId}, falling back to all candidates`)
         }
 
-        const finalCandidates = filteredCandidates.length > 0 ? filteredCandidates : candidates
+        let finalCandidates = filteredCandidates.length > 0 ? filteredCandidates : candidates
 
-        // 5. Apply diversity filtering — max N chunks per file
-        // If targeting a single file, allow more chunks from it
+        // 6a. M1: Apply metadata filters if provided
+        if (options?.metadataFilters) {
+            finalCandidates = applyMetadataFilters(finalCandidates, options.metadataFilters)
+        }
+
+        // 6b. Apply diversity filtering — max N chunks per file
         const effectiveMaxPerFile = targetFileId ? opts.topK : opts.maxChunksPerFile
         const fileChunkCounts = new Map<string, number>()
         const diverseChunks: RetrievedChunk[] = []
@@ -134,14 +272,34 @@ export async function retrieveRelevantChunks(
                 similarity: candidate.similarity as number,
                 pageNumber: candidate.page_number as number | null,
                 sectionHeading: candidate.section_heading as string | null,
+                rrfScore: (candidate.rrf_score as number) || undefined,
+                textRank: (candidate.text_rank as number) || undefined,
             })
 
             fileChunkCounts.set(fileId, currentFileCount + 1)
             totalTokens += chunkTokens
         }
 
-        // 4. Fetch file URLs for citation cards
-        const fileIds = [...new Set(diverseChunks.map(c => c.fileId))]
+        // 7. Re-rank chunks using keyword overlap (C2)
+        const reRankedChunks = opts.reRank
+            ? reRankChunks(diverseChunks, query)
+            : diverseChunks
+
+        // 7a. M2: Apply MMR diversity re-ordering after re-ranking, before adjacency merging
+        const mmrChunks = opts.useMMR
+            ? applyMMR(reRankedChunks, queryEmbedding, 0.7)
+            : reRankedChunks
+
+        // 8. Merge adjacent chunks from same file for coherence
+        const mergedChunks = opts.mergeAdjacentChunks
+            ? mergeAdjacentChunks(mmrChunks)
+            : mmrChunks
+
+        // 8. Recalculate total tokens after merging
+        totalTokens = mergedChunks.reduce((sum, c) => sum + c.tokenCount, 0)
+
+        // 9. Fetch file URLs for citation cards
+        const fileIds = [...new Set(mergedChunks.map(c => c.fileId))]
         if (fileIds.length > 0) {
             const { data: fileRecords } = await supabase
                 .from('files')
@@ -150,29 +308,355 @@ export async function retrieveRelevantChunks(
 
             if (fileRecords) {
                 const urlMap = new Map(fileRecords.map(f => [f.id, f.url]))
-                for (const chunk of diverseChunks) {
+                for (const chunk of mergedChunks) {
                     chunk.fileUrl = urlMap.get(chunk.fileId) || null
                 }
             }
         }
 
-        // 5. Log retrieval details
+        // 10. Log retrieval details
         const duration = Date.now() - startTime
-        logger.info("rag/retrieve", 
+        logger.info("rag/retrieve",
             `[RAG Retrieve] project=${projectId} | ` +
-            `chunks=${diverseChunks.length}/${candidates.length} candidates | ` +
+            `mode=${searchMode} | ` +
+            `chunks=${mergedChunks.length}/${candidates.length} candidates | ` +
             `files=${fileIds.length} | ` +
             `tokens=${totalTokens} | ` +
             `duration=${duration}ms | ` +
-            `file_ids=[${fileIds.join(', ')}] | ` +
-            `chunk_indices=[${diverseChunks.map(c => c.chunkIndex).join(', ')}] | ` +
-            `similarities=[${diverseChunks.map(c => c.similarity.toFixed(4)).join(', ')}]`
+            `similarities=[${mergedChunks.map(c => c.similarity.toFixed(4)).join(', ')}]` +
+            (searchMode === 'hybrid' ? ` | rrf=[${mergedChunks.map(c => (c.rrfScore || 0).toFixed(4)).join(', ')}]` : '')
         )
 
-        return { chunks: diverseChunks, totalTokens, fileIds }
+        // M6: Log structured retrieval quality metrics for observability
+        logEvent('RAG_RETRIEVE', {
+            projectId,
+            searchMode,
+            candidateCount: candidates.length,
+            returnedChunks: mergedChunks.length,
+            uniqueFiles: fileIds.length,
+            totalTokens,
+            durationMs: duration,
+            avgSimilarity: mergedChunks.length > 0
+                ? Math.round(mergedChunks.reduce((sum, c) => sum + c.similarity, 0) / mergedChunks.length * 1000) / 1000
+                : 0,
+            minSimilarity: mergedChunks.length > 0
+                ? Math.round(Math.min(...mergedChunks.map(c => c.similarity)) * 1000) / 1000
+                : 0,
+            maxSimilarity: mergedChunks.length > 0
+                ? Math.round(Math.max(...mergedChunks.map(c => c.similarity)) * 1000) / 1000
+                : 0,
+            useHyDE: opts.useHyDE,
+            reRanked: opts.reRank,
+            embeddingCacheSize: embeddingCache.size,
+        })
+
+        return { chunks: mergedChunks, totalTokens, fileIds, searchMode }
     } catch (error) {
         logger.error('[RAG Retrieve] Error:', 'Error occurred', error)
-        return { chunks: [], totalTokens: 0, fileIds: [] }
+        return { chunks: [], totalTokens: 0, fileIds: [], searchMode: 'vector' }
+    }
+}
+
+/**
+ * Merge adjacent chunks from the same file to provide more coherent context.
+ * 
+ * If chunks with indices N and N+1 from the same file are both retrieved,
+ * they're combined into a single chunk with merged content.
+ */
+function mergeAdjacentChunks(chunks: RetrievedChunk[]): RetrievedChunk[] {
+    if (chunks.length <= 1) return chunks
+
+    // Group chunks by file
+    const byFile = new Map<string, RetrievedChunk[]>()
+    for (const chunk of chunks) {
+        const existing = byFile.get(chunk.fileId) || []
+        existing.push(chunk)
+        byFile.set(chunk.fileId, existing)
+    }
+
+    const merged: RetrievedChunk[] = []
+
+    for (const [, fileChunks] of byFile) {
+        // Sort by chunk index within each file
+        fileChunks.sort((a, b) => a.chunkIndex - b.chunkIndex)
+
+        let current = { ...fileChunks[0] }
+
+        for (let i = 1; i < fileChunks.length; i++) {
+            const next = fileChunks[i]
+
+            // If this chunk is adjacent (index differs by 1), merge
+            if (next.chunkIndex === current.chunkIndex + 1) {
+                current = {
+                    ...current,
+                    content: current.content + '\n\n' + next.content,
+                    tokenCount: current.tokenCount + next.tokenCount,
+                    // Keep the higher similarity score
+                    similarity: Math.max(current.similarity, next.similarity),
+                    rrfScore: Math.max(current.rrfScore || 0, next.rrfScore || 0) || undefined,
+                }
+            } else {
+                merged.push(current)
+                current = { ...next }
+            }
+        }
+
+        merged.push(current)
+    }
+
+    // Re-sort by similarity (or RRF score if available) after merging
+    merged.sort((a, b) => {
+        if (a.rrfScore && b.rrfScore) return b.rrfScore - a.rrfScore
+        return b.similarity - a.similarity
+    })
+
+    return merged
+}
+
+/**
+ * M1: Apply metadata filters to candidates after fetching.
+ * Filters based on file type, filename pattern, and upload dates.
+ */
+function applyMetadataFilters(
+    candidates: Record<string, unknown>[],
+    filters: NonNullable<RetrievalOptions['metadataFilters']>
+): Record<string, unknown>[] {
+    return candidates.filter(candidate => {
+        // Filter by file MIME type
+        if (filters.fileType) {
+            const candidateType = candidate.file_type as string | undefined
+            if (!candidateType || candidateType !== filters.fileType) return false
+        }
+
+        // Filter by filename pattern (case-insensitive LIKE)
+        if (filters.fileName) {
+            const candidateName = candidate.file_name as string | undefined
+            if (!candidateName) return false
+            // Convert SQL ILIKE pattern (% as wildcard) to a regex
+            const pattern = filters.fileName
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex chars
+                .replace(/%/g, '.*')                      // SQL % → regex .*
+                .replace(/_/g, '.')                        // SQL _ → regex .
+            const regex = new RegExp(`^${pattern}$`, 'i')
+            if (!regex.test(candidateName)) return false
+        }
+
+        // Filter by upload date — after
+        if (filters.uploadedAfter) {
+            const uploadedAt = candidate.created_at as string | undefined
+            if (!uploadedAt || new Date(uploadedAt) <= new Date(filters.uploadedAfter)) return false
+        }
+
+        // Filter by upload date — before
+        if (filters.uploadedBefore) {
+            const uploadedAt = candidate.created_at as string | undefined
+            if (!uploadedAt || new Date(uploadedAt) >= new Date(filters.uploadedBefore)) return false
+        }
+
+        return true
+    })
+}
+
+/**
+ * Compute cosine similarity between two vectors.
+ */
+function cosineSim(a: number[], b: number[]): number {
+    let dot = 0
+    let normA = 0
+    let normB = 0
+    for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i]
+        normA += a[i] * a[i]
+        normB += b[i] * b[i]
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB)
+    return denom === 0 ? 0 : dot / denom
+}
+
+/**
+ * M2: Maximal Marginal Relevance (MMR) diversity scoring.
+ *
+ * Re-orders chunks to balance relevance to the query and diversity among
+ * selected chunks. Higher λ favors relevance, lower λ favors diversity.
+ *
+ * MMR(d) = λ * sim(d, q) - (1-λ) * max_selected(sim(d, s))
+ */
+function applyMMR(
+    chunks: RetrievedChunk[],
+    queryEmbedding: number[],
+    lambda: number = 0.7
+): RetrievedChunk[] {
+    if (chunks.length <= 1) return chunks
+
+    // We need embeddings for each chunk to compute inter-chunk similarity.
+    // Since we only have similarity scores (not raw embeddings for each chunk),
+    // we approximate using content-based cosine similarity via a simple TF vector.
+    // However, the chunks already have a .similarity score to the query.
+
+    const remaining = [...chunks]
+    const selected: RetrievedChunk[] = []
+
+    // Pick the most relevant chunk first
+    remaining.sort((a, b) => b.similarity - a.similarity)
+    selected.push(remaining.shift()!)
+
+    while (remaining.length > 0) {
+        let bestIdx = 0
+        let bestMMR = -Infinity
+
+        for (let i = 0; i < remaining.length; i++) {
+            const candidate = remaining[i]
+
+            // Relevance: similarity to query (already computed)
+            const relevance = candidate.similarity
+
+            // Diversity penalty: max similarity to any already-selected chunk
+            // We use content word-overlap as a proxy since we don't have chunk embeddings
+            let maxSimToSelected = 0
+            for (const sel of selected) {
+                const sim = contentOverlapSimilarity(candidate.content, sel.content)
+                if (sim > maxSimToSelected) maxSimToSelected = sim
+            }
+
+            const mmrScore = lambda * relevance - (1 - lambda) * maxSimToSelected
+
+            if (mmrScore > bestMMR) {
+                bestMMR = mmrScore
+                bestIdx = i
+            }
+        }
+
+        selected.push(remaining.splice(bestIdx, 1)[0])
+    }
+
+    return selected
+}
+
+/**
+ * Content-based overlap similarity between two text strings.
+ * Returns a value in [0, 1] using Jaccard similarity of significant words.
+ */
+function contentOverlapSimilarity(a: string, b: string): number {
+    const wordsA = new Set(
+        a.toLowerCase().replace(/[^\w\s'-]/g, ' ').split(/\s+/).filter(w => w.length > 3)
+    )
+    const wordsB = new Set(
+        b.toLowerCase().replace(/[^\w\s'-]/g, ' ').split(/\s+/).filter(w => w.length > 3)
+    )
+    if (wordsA.size === 0 || wordsB.size === 0) return 0
+
+    let intersection = 0
+    for (const w of wordsA) {
+        if (wordsB.has(w)) intersection++
+    }
+    return intersection / (wordsA.size + wordsB.size - intersection)
+}
+
+/**
+ * C2: Keyword-overlap re-ranking.
+ * 
+ * After initial retrieval (vector/hybrid), re-scores chunks by how many
+ * query terms they contain. This catches cases where the embedding retrieves
+ * semantically related but factually irrelevant chunks.
+ * 
+ * Scoring:
+ * - Exact query term match: +2
+ * - Bi-gram (two consecutive words) match: +3 (stronger signal)
+ * - Section heading match: +2 bonus
+ * - Final score = original_similarity * (1 + keyword_boost * 0.1)
+ */
+function reRankChunks(chunks: RetrievedChunk[], query: string): RetrievedChunk[] {
+    if (chunks.length <= 1) return chunks
+
+    const queryLower = query.toLowerCase()
+    const queryWords = queryLower
+        .replace(/[^\w\s'-]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+
+    // Build bi-grams from query
+    const queryBigrams: string[] = []
+    for (let i = 0; i < queryWords.length - 1; i++) {
+        queryBigrams.push(`${queryWords[i]} ${queryWords[i + 1]}`)
+    }
+
+    const scored = chunks.map(chunk => {
+        const contentLower = chunk.content.toLowerCase()
+        let keywordScore = 0
+
+        // Score individual term matches
+        for (const word of queryWords) {
+            // Count occurrences (cap at 3 to avoid gaming)
+            const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+            const matches = contentLower.match(regex)
+            if (matches) {
+                keywordScore += Math.min(matches.length, 3) * 2
+            }
+        }
+
+        // Score bi-gram matches (stronger signal)
+        for (const bigram of queryBigrams) {
+            if (contentLower.includes(bigram)) {
+                keywordScore += 3
+            }
+        }
+
+        // Bonus for section heading match
+        if (chunk.sectionHeading) {
+            const headingLower = chunk.sectionHeading.toLowerCase()
+            for (const word of queryWords) {
+                if (headingLower.includes(word)) {
+                    keywordScore += 2
+                }
+            }
+        }
+
+        // Combine: base similarity boosted by keyword score
+        const boost = 1 + (keywordScore * 0.1)
+        const reRankedSimilarity = chunk.similarity * Math.min(boost, 2.0) // cap at 2x
+
+        return { chunk, reRankedSimilarity, keywordScore }
+    })
+
+    // Sort by re-ranked similarity
+    scored.sort((a, b) => b.reRankedSimilarity - a.reRankedSimilarity)
+
+    return scored.map(s => ({
+        ...s.chunk,
+        similarity: s.reRankedSimilarity,
+    }))
+}
+
+/**
+ * H1: HyDE — Hypothetical Document Embeddings.
+ * 
+ * Generates a brief hypothetical answer to the user's query, then
+ * returns that as the embedding input. This produces embeddings that
+ * are closer to the actual document content in vector space.
+ * 
+ * Most effective for abstract queries like "what are the risks?" where
+ * the query itself doesn't overlap well with document language.
+ */
+async function hydeExpandQuery(query: string): Promise<string> {
+    try {
+        const { callAISafe } = await import('@/lib/ai/client')
+
+        const { result } = await callAISafe('chat' as Parameters<typeof callAISafe>[0], {
+            text: query,
+        }, {
+            maxTokens: 200,
+            temperature: 0.3,
+            systemOverride: 'You are a legal document assistant. Given a user question, write a brief 2-3 sentence hypothetical passage that would appear in a legal document to answer this question. Write it as if quoting from the document itself, not as a response to the user. Be specific and use legal terminology.',
+            userOverride: query,
+        })
+
+        if (result && result.length > 20) {
+            // Combine original query + hypothetical for dual-signal embedding
+            return `${query}\n\n${result}`
+        }
+        return query
+    } catch {
+        return query
     }
 }
 
@@ -540,4 +1024,3 @@ async function detectFileReference(
         return null
     }
 }
-

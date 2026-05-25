@@ -6,11 +6,14 @@
 
 export type StepType =
     | 'CLAUSE_ANALYSIS'
-    | 'RISK_ASSSESSMENT'
+    | 'RISK_ASSESSMENT'
     | 'RAG_QUERY'
     | 'DOCUMENT_COMPARISON'
     | 'SYNTHESIS'
     | 'METADATA_ANALYSIS'
+    | 'OBLIGATION_CHECK'
+    | 'COMPLIANCE_SCAN'
+    | 'LEGAL_RESEARCH'
 
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed'
 

@@ -24,14 +24,31 @@ export async function callAI(
         conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
         model?: string
         maxTokens?: number
+        temperature?: number
         projectId?: string
         useRAG?: boolean
         userId?: string
         orgId?: string
+        /** Override the system prompt (bypasses getPrompts for system message) */
+        systemOverride?: string
+        /** Override the user prompt (bypasses getPrompts for user message) */
+        userOverride?: string
     }
 ): Promise<{ result: string; tokensUsed: number }> {
     const client = await getClient(options?.orgId)
-    const { systemPrompt, userPrompt } = getPrompts(useCase, input)
+
+    // Support prompt overrides for custom modules (claim-verifier, consolidation, etc.)
+    let systemPrompt: string
+    let userPrompt: string
+    if (options?.systemOverride || options?.userOverride) {
+        const prompts = getPrompts(useCase, input)
+        systemPrompt = options.systemOverride || prompts.systemPrompt
+        userPrompt = options.userOverride || prompts.userPrompt
+    } else {
+        const prompts = getPrompts(useCase, input)
+        systemPrompt = prompts.systemPrompt
+        userPrompt = prompts.userPrompt
+    }
 
     // Build messages array
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -146,7 +163,7 @@ export async function callAI(
         model: options?.model || AI_MODELS.chat,
         messages,
         max_completion_tokens: options?.maxTokens || AI_TOKENS.default,
-        temperature: AI_TEMPERATURES.default,
+        temperature: options?.temperature ?? AI_TEMPERATURES.default,
         ...(options?.jsonMode ? { response_format: { type: 'json_object' as const } } : {})
     })
 
@@ -184,10 +201,13 @@ export async function callAISafe(
         conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
         model?: string
         maxTokens?: number
+        temperature?: number
         projectId?: string
         useRAG?: boolean
         userId?: string
         orgId?: string
+        systemOverride?: string
+        userOverride?: string
     }
 ): Promise<{ result: string; tokensUsed: number; error?: string }> {
     try {
