@@ -52,7 +52,7 @@ import { toast } from "sonner"
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const pathname = usePathname()
     const router = useRouter()
-    const { user } = useUser()
+    const { user, isLoading: isUserLoading } = useUser()
     const { settings: userSettings } = useUserSettings()
     const { setOpenMobile } = useSidebar()
 
@@ -64,14 +64,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         setOpenMobile(false)
     }
 
-    const userName = userSettings.user_name || user?.name || "User Name"
-    const userEmail = user?.email || "user@example.com"
+    // Use localStorage cache for instant display, then update when API data arrives
+    const cachedName = typeof window !== 'undefined' ? localStorage.getItem('vault_user_name') : null
+    const userName = userSettings.user_name || user?.name || cachedName || "User Name"
+    const userEmail = user?.email || ""
     const userInitials = userName
         .split(" ")
         .map((n) => n[0])
         .join("")
         .slice(0, 2)
         .toUpperCase()
+    const isProfileLoading = isUserLoading && !cachedName
 
 
 
@@ -200,14 +203,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <DropdownMenuTrigger asChild>
                                 <SidebarMenuButton size="lg" className="h-auto p-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground" tooltip="User Profile">
                                     <div className="flex items-center gap-2 w-full">
-                                        <Avatar className="h-8 w-8 rounded-full">
-                                            <AvatarImage src={userSettings.profile_image || user?.picture || "/avatar.png"} alt={userName} className="object-cover" />
-                                            <AvatarFallback>{userInitials}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                                            <span className="truncate font-semibold">{userName}</span>
-                                            <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
-                                        </div>
+                                        {isProfileLoading ? (
+                                            <>
+                                                <div className="h-8 w-8 rounded-full bg-muted animate-pulse shrink-0" />
+                                                <div className="grid flex-1 gap-1.5 group-data-[collapsible=icon]:hidden">
+                                                    <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
+                                                    <div className="h-2.5 w-32 rounded bg-muted/60 animate-pulse" />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Avatar className="h-8 w-8 rounded-full">
+                                                    <AvatarImage src={userSettings.profile_image || user?.picture || "/avatar.png"} alt={userName} className="object-cover" />
+                                                    <AvatarFallback>{userInitials}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                                                    <span className="truncate font-semibold">{userName}</span>
+                                                    <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
+                                                </div>
+                                            </>
+                                        )}
                                         <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
                                     </div>
                                 </SidebarMenuButton>

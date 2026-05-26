@@ -41,6 +41,7 @@ import { useChatStream } from "@/hooks/use-chat-stream"
 import { MessageBubble } from "@/components/chat/message-bubble"
 import { ChatInput } from "@/components/chat/chat-input"
 import { DraftEditorPanel } from "@/components/chat/draft-editor-panel"
+import { useUserSettings } from "@/context/user-settings-context"
 
 const COLOR_CLASSES: Record<string, { bg: string, text: string, hover: string }> = {
     rose: {
@@ -239,19 +240,13 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
 
     // ─── Stable greeting (lazy initializer — never empty, survives tab suspension) ──
     const [greeting] = React.useState(() => getRandomGreeting())
-    // Sync user name cache in background for next visit
+    // Sync user name cache from UserSettingsContext (no extra API call)
+    const { settings: userSettingsForCache } = useUserSettings()
     React.useEffect(() => {
-        fetch('/api/user/settings')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.data?.user_name) {
-                    localStorage.setItem('vault_user_name', data.data.user_name)
-                } else {
-                    localStorage.removeItem('vault_user_name')
-                }
-            })
-            .catch(() => { })
-    }, [])
+        if (userSettingsForCache.user_name) {
+            localStorage.setItem('vault_user_name', userSettingsForCache.user_name)
+        }
+    }, [userSettingsForCache.user_name])
 
     // ─── Citation / PDF Viewer helpers ───────────────────────────
     const closeCitationsSidebar = () => {

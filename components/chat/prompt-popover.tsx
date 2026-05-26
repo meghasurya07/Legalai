@@ -120,7 +120,7 @@ export function PromptPopover({ prompts, isLoading, onInsert }: PromptPopoverPro
         onInsert(finalContent)
     }
 
-    if (isLoading || prompts.length === 0) return null
+    const isEmpty = !isLoading && prompts.length === 0
 
     return (
         <Popover>
@@ -168,6 +168,22 @@ export function PromptPopover({ prompts, isLoading, onInsert }: PromptPopoverPro
                 </div>
 
                 {/* Split Body */}
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center h-[200px] gap-3">
+                        <div className="flex gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
+                            <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]" />
+                            <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:0s]" />
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">Loading prompt templates...</span>
+                    </div>
+                ) : isEmpty ? (
+                    <div className="flex flex-col items-center justify-center h-[200px] gap-2 text-center p-6">
+                        <BookOpen className="h-8 w-8 text-muted-foreground/30" />
+                        <span className="text-[11px] font-medium text-muted-foreground">No prompts available yet</span>
+                        <a href="/prompt-library" className="text-[10px] text-primary hover:underline font-semibold">Go to Prompt Library →</a>
+                    </div>
+                ) : (
                 <div className="grid grid-cols-1 md:grid-cols-12 h-[50vh] sm:h-[55vh] md:h-[400px] max-h-[400px] overflow-hidden">
                     {/* LEFT: List & Filters */}
                     <div className={`col-span-1 md:col-span-5 border-r border-border/50 flex flex-col h-full overflow-hidden bg-muted/5 ${selected ? "hidden md:flex" : "flex"}`}>
@@ -341,6 +357,7 @@ export function PromptPopover({ prompts, isLoading, onInsert }: PromptPopoverPro
                         )}
                     </div>
                 </div>
+                )}
             </PopoverContent>
         </Popover>
     )

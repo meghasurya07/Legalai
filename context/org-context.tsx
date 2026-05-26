@@ -88,21 +88,17 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     }, [user, role])
 
     useEffect(() => {
-        if (isUserLoading) return
+        if (isUserLoading || !user) return
 
+        let cancelled = false
         async function loadData() {
             setIsLoading(true)
-            if (user) {
-                await Promise.all([fetchOrg(), fetchMembers()])
-            } else {
-                setOrg(null)
-                setMembers([])
-                setRole(null)
-            }
-            setIsLoading(false)
+            await Promise.all([fetchOrg(), fetchMembers()])
+            if (!cancelled) setIsLoading(false)
         }
 
         loadData()
+        return () => { cancelled = true }
     }, [user, isUserLoading, fetchOrg, fetchMembers])
 
     return (
