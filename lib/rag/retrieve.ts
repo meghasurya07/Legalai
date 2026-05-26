@@ -391,6 +391,8 @@ function mergeAdjacentChunks(chunks: RetrievedChunk[]): RetrievedChunk[] {
                     ...current,
                     content: current.content + '\n\n' + next.content,
                     tokenCount: current.tokenCount + next.tokenCount,
+                    // Track the latest chunkIndex so consecutive merges chain correctly
+                    chunkIndex: next.chunkIndex,
                     // Keep the higher similarity score
                     similarity: Math.max(current.similarity, next.similarity),
                     rrfScore: Math.max(current.rrfScore || 0, next.rrfScore || 0) || undefined,
@@ -457,21 +459,6 @@ function applyMetadataFilters(
     })
 }
 
-/**
- * Compute cosine similarity between two vectors.
- */
-function cosineSim(a: number[], b: number[]): number {
-    let dot = 0
-    let normA = 0
-    let normB = 0
-    for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i]
-        normA += a[i] * a[i]
-        normB += b[i] * b[i]
-    }
-    const denom = Math.sqrt(normA) * Math.sqrt(normB)
-    return denom === 0 ? 0 : dot / denom
-}
 
 /**
  * M2: Maximal Marginal Relevance (MMR) diversity scoring.

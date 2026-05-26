@@ -10,7 +10,7 @@
 
 import { supabase } from '@/lib/supabase/server'
 import { GraphEntity, GraphRelationship, ProjectGraph } from './types'
-import { logger } from '@/lib/logger'
+// logger available for future graph traversal debugging
 
 /**
  * Build the full project knowledge graph with configurable limits.
