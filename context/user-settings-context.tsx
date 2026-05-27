@@ -20,16 +20,7 @@ const UserSettingsContext = createContext<UserSettingsContextType>({
 })
 
 export function UserSettingsProvider({ children }: { children: ReactNode }) {
-    // Initialize from localStorage cache for instant render
-    const [settings, setSettings] = useState<UserSettings>(() => {
-        if (typeof window === 'undefined') return {}
-        try {
-            const cached = localStorage.getItem('wesley_user_settings')
-            return cached ? JSON.parse(cached) : {}
-        } catch {
-            return {}
-        }
-    })
+    const [settings, setSettings] = useState<UserSettings>({})
 
     const refreshSettings = useCallback(async () => {
         try {
@@ -53,6 +44,18 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         let cancelled = false
         async function loadSettings() {
+            // Restore from localStorage cache first for instant display
+            try {
+                const cached = localStorage.getItem('wesley_user_settings')
+                if (cached) {
+                    const parsed = JSON.parse(cached)
+                    if (!cancelled && parsed && typeof parsed === 'object') {
+                        setSettings(parsed)
+                    }
+                }
+            } catch { /* ignore corrupt cache */ }
+
+            // Then fetch fresh data from API (overwrites cache)
             try {
                 const res = await fetch('/api/user/settings')
                 const data = await res.json()
