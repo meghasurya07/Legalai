@@ -3,6 +3,9 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { runLegalResearch, formatResearchContext, type ResearchSource } from '@/lib/solari/research-agent'
 import { isSolariConfigured } from '@/lib/solari/client'
 
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth()
   if ('error' in authResult) {

@@ -26,11 +26,11 @@ export async function searchGoogleScholar(
     const encodedQuery = encodeURIComponent(query)
     await page.goto(
       `https://scholar.google.com/scholar?hl=en&as_sdt=4&q=${encodedQuery}`,
-      { waitUntil: 'domcontentloaded', timeout: 20000 }
+      { waitUntil: 'domcontentloaded', timeout: 12000 }
     )
     
     // Wait for results to load
-    await page.waitForSelector('.gs_r', { timeout: 10000 }).catch(() => {})
+    await page.waitForSelector('.gs_r', { timeout: 5000 }).catch(() => {})
     
     // Extract search results
     const items = await page.$$eval('.gs_r.gs_or', (elements: Element[]) => {
@@ -82,10 +82,10 @@ export async function searchCornellLII(
     const encodedQuery = encodeURIComponent(query)
     await page.goto(
       `https://www.law.cornell.edu/search/site/${encodedQuery}`,
-      { waitUntil: 'domcontentloaded', timeout: 20000 }
+      { waitUntil: 'domcontentloaded', timeout: 12000 }
     )
     
-    await page.waitForSelector('.search-result', { timeout: 10000 }).catch(() => {})
+    await page.waitForSelector('.search-result', { timeout: 5000 }).catch(() => {})
     
     const items = await page.$$eval('.search-result', (elements: Element[]) => {
       return elements.slice(0, 10).map(el => {
@@ -133,10 +133,10 @@ export async function searchJustia(
     const encodedQuery = encodeURIComponent(query)
     await page.goto(
       `https://www.justia.com/search?q=${encodedQuery}`,
-      { waitUntil: 'domcontentloaded', timeout: 20000 }
+      { waitUntil: 'domcontentloaded', timeout: 12000 }
     )
     
-    await page.waitForSelector('.search-results-list', { timeout: 10000 }).catch(() => {})
+    await page.waitForSelector('.search-results-list', { timeout: 5000 }).catch(() => {})
     
     const items = await page.$$eval('.search-results-list .result', (elements: Element[]) => {
       return elements.slice(0, 10).map(el => {
