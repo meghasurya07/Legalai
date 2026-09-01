@@ -25,21 +25,21 @@ export async function searchGoogleScholar(
   try {
     const encodedQuery = encodeURIComponent(query)
     await page.goto(
-      `https://scholar.google.com/scholar?hl=en&as_sdt=4&q=${encodedQuery}`,
+      `https://scholar.google.com/scholar?hl=en&as_sdt=6,34&q=${encodedQuery}`,
       { waitUntil: 'domcontentloaded', timeout: 12000 }
     )
     
     // Wait for results to load
-    await page.waitForSelector('.gs_r', { timeout: 5000 }).catch(() => {})
+    await page.waitForSelector('.gs_r', { timeout: 6000 }).catch(() => {})
     
     // Extract search results
     const items = await page.$$eval('.gs_r.gs_or', (elements: Element[]) => {
       return elements.slice(0, 10).map(el => {
-        const titleEl = el.querySelector('.gs_rt a')
+        const titleEl = el.querySelector('.gs_rt a') || el.querySelector('.gs_rt')
         const snippetEl = el.querySelector('.gs_rs')
         const metaEl = el.querySelector('.gs_a')
         return {
-          title: titleEl?.textContent?.trim() || '',
+          title: titleEl?.textContent?.trim().replace(/^\[[A-Z]+\]\s*/, '') || '',
           url: (titleEl as HTMLAnchorElement)?.href || '',
           snippet: snippetEl?.textContent?.trim() || '',
           meta: metaEl?.textContent?.trim() || '',
@@ -48,12 +48,12 @@ export async function searchGoogleScholar(
     }).catch(() => [] as { title: string; url: string; snippet: string; meta: string }[])
     
     for (const item of items.slice(0, maxResults)) {
-      if (item.title && item.url) {
+      if (item.title) {
         results.push({
           title: item.title,
-          citation: item.meta,
+          citation: item.meta || item.title,
           snippet: item.snippet.slice(0, 500),
-          url: item.url,
+          url: item.url || `https://scholar.google.com/scholar?q=${encodedQuery}`,
           source: 'google_scholar',
           date: extractYear(item.meta),
         })
@@ -79,36 +79,25 @@ export async function searchCornellLII(
   const results: LegalSource[] = []
   
   try {
-    const encodedQuery = encodeURIComponent(query)
+    const term = query.toLowerCase().replace(/[^a-z0-9]+/g, '_')
     await page.goto(
-      `https://www.law.cornell.edu/search/site/${encodedQuery}`,
+      `https://www.law.cornell.edu/wex/${term}`,
       { waitUntil: 'domcontentloaded', timeout: 12000 }
-    )
+    ).catch(() => {})
     
-    await page.waitForSelector('.search-result', { timeout: 5000 }).catch(() => {})
-    
-    const items = await page.$$eval('.search-result', (elements: Element[]) => {
-      return elements.slice(0, 10).map(el => {
-        const titleEl = el.querySelector('h3 a')
-        const snippetEl = el.querySelector('.search-snippet')
-        return {
-          title: titleEl?.textContent?.trim() || '',
-          url: (titleEl as HTMLAnchorElement)?.href || '',
-          snippet: snippetEl?.textContent?.trim() || '',
-        }
+    const pageTitle = await page.title().catch(() => '')
+    if (pageTitle && !pageTitle.toLowerCase().includes('page not found') && !pageTitle.toLowerCase().includes('404')) {
+      const content = await page.$eval('.content, #content, article, main', (el: Element) => {
+        return el.textContent?.trim().slice(0, 500) || ''
+      }).catch(() => '')
+      
+      results.push({
+        title: pageTitle.replace(/\s*\|.*$/, ''),
+        citation: 'Cornell Legal Information Institute (Wex)',
+        snippet: content || `Legal overview from Cornell Law School LII on ${query}.`,
+        url: `https://www.law.cornell.edu/wex/${term}`,
+        source: 'cornell_lii',
       })
-    }).catch(() => [] as { title: string; url: string; snippet: string }[])
-    
-    for (const item of items.slice(0, maxResults)) {
-      if (item.title && item.url) {
-        results.push({
-          title: item.title,
-          citation: item.title,
-          snippet: item.snippet.slice(0, 500),
-          url: item.url.startsWith('http') ? item.url : `https://www.law.cornell.edu${item.url}`,
-          source: 'cornell_lii',
-        })
-      }
     }
   } catch (err) {
     console.error('[solari] Cornell LII search failed:', err)
@@ -116,7 +105,7 @@ export async function searchCornellLII(
     await page.close()
   }
   
-  return results
+  return results.slice(0, maxResults)
 }
 
 // ─── Justia ──────────────────────────────────────────────────────
@@ -132,16 +121,16 @@ export async function searchJustia(
   try {
     const encodedQuery = encodeURIComponent(query)
     await page.goto(
-      `https://www.justia.com/search?q=${encodedQuery}`,
+      `https://supreme.justia.com/search?q=${encodedQuery}`,
       { waitUntil: 'domcontentloaded', timeout: 12000 }
     )
     
-    await page.waitForSelector('.search-results-list', { timeout: 5000 }).catch(() => {})
+    await page.waitForSelector('.search-results, .results, .result, article', { timeout: 6000 }).catch(() => {})
     
-    const items = await page.$$eval('.search-results-list .result', (elements: Element[]) => {
+    const items = await page.$$eval('.search-results-list .result, .results .result, article', (elements: Element[]) => {
       return elements.slice(0, 10).map(el => {
-        const titleEl = el.querySelector('a.result-title')
-        const snippetEl = el.querySelector('.result-snippet')
+        const titleEl = el.querySelector('a.result-title, h3 a, h2 a, a')
+        const snippetEl = el.querySelector('.result-snippet, p, .snippet')
         return {
           title: titleEl?.textContent?.trim() || '',
           url: (titleEl as HTMLAnchorElement)?.href || '',
