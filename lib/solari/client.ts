@@ -1,23 +1,39 @@
-import { Solari } from '@solarisdk/browser'
+import type { Solari as SolariType } from '@solarisdk/browser'
+
+export interface SolariPage {
+  goto: (url: string, options?: Record<string, unknown>) => Promise<unknown>
+  waitForSelector: (selector: string, options?: Record<string, unknown>) => Promise<unknown>
+  title: () => Promise<string>
+  $eval: (selector: string, fn: (el: Element) => string) => Promise<string>
+  $$eval: <T>(selector: string, fn: (els: Element[]) => T) => Promise<T>
+  close: () => Promise<void>
+}
+
+export interface SolariBrowser {
+  newPage: () => Promise<SolariPage>
+  close: () => Promise<void>
+  id?: string
+}
 
 // Types
 export interface SolariSession {
   sessionId: string
-  browser: Awaited<ReturnType<Solari['launch']>>
+  browser: SolariBrowser
   startedAt: Date
 }
 
 const DEFAULT_SOLARI_KEY = 'slr_live_axzp_mh09l2ZdkiuoRLW3-nyxtSNhMih8FgcVZyKIVNEVF0w'
 
 // Singleton client
-let solariInstance: Solari | null = null
+let solariInstance: SolariType | null = null
 
-function getSolariClient(): Solari {
+async function getSolariClient(): Promise<SolariType> {
   if (!solariInstance) {
     const apiKey = process.env.SOLARI_API_KEY || DEFAULT_SOLARI_KEY
     if (!apiKey) {
       throw new Error('SOLARI_API_KEY environment variable is required. Get one at console.getsolari.com')
     }
+    const { Solari } = await import('@solarisdk/browser')
     solariInstance = new Solari({ apiKey })
   }
   return solariInstance
@@ -28,16 +44,17 @@ function getSolariClient(): Solari {
  * Uses US proxy for accessing US legal databases.
  */
 export async function launchResearchSession(): Promise<SolariSession> {
-  const client = getSolariClient()
+  const client = await getSolariClient()
   const browser = await client.launch({
     stealth: true,
     proxy: 'us',
     captcha: true,
     recording: true, // Enable session recording for legal audit trail
   })
+  const sid = (browser as unknown as { id?: string }).id || `session_${Date.now()}`
   return {
-    sessionId: (browser as unknown as Record<string, string>).sessionId || `session_${Date.now()}`,
-    browser,
+    sessionId: sid,
+    browser: browser as unknown as SolariSession['browser'],
     startedAt: new Date(),
   }
 }

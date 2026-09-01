@@ -420,24 +420,28 @@ export function useChatStream({
                         }
                     } else {
                         const errData = await researchRes.json().catch(() => ({}))
+                        const errorMessage = errData.error || 'Live web research encountered an error.'
                         const errStatus: WebResearchStatus = {
                             isResearching: false,
                             phase: 'error',
                             sources: [],
                             searchedDatabases: ['Google Scholar', 'Cornell LII', 'Justia'],
-                            error: errData.error || 'Live web research encountered an error.',
+                            error: errorMessage,
                         }
                         setLiveWebResearch(errStatus)
+                        toast.error(errorMessage)
                     }
                 } catch (err: unknown) {
+                    const errorMessage = err instanceof Error ? err.message : 'Network error during live web research'
                     const errStatus: WebResearchStatus = {
                         isResearching: false,
                         phase: 'error',
                         sources: [],
                         searchedDatabases: ['Google Scholar', 'Cornell LII', 'Justia'],
-                        error: err instanceof Error ? err.message : 'Network error during live web research',
+                        error: errorMessage,
                     }
                     setLiveWebResearch(errStatus)
+                    toast.error(errorMessage)
                 }
             }
 

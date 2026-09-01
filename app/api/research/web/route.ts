@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[api/research/web] Error:', error)
     return NextResponse.json(
-      { error: 'Web research failed. Please try again.' },
+      { error: error instanceof Error ? error.message : 'Web research failed. Please try again.' },
       { status: 500 }
     )
   }
