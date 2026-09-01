@@ -22,7 +22,8 @@ import {
     processNodeForCitations as sharedProcessNode,
 } from "@/lib/citation-processing"
 import { parseCalendarAction, CalendarActionCard } from "@/components/chat/calendar-action-card"
-import type { Attachment, Message } from "@/types"
+import { WebResearchPanel } from "@/components/chat/web-research-panel"
+import type { Attachment, Message, WebResearchStatus } from "@/types"
 
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -34,6 +35,7 @@ interface MessageBubbleProps {
     activityPhase: ActivityPhase
     thinkingDuration: number | null
     isThinking: boolean
+    liveWebResearchStatus?: WebResearchStatus | null
     conversationId?: string | null
     onOpenCitations: (index: number) => void
     onOpenPdfViewer: (source: ChatCitationSource, citationNum: string) => void
@@ -49,6 +51,7 @@ export function MessageBubble({
     activityPhase,
     thinkingDuration,
     isThinking,
+    liveWebResearchStatus,
     conversationId,
     onOpenCitations,
     onOpenPdfViewer,
@@ -146,14 +149,19 @@ export function MessageBubble({
                     {msg.role === 'user' ? (
                         <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">{msg.content}</p>
                     ) : (
-                        <AssistantContent
-                            content={msg.content}
-                            messageId={msg.id}
-                            conversationId={conversationId || undefined}
-                            messageIndex={i}
-                            onOpenCitations={onOpenCitations}
-                            onOpenPdfViewer={onOpenPdfViewer}
-                        />
+                        <>
+                            {(msg.webResearch || (isLastMessage && liveWebResearchStatus)) && (
+                                <WebResearchPanel status={msg.webResearch || liveWebResearchStatus!} className="mb-3" />
+                            )}
+                            <AssistantContent
+                                content={msg.content}
+                                messageId={msg.id}
+                                conversationId={conversationId || undefined}
+                                messageIndex={i}
+                                onOpenCitations={onOpenCitations}
+                                onOpenPdfViewer={onOpenPdfViewer}
+                            />
+                        </>
                     )}
                 </div>
             </div>

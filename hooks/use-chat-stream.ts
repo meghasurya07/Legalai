@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import type { Attachment, Message } from "@/types"
+import type { Attachment, Message, WebResearchStatus } from "@/types"
 import type { ActivityPhase } from "@/lib/ai/activity-constants"
 import { getRandomVerb } from "@/lib/ai/activity-constants"
 import {
@@ -70,6 +70,7 @@ export function useChatStream({
     const [isDeepResearch, setIsDeepResearch] = React.useState(false)
     const [isConfidenceMode, setIsConfidenceMode] = React.useState(false)
     const [isLiveResearch, setIsLiveResearch] = React.useState(false)
+    const [liveWebResearch, setLiveWebResearch] = React.useState<WebResearchStatus | null>(null)
     const queryMode = "ask"
 
     // ─── Draft Panel State (Harvey-style split-pane) ─────────────
@@ -383,16 +384,77 @@ export function useChatStream({
                 }
             }
 
+            // Execute Solari live web research if toggled
+            let webStatusForAssistant: WebResearchStatus | undefined = undefined
+            let webResearchContext = ''
+
+            if (isLiveResearch) {
+                const initialStatus: WebResearchStatus = {
+                    isResearching: true,
+                    phase: 'searching',
+                    sources: [],
+                    searchedDatabases: ['Google Scholar', 'Cornell LII', 'Justia'],
+                }
+                setLiveWebResearch(initialStatus)
+
+                try {
+                    const researchRes = await fetch('/api/research/web', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: userMessage, maxResults: 5 })
+                    })
+
+                    if (researchRes.ok) {
+                        const researchJson = await researchRes.json()
+                        if (researchJson.data) {
+                            webStatusForAssistant = {
+                                isResearching: false,
+                                phase: 'complete',
+                                sources: researchJson.data.sources || [],
+                                sessionId: researchJson.data.sessionId,
+                                durationMs: researchJson.data.durationMs,
+                                searchedDatabases: researchJson.data.searchedSources || ['Google Scholar', 'Cornell LII', 'Justia'],
+                            }
+                            webResearchContext = researchJson.context || ''
+                            setLiveWebResearch(webStatusForAssistant)
+                        }
+                    } else {
+                        const errData = await researchRes.json().catch(() => ({}))
+                        const errStatus: WebResearchStatus = {
+                            isResearching: false,
+                            phase: 'error',
+                            sources: [],
+                            searchedDatabases: ['Google Scholar', 'Cornell LII', 'Justia'],
+                            error: errData.error || 'Live web research encountered an error.',
+                        }
+                        setLiveWebResearch(errStatus)
+                    }
+                } catch (err: unknown) {
+                    const errStatus: WebResearchStatus = {
+                        isResearching: false,
+                        phase: 'error',
+                        sources: [],
+                        searchedDatabases: ['Google Scholar', 'Cornell LII', 'Justia'],
+                        error: err instanceof Error ? err.message : 'Network error during live web research',
+                    }
+                    setLiveWebResearch(errStatus)
+                }
+            }
+
             // Stream response from API
             const controller = new AbortController()
             abortControllerRef.current = controller
+
+            const promptMessage = webResearchContext
+                ? `${userMessage}\n\n[Live Web Research Results from Google Scholar, Cornell LII & Justia via Solari stealth cloud browser]:\n${webResearchContext}\n\nPlease analyze and synthesize the legal question above using these verified web research findings and provide thorough case law analysis and citations.`
+                : userMessage
 
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 signal: controller.signal,
                 body: JSON.stringify({
-                    message: userMessage,
+                    message: promptMessage,
                     files: processedFiles,
                     projectId,
                     conversationId: currentConversationId,
@@ -466,7 +528,7 @@ export function useChatStream({
                                             setThinkingDuration(null)
                                         }
                                         if (!assistantMsgAdded) {
-                                            setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch }])
+                                            setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch, isLiveResearch, webResearch: webStatusForAssistant }])
                                             assistantMsgAdded = true
                                         }
                                         // Track completed phases: when a new phase starts, mark the previous one as completed
@@ -506,7 +568,7 @@ export function useChatStream({
                                     }
                                 } else if (parsed.content) {
                                     if (!assistantMsgAdded) {
-                                        setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch }])
+                                        setMessages(prev => [...prev, { role: 'assistant', content: '', isWebSearch, isLiveResearch, webResearch: webStatusForAssistant }])
                                         assistantMsgAdded = true
                                     }
                                     if (thinkingStartRef.current && !thinkingDuration) {
@@ -640,6 +702,7 @@ export function useChatStream({
         isDeepResearch, setIsDeepResearch,
         isConfidenceMode, setIsConfidenceMode,
         isLiveResearch, setIsLiveResearch,
+        liveWebResearch,
         // Activity
         activityPhase,
         activityEntries,

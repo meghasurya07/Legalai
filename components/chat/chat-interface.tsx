@@ -217,6 +217,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         isDeepResearch, setIsDeepResearch,
         isConfidenceMode, setIsConfidenceMode,
         isLiveResearch, setIsLiveResearch,
+        liveWebResearch,
         activityPhase, activityEntries, completedPhases, currentVerb, thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
         // Draft panel (Harvey-style)
@@ -417,6 +418,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                         activityPhase={activityPhase}
                                         thinkingDuration={thinkingDuration}
                                         isThinking={isThinking}
+                                        liveWebResearchStatus={liveWebResearch}
                                         conversationId={_convId}
                                         onOpenCitations={openCitations}
                                         onOpenPdfViewer={openPdfViewer}

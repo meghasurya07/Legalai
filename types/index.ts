@@ -65,12 +65,33 @@ export interface MessageActivityMetadata {
     phases: string[]
 }
 
+export interface WebResearchSource {
+    title: string
+    citation: string
+    snippet: string
+    url: string
+    source: string
+    date?: string
+}
+
+export interface WebResearchStatus {
+    isResearching: boolean
+    phase: 'idle' | 'launching' | 'searching' | 'extracting' | 'complete' | 'error'
+    sources: WebResearchSource[]
+    sessionId?: string
+    searchedDatabases: string[]
+    durationMs?: number
+    error?: string
+}
+
 export interface Message {
     id?: string
     role: 'user' | 'assistant'
     content: string
     files?: Attachment[]
     isWebSearch?: boolean
+    isLiveResearch?: boolean
+    webResearch?: WebResearchStatus
     activityMetadata?: MessageActivityMetadata
 }
 
