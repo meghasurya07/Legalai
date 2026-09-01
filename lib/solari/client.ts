@@ -1,4 +1,4 @@
-import { chromium } from 'patchright-core'
+import puppeteer from 'puppeteer-core'
 
 export interface SolariPage {
   goto: (url: string, options?: Record<string, unknown>) => Promise<unknown>
@@ -29,7 +29,7 @@ export function getSolariApiKey(): string {
 
 /**
  * Launch a stealth research browser session with recording enabled.
- * Connects directly to Solari's cloud WebSocket gateway.
+ * Connects directly to Solari's cloud CDP gateway via puppeteer-core.
  */
 export async function launchResearchSession(): Promise<SolariSession> {
   const apiKey = getSolariApiKey()
@@ -66,8 +66,12 @@ export async function launchResearchSession(): Promise<SolariSession> {
     expiresAt?: string
   }
 
-  // 2. Connect directly to Solari cloud browser over WebSocket
-  const browser = await chromium.connect(sessionData.wsEndpoint)
+  const endpoint = sessionData.cdpEndpoint || sessionData.wsEndpoint
+
+  // 2. Connect directly to Solari cloud browser over CDP WebSocket
+  const browser = await puppeteer.connect({
+    browserWSEndpoint: endpoint,
+  })
 
   return {
     sessionId: sessionData.sessionId,

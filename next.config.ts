@@ -16,8 +16,7 @@ const nextConfig: NextConfig = {
   // ── External packages for server-side bundling ─────────────
   serverExternalPackages: [
     '@solarisdk/browser',
-    'patchright-core',
-    'patchright',
+    'puppeteer-core',
   ],
 
   // ── Security Headers ────────────────────────────────────────
