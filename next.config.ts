@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
       Date.now().toString(),
   },
 
+  // ── External packages for server-side bundling ─────────────
+  serverExternalPackages: [
+    '@solarisdk/browser',
+    'patchright-core',
+    'patchright',
+  ],
+
   // ── Security Headers ────────────────────────────────────────
   headers: async () => [
     {
