@@ -34,10 +34,12 @@ interface ChatInputProps {
     isWebSearch: boolean
     isDeepResearch: boolean
     isConfidenceMode: boolean
+    isLiveResearch: boolean
     onThinkingChange: (v: boolean) => void
     onWebSearchChange: (v: boolean) => void
     onDeepResearchChange: (v: boolean) => void
     onConfidenceModeChange: (v: boolean) => void
+    onLiveResearchChange: (v: boolean) => void
     mode: "default" | "project"
     isFileDialogOpen: boolean
     onFileDialogChange: (open: boolean) => void
@@ -63,10 +65,12 @@ export function ChatInput({
     isWebSearch,
     isDeepResearch,
     isConfidenceMode,
+    isLiveResearch,
     onThinkingChange,
     onWebSearchChange,
     onDeepResearchChange,
     onConfidenceModeChange,
+    onLiveResearchChange,
     mode,
     isFileDialogOpen,
     onFileDialogChange,
@@ -300,11 +304,13 @@ export function ChatInput({
                     isWebSearch={isWebSearch}
                     isDeepResearch={isDeepResearch}
                     isConfidenceMode={isConfidenceMode}
+                    isLiveResearch={isLiveResearch}
                     isImprovingPrompt={isImprovingPrompt}
                     onThinkingChange={onThinkingChange}
                     onWebSearchChange={onWebSearchChange}
                     onDeepResearchChange={onDeepResearchChange}
                     onConfidenceModeChange={onConfidenceModeChange}
+                    onLiveResearchChange={onLiveResearchChange}
                     onSend={onSend}
                     onStop={onStop}
                     onImprovePrompt={onImprovePrompt}

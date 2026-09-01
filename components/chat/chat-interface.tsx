@@ -216,6 +216,7 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         isWebSearch, setIsWebSearch,
         isDeepResearch, setIsDeepResearch,
         isConfidenceMode, setIsConfidenceMode,
+        isLiveResearch, setIsLiveResearch,
         activityPhase, activityEntries, completedPhases, currentVerb, thinkingDuration,
         isActivitySidebarOpen, setIsActivitySidebarOpen,
         // Draft panel (Harvey-style)
@@ -468,10 +469,12 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                         isWebSearch={isWebSearch}
                         isDeepResearch={isDeepResearch}
                         isConfidenceMode={isConfidenceMode}
+                        isLiveResearch={isLiveResearch}
                         onThinkingChange={setIsThinking}
                         onWebSearchChange={setIsWebSearch}
                         onDeepResearchChange={setIsDeepResearch}
                         onConfidenceModeChange={setIsConfidenceMode}
+                        onLiveResearchChange={setIsLiveResearch}
                         mode={mode}
                         isFileDialogOpen={isFileDialogOpen}
                         onFileDialogChange={setIsFileDialogOpen}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Paperclip, Globe, Wand2, UploadCloud, Cloud, Brain, Sparkles, Square } from "lucide-react"
+import { Paperclip, Globe, Wand2, UploadCloud, Cloud, Brain, Sparkles, Square, Scale } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -26,11 +26,13 @@ interface ChatToolbarProps {
     isWebSearch: boolean
     isDeepResearch: boolean
     isConfidenceMode: boolean
+    isLiveResearch: boolean
     isImprovingPrompt: boolean
     onThinkingChange: (v: boolean) => void
     onWebSearchChange: (v: boolean) => void
     onDeepResearchChange: (v: boolean) => void
     onConfidenceModeChange: (v: boolean) => void
+    onLiveResearchChange: (v: boolean) => void
 
     // Actions
     onSend: () => void
@@ -56,11 +58,13 @@ export function ChatToolbar({
     isWebSearch,
     isDeepResearch,
     isConfidenceMode,
+    isLiveResearch,
     isImprovingPrompt,
     onThinkingChange,
     onWebSearchChange,
     onDeepResearchChange,
     onConfidenceModeChange,
+    onLiveResearchChange,
     onSend,
     onStop,
     onImprovePrompt,
@@ -184,6 +188,32 @@ export function ChatToolbar({
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>Deep Research</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
+                {/* Live Web Research toggle (Solari-powered) */}
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                id="live-research-toggle"
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 rounded-full ${isLiveResearch ? "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20" : "text-muted-foreground"}`}
+                                onClick={() => {
+                                    const newState = !isLiveResearch
+                                    onLiveResearchChange(newState)
+                                    if (newState) {
+                                        onThinkingChange(false)
+                                        onWebSearchChange(false)
+                                        onDeepResearchChange(false)
+                                    }
+                                }}
+                            >
+                                <Scale className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Live Web Research (Solari)</TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
 

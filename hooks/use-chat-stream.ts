@@ -69,6 +69,7 @@ export function useChatStream({
     const [isWebSearch, setIsWebSearch] = React.useState(false)
     const [isDeepResearch, setIsDeepResearch] = React.useState(false)
     const [isConfidenceMode, setIsConfidenceMode] = React.useState(false)
+    const [isLiveResearch, setIsLiveResearch] = React.useState(false)
     const queryMode = "ask"
 
     // ─── Draft Panel State (Harvey-style split-pane) ─────────────
@@ -638,6 +639,7 @@ export function useChatStream({
         isWebSearch, setIsWebSearch,
         isDeepResearch, setIsDeepResearch,
         isConfidenceMode, setIsConfidenceMode,
+        isLiveResearch, setIsLiveResearch,
         // Activity
         activityPhase,
         activityEntries,
