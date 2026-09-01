@@ -17,7 +17,8 @@ import {
     Calculator,
     CloudLightning,
     ShieldAlert,
-    Briefcase
+    Briefcase,
+    Scale
 } from "lucide-react"
 import { FilePreviewContent } from "@/components/documents/file-preview-content"
 import { Attachment } from "@/types"
@@ -41,6 +42,7 @@ import { useChatStream } from "@/hooks/use-chat-stream"
 import { MessageBubble } from "@/components/chat/message-bubble"
 import { ChatInput } from "@/components/chat/chat-input"
 import { DraftEditorPanel } from "@/components/chat/draft-editor-panel"
+import { WebResearchPanel } from "@/components/chat/web-research-panel"
 import { useUserSettings } from "@/context/user-settings-context"
 
 const COLOR_CLASSES: Record<string, { bg: string, text: string, hover: string }> = {
@@ -427,8 +429,20 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                         currentVerb={currentVerb}
                                     />
                                 ))}
+                                {/* Live Solari Web Research Active Indicator */}
+                                {liveWebResearch && liveWebResearch.isResearching && (
+                                    <div className="flex gap-2 md:gap-4 justify-start px-2 md:px-8">
+                                        <div className="h-8 w-8 rounded-full border border-teal-500/40 bg-teal-500/10 flex items-center justify-center shrink-0">
+                                            <Scale className="h-4 w-4 text-teal-500 animate-pulse" />
+                                        </div>
+                                        <div className="max-w-[95%] md:max-w-[85%] min-w-0 flex-1">
+                                            <WebResearchPanel status={liveWebResearch} className="w-full shadow-sm" />
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Fallback loading dots */}
-                                {isLoading && !activityPhase && !messages.some(m => m.role === 'assistant' && m.content) && (
+                                {isLoading && !activityPhase && !liveWebResearch?.isResearching && !messages.some(m => m.role === 'assistant' && m.content) && (
                                     <div className="flex gap-3 justify-start">
                                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
                                             <Sparkles className="h-4 w-4 text-primary animate-pulse" />

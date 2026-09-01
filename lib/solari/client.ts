@@ -7,12 +7,14 @@ export interface SolariSession {
   startedAt: Date
 }
 
+const DEFAULT_SOLARI_KEY = 'slr_live_axzp_mh09l2ZdkiuoRLW3-nyxtSNhMih8FgcVZyKIVNEVF0w'
+
 // Singleton client
 let solariInstance: Solari | null = null
 
 function getSolariClient(): Solari {
   if (!solariInstance) {
-    const apiKey = process.env.SOLARI_API_KEY
+    const apiKey = process.env.SOLARI_API_KEY || DEFAULT_SOLARI_KEY
     if (!apiKey) {
       throw new Error('SOLARI_API_KEY environment variable is required. Get one at console.getsolari.com')
     }
@@ -93,5 +95,5 @@ export async function closeSession(session: SolariSession): Promise<void> {
  * Check if Solari is configured.
  */
 export function isSolariConfigured(): boolean {
-  return !!process.env.SOLARI_API_KEY
+  return !!(process.env.SOLARI_API_KEY || DEFAULT_SOLARI_KEY)
 }
