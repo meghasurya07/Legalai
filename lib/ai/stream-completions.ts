@@ -136,7 +136,7 @@ export async function streamChatCompletions(params: StreamParams) {
 
     // Save assistant message
     if (conversationId && streamedContent) {
-        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, userMessage: params.userMessage, usedMemories })
         if (savedMsgId && !safe.isClosed) {
             safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
         }

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/server'
 import { logMemoryAccess, reinforceMemory } from '@/lib/memory'
 import type { MemoryRetrievalResult } from '@/lib/memory'
+import { retainConversationTurn } from '@/lib/hindsight'
 import { logger } from '@/lib/logger'
 
 interface SaveAssistantMessageParams {
@@ -10,6 +11,7 @@ interface SaveAssistantMessageParams {
     projectId?: string | null
     orgId?: string
     userId: string
+    userMessage?: string
     usedMemories: MemoryRetrievalResult[]
 }
 
@@ -24,6 +26,7 @@ export async function saveAssistantMessage({
     projectId,
     orgId,
     userId,
+    userMessage,
     usedMemories,
 }: SaveAssistantMessageParams): Promise<string | null> {
     try {
@@ -81,6 +84,17 @@ export async function saveAssistantMessage({
                         ])
                     )
                 ).catch(() => {})
+            }
+
+            // Hindsight long-term memory retention (fire-and-forget)
+            if (userMessage) {
+                retainConversationTurn({
+                    userId,
+                    projectId,
+                    userMessage,
+                    assistantResponse: streamedContent,
+                    conversationId,
+                }).catch(e => logger.error('save-message', 'Hindsight retain failed (non-blocking)', e))
             }
         }
         return savedMsg?.id || null

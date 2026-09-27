@@ -233,7 +233,7 @@ export async function streamResponsesAPI(params: ResponsesAPIParams) {
 
     // Save assistant message
     if (conversationId && streamedContent) {
-        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, usedMemories })
+        const savedMsgId = await saveAssistantMessage({ conversationId, streamedContent, sourcesBlock, projectId, orgId, userId, userMessage: params.userMessage, usedMemories })
         if (savedMsgId && !safe.isClosed) {
             safe.enqueue(`event: messageId\ndata: ${JSON.stringify({ messageId: savedMsgId })}\n\n`)
         }

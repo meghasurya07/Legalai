@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
         const ctx = await buildChatContext(effectiveMessage, projectId, userId, prepareFilesForTextContext(attachedFiles))
         const { userContent, ragSourcesBlock } = ctx
         const { ragContext, ragSystemMessage, ragChunks, memoryContextText, memoryAttributionText, usedMemories } = ctx
+        const { hindsightContextText } = ctx
 
         // Determine chat mode
         const chatMode: ChatMode = deepResearch ? 'deepResearch' : thinking ? 'thinking' : webSearch ? 'webSearch' : 'standard'
@@ -145,7 +146,8 @@ export async function POST(request: NextRequest) {
                         systemPrompt,
                         ragSystemMessage ? ragSystemMessage : '',
                         memoryContextText ? memoryContextText : '',
-                        memoryAttributionText ? memoryAttributionText : ''
+                        memoryAttributionText ? memoryAttributionText : '',
+                        hindsightContextText ? hindsightContextText : '',
                     ].filter(Boolean).join('\n\n')
 
                     // Move RAG context into user prompt for better citation adherence
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest) {
                         controller, encoder, client, model, fullSystemPrompt, finalUserPrompt,
                         ragChunks, sourcesBlock, imageInputs,
                         conversationId, projectId, orgId, userId, usedMemories,
+                        userMessage: effectiveMessage,
                         conversationHistory,
                         streamStartTime,
                     }

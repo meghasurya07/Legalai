@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase/server'
 import { retrieveRelevantChunks, buildRAGContext, buildRAGSourcesBlock, RAG_GROUNDING_INSTRUCTION, type RetrievedChunk } from '@/lib/rag'
 import { retrieveMemories, assembleMemoryContext, buildMemoryAttribution } from '@/lib/memory'
 import type { MemoryRetrievalResult } from '@/lib/memory'
+import { recallHindsightMemories } from '@/lib/hindsight'
+import { ensureBankConfigured } from '@/lib/hindsight'
 import { logger } from '@/lib/logger'
 import { encode } from 'gpt-tokenizer'
 
@@ -20,6 +22,8 @@ export interface ChatContext {
     memoryContextText: string
     memoryAttributionText: string
     usedMemories: MemoryRetrievalResult[]
+    hindsightContextText: string
+    hindsightMemoryCount: number
 }
 
 /**
@@ -42,6 +46,8 @@ export async function buildChatContext(
     let memoryContextText = ''
     let memoryAttributionText = ''
     let usedMemories: MemoryRetrievalResult[] = []
+    let hindsightContextText = ''
+    let hindsightMemoryCount = 0
 
     // 1. RAG Context Injection from Project Documents
     if (projectId) {
@@ -87,6 +93,25 @@ export async function buildChatContext(
         } catch (memError) {
             logger.warn('context-builder', 'Memory retrieval failed (non-blocking)', memError)
         }
+    }
+
+    // 2.5 Hindsight Long-Term Memory Recall
+    try {
+        // Ensure bank is configured with legal AI disposition on first use
+        ensureBankConfigured(userId, projectId).catch(() => {})
+
+        const hindsightResult = await recallHindsightMemories({
+            query: message || '',
+            userId,
+            projectId,
+        })
+        if (hindsightResult.count > 0) {
+            hindsightContextText = hindsightResult.contextText
+            hindsightMemoryCount = hindsightResult.count
+            logger.info('context-builder', `[Hindsight] Recalled ${hindsightResult.count} long-term memories`)
+        }
+    } catch (hindsightError) {
+        logger.warn('context-builder', 'Hindsight recall failed (non-blocking)', hindsightError)
     }
 
     // 3. Process attached files into pseudo-chunks
@@ -161,6 +186,8 @@ export async function buildChatContext(
         memoryContextText,
         memoryAttributionText,
         usedMemories,
+        hindsightContextText,
+        hindsightMemoryCount,
     }
 }
 

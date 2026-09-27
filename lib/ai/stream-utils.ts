@@ -22,6 +22,7 @@ export interface StreamParams {
     projectId: string | null | undefined
     orgId?: string
     userId: string
+    userMessage?: string
     usedMemories: MemoryRetrievalResult[]
     conversationHistory: { role: 'user' | 'assistant'; content: string }[]
     streamStartTime: number

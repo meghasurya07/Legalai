@@ -43,6 +43,7 @@ import { MessageBubble } from "@/components/chat/message-bubble"
 import { ChatInput } from "@/components/chat/chat-input"
 import { DraftEditorPanel } from "@/components/chat/draft-editor-panel"
 import { WebResearchPanel } from "@/components/chat/web-research-panel"
+import { MemoryPanel } from "@/components/chat/memory-panel"
 import { useUserSettings } from "@/context/user-settings-context"
 
 const COLOR_CLASSES: Record<string, { bg: string, text: string, hover: string }> = {
@@ -458,6 +459,13 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
                                 {isLoading && <div className="flex-1" />}
                                 <div ref={messagesEndRef} />
                             </div>
+                        </div>
+                    )}
+
+                    {/* Memory Intelligence Panel (Hindsight) */}
+                    {hasMessages && (
+                        <div className="px-4 sm:px-6 max-w-3xl mx-auto w-full mb-2">
+                            <MemoryPanel projectId={projectId} />
                         </div>
                     )}
 
