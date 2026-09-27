@@ -85,18 +85,20 @@ export async function saveAssistantMessage({
                     )
                 ).catch(() => {})
             }
-
-            // Hindsight long-term memory retention (fire-and-forget)
-            if (userMessage) {
-                retainConversationTurn({
-                    userId,
-                    projectId,
-                    userMessage,
-                    assistantResponse: streamedContent,
-                    conversationId,
-                }).catch(e => logger.error('save-message', 'Hindsight retain failed (non-blocking)', e))
-            }
         }
+
+        // Hindsight long-term memory retention (fire-and-forget)
+        // Runs for ALL conversations — with or without a project vault
+        if (!saveError && userMessage && streamedContent) {
+            retainConversationTurn({
+                userId,
+                projectId,
+                userMessage,
+                assistantResponse: streamedContent,
+                conversationId,
+            }).catch(e => logger.error('save-message', 'Hindsight retain failed (non-blocking)', e))
+        }
+
         return savedMsg?.id || null
     } catch (e) {
         logger.error('save-message', 'Error saving assistant message', e)
