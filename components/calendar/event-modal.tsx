@@ -426,3 +426,4 @@ export function EventModal({ open, onOpenChange, event, defaultDate, onSave, onF
         </Dialog>
     )
 }
+ 

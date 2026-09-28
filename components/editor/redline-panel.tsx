@@ -222,3 +222,4 @@ export function RedlinePanel({ isOpen, onClose, draftText }: RedlinePanelProps) 
 
     return panelContent
 }
+ 

@@ -362,3 +362,4 @@ export function PromptPopover({ prompts, isLoading, onInsert }: PromptPopoverPro
         </Popover>
     )
 }
+ 

@@ -565,3 +565,4 @@ export function getPrompts(useCase: UseCase, input: Record<string, unknown>): Pr
   }
   return promptFn(input)
 }
+ 

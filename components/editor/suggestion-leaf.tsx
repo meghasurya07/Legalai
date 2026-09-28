@@ -50,3 +50,4 @@ export function SuggestionLeaf({ attributes, children, leaf }: SuggestionLeafPro
 
     return <span {...attributes}>{el}</span>
 }
+ 

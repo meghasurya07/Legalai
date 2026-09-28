@@ -344,3 +344,4 @@ export function getDocumentPreset(type: string): DocumentPreset | undefined {
 export function getAllPresets(): DocumentPreset[] {
     return Object.values(DOCUMENT_PRESETS)
 }
+ 

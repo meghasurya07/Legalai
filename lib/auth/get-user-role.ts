@@ -40,3 +40,4 @@ export async function isFirmAdmin(): Promise<boolean> {
   const roles = await getUserRoles();
   return roles.includes('FIRM_ADMIN');
 }
+ 

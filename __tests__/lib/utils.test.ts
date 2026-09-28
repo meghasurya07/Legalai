@@ -29,3 +29,4 @@ describe('cn', () => {
         expect(cn(['foo', 'bar'])).toBe('foo bar')
     })
 })
+ 

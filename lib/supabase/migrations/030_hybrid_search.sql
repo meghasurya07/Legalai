@@ -148,3 +148,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION match_file_chunks_hybrid TO service_role;
 GRANT EXECUTE ON FUNCTION match_file_chunks_hybrid TO authenticated;
+ 

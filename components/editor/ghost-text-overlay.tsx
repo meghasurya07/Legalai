@@ -46,3 +46,4 @@ export function GhostTextOverlay({ suggestion, isLoading }: GhostTextOverlayProp
         </div>
     )
 }
+ 

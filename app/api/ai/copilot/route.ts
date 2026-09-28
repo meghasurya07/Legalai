@@ -85,3 +85,4 @@ Rules:
         return apiError('Copilot completion failed', 500, err)
     }
 }
+ 

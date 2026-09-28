@@ -80,3 +80,4 @@ export async function backfillMemoryEmbeddings(
     logger.info("memory/embedder", `[Memory Embedder] Backfilled ${updated}/${memories.length} embeddings`)
     return updated
 }
+ 

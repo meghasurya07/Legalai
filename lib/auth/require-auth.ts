@@ -33,3 +33,4 @@ export async function requireAuth(): Promise<AuthResult | Response> {
         userEmail: session.user.email || '',
     }
 }
+ 

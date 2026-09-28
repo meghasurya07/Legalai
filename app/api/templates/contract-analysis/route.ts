@@ -8,3 +8,4 @@ export async function POST(request: NextRequest) {
         workflowId: 'contract-analysis'
     })
 }
+ 

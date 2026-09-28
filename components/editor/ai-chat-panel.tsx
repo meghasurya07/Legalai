@@ -248,3 +248,4 @@ export function AIChatPanel({ isOpen, onClose, onInsert, documentContext, docume
 
     return panelContent
 }
+ 

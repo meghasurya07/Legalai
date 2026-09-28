@@ -90,3 +90,4 @@ export const RATE_LIMIT_AUTH: RateLimitConfig = { maxRequests: 10, windowSeconds
 
 /** Global API: 120 requests per minute per user (hard ceiling) */
 export const RATE_LIMIT_GLOBAL: RateLimitConfig = { maxRequests: 120, windowSeconds: 60 }
+ 

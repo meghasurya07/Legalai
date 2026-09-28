@@ -83,3 +83,4 @@ export function extractCitationsFromResponse(
 
     return { processedText, sourcesBlock }
 }
+ 

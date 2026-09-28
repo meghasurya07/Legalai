@@ -57,3 +57,4 @@ export function getPermissionsForRole(role: OrgRole): Permission[] {
 export function roleHasPermission(role: OrgRole, permission: Permission): boolean {
     return ROLE_PERMISSIONS[role]?.includes(permission) ?? false
 }
+ 

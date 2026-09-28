@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { formatResearchContext, type WebResearchResult } from '@/lib/solari/research-agent'
 import { isSolariConfigured, getSolariApiKey } from '@/lib/solari/client'
 
@@ -54,3 +54,4 @@ describe('formatResearchContext', () => {
     expect(context).toContain('Cornell Law School LII')
   })
 })
+ 

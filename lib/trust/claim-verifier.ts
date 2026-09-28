@@ -224,3 +224,4 @@ export function calculateOverallConfidence(claims: VerifiedClaim[]): number {
 
     return totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 100) / 100 : 0
 }
+ 

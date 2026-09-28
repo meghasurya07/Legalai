@@ -103,3 +103,4 @@ export async function retrieveInsights(projectId: string): Promise<string> {
         `- [${(i.severity as string).toUpperCase()}] ${i.insight_type}: ${i.description}`
     ).join('\n')
 }
+ 

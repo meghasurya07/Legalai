@@ -271,3 +271,4 @@ export function MemoryPanel({ projectId, className = '' }: MemoryPanelProps) {
     </div>
   )
 }
+ 

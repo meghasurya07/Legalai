@@ -40,3 +40,4 @@ export function createScreenshotFile(file: File, index = 0, date = new Date()): 
         lastModified: date.getTime(),
     })
 }
+ 

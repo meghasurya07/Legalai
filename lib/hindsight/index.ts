@@ -2,3 +2,4 @@ export { getHindsightClient, isHindsightConfigured, getUserBankId, getProjectBan
 export { retainConversationTurn, retainResearchFindings } from './retain'
 export { recallHindsightMemories, type HindsightMemory, type HindsightRecallResult } from './recall'
 export { configureLegalBank, ensureBankConfigured } from './config'
+ 

@@ -236,3 +236,4 @@ function AIMenuItem({ icon, label, description, onClick }: {
         </button>
     )
 }
+ 

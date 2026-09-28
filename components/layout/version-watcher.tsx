@@ -109,3 +109,4 @@ export function VersionWatcher() {
     // This component renders nothing, it just manages the background polling
     return null
 }
+ 

@@ -167,3 +167,4 @@ export function WebResearchPanel({ status, className = '' }: WebResearchPanelPro
     </div>
   )
 }
+ 

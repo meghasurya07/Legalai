@@ -13,3 +13,4 @@ export { consolidateMemories } from './consolidation'
 export { detectPreferences, detectAndPersistPreferences, confirmPreference, dismissPreference } from './preference-detector'
 export { summarizeSession } from './session-summarizer'
 export { storeClausePattern, getTopClausePatterns, processDocumentClauses } from './clause-intelligence'
+ 

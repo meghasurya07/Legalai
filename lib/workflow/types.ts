@@ -51,3 +51,4 @@ export interface WorkflowContext {
     documentAnalysis?: unknown[]
     clauses?: unknown[]
 }
+ 

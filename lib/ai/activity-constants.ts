@@ -443,3 +443,4 @@ export function getPhaseIcon(phase: string): string {
 export function getPhaseCategory(phase: string): PhaseCategory {
     return ACTIVITY_PHASE_CONFIG[phase]?.category || 'analysis'
 }
+ 

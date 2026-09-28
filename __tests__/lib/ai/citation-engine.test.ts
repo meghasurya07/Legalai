@@ -265,3 +265,4 @@ describe('CitationEngine integration', () => {
         expect(engine.validateMarkers('No [1] sources.').orphanedMarkers).toEqual([1])
     })
 })
+ 

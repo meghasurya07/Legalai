@@ -54,3 +54,4 @@ describe('downloadTextFile', () => {
         expect(toast.success).toHaveBeenCalledWith('Downloaded report.pdf')
     })
 })
+ 

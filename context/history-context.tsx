@@ -118,3 +118,4 @@ export function RecentChatsProvider({ children }: { children: ReactNode }) {
         </RecentChatsContext.Provider>
     )
 }
+ 

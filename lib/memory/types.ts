@@ -338,3 +338,4 @@ export const MEMORY_TYPE_COLORS: Record<MemoryType, string> = {
     pattern: '#14b8a6',     // teal
     correction: '#64748b',  // slate
 }
+ 

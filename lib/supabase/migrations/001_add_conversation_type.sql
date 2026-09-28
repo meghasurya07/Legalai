@@ -8,3 +8,4 @@ ALTER TABLE conversations ADD COLUMN IF NOT EXISTS workflow_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
 CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations(project_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_workflow_id ON conversations(workflow_id);
+ 

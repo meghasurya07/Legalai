@@ -24,3 +24,4 @@ export function CreateProjectCard({ onClick }: CreateProjectCardProps) {
         </div>
     )
 }
+ 

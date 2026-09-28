@@ -128,3 +128,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ configured: true, memoryCount: 0, entities: [], recentFacts: [] })
   }
 }
+ 

@@ -137,3 +137,4 @@ Rules:
         userPrompt: `Merge these partial document summaries into one cohesive summary:\n\n${partialSummaries.map((s, i) => `--- Section ${i + 1} ---\n${s}`).join('\n\n')}`
     }
 }
+ 

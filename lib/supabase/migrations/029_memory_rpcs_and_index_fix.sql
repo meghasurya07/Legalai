@@ -73,3 +73,4 @@ GRANT EXECUTE ON FUNCTION exec_memory_decay TO authenticated;
 -- Keep HNSW (better recall, no training needed), drop IVFFlat.
 -- ============================================
 DROP INDEX IF EXISTS idx_memories_embedding_cosine;
+ 

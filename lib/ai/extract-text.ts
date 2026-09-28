@@ -161,3 +161,4 @@ export async function extractText(file: File): Promise<string> {
         return `[Error extracting text from ${file.name}]`
     }
 }
+ 

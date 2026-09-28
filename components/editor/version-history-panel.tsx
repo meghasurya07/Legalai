@@ -177,3 +177,4 @@ export function VersionHistoryPanel({ draftId, isOpen, activePreviewId, onClose,
 
     return panelContent
 }
+ 

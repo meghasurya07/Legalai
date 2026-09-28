@@ -189,3 +189,4 @@ export async function listWalls(orgId: string): Promise<EthicalWall[]> {
 
     return result
 }
+ 

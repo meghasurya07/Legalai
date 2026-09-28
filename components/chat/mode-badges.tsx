@@ -54,3 +54,4 @@ export function ModeBadges({ isThinking, isWebSearch, isDeepResearch, position =
         </div>
     )
 }
+ 

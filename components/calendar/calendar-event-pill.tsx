@@ -45,3 +45,4 @@ export function CalendarEventPill({ item, compact = false, onClick }: CalendarEv
         </button>
     )
 }
+ 

@@ -89,3 +89,4 @@ export function ProjectCard({ id, title, organization, fileCount, queryCount, is
         </div>
     )
 }
+ 

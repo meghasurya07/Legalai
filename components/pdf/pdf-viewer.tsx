@@ -288,3 +288,4 @@ function highlightMatchingSpans(
 
     return firstHighlighted
 }
+ 

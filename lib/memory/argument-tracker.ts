@@ -292,3 +292,4 @@ function validateArgumentType(type: string): ArgumentType {
     ]
     return valid.includes(type as ArgumentType) ? (type as ArgumentType) : 'offense'
 }
+ 

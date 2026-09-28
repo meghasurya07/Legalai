@@ -39,3 +39,4 @@ export function FileUploadZone({ id, file, onFileSelect, accept }: FileUploadZon
         </div>
     )
 }
+ 

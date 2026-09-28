@@ -105,3 +105,4 @@ export async function bootstrapDefaultOrg(userId: string, orgName: string = 'My 
     logger.info("auth/org", `[Auth] Bootstrapped org ${org.id} for user ${userId}`)
     return org.id
 }
+ 

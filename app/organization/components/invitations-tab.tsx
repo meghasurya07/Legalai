@@ -152,3 +152,4 @@ export default function InvitationsTab({ canManage, org }: { canManage: boolean;
         </Card>
     )
 }
+ 

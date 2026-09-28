@@ -9,3 +9,4 @@ ALTER TABLE files ADD COLUMN IF NOT EXISTS extracted_text TEXT;
 
 -- Index for text search (simple websearch-like) - Postgres simple text search
 CREATE INDEX IF NOT EXISTS idx_files_extracted_text ON files USING GIN(to_tsvector('english', extracted_text));
+ 

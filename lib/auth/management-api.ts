@@ -66,3 +66,4 @@ export function getManagementApiBaseUrl(): string {
     return 'https://dev-ufv0u4i2gq8sr7b1.us.auth0.com';
   }
 }
+ 

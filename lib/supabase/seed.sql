@@ -13,3 +13,4 @@ INSERT INTO workflows (id, title, description, icon) VALUES
 ('legal-memo', 'Draft Memo from Legal Research', 'Transform legal research into comprehensive memorandums. Analyze case law, statutes, and regulations to create well-structured legal memos for your cases.', 'Gavel'),
 ('contract-analysis', 'Contract Analysis', 'Perform deep analysis of contracts to identify key clauses, obligations, risks, and opportunities. Extract important dates, parties, and terms with AI-powered precision.', 'ScanSearch')
 ON CONFLICT (id) DO NOTHING;
+ 

@@ -209,3 +209,4 @@ async function appendLegacyProjectContext(userContent: string, projectId: string
     }
     return userContent
 }
+ 

@@ -250,3 +250,4 @@ describe('sanitizeObject', () => {
         expect(result[1]).toBe('clean')
     })
 })
+ 

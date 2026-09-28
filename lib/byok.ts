@@ -251,3 +251,4 @@ export async function resolveOpenAIClient(
     // Standard OpenAI
     return new OpenAI({ apiKey: decryptedKey, ...options })
 }
+ 

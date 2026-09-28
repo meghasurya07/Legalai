@@ -44,3 +44,4 @@ export const ClauseSchema = z.object({
 export const ClausesResponseSchema = z.object({
     clauses: z.array(ClauseSchema).default([])
 })
+ 

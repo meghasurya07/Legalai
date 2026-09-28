@@ -361,3 +361,4 @@ CREATE POLICY arguments_service_all ON arguments FOR ALL USING (true) WITH CHECK
 CREATE POLICY clause_patterns_service_all ON clause_patterns FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY firm_patterns_service_all ON firm_patterns FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY memory_access_log_service_all ON memory_access_log FOR ALL USING (true) WITH CHECK (true);
+ 

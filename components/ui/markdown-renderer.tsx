@@ -127,3 +127,4 @@ export function MarkdownRenderer({ content, onSourceClick, onViewPdf }: Markdown
         </div>
     );
 }
+ 

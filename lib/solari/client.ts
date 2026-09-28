@@ -152,3 +152,4 @@ export async function closeSession(session: SolariSession): Promise<void> {
 export function isSolariConfigured(): boolean {
   return !!getSolariApiKey()
 }
+ 

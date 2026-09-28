@@ -107,3 +107,4 @@ export function EventDetailPopover({ item, open, onOpenChange, onEdit, onDelete,
         </Popover>
     )
 }
+ 

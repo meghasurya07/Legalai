@@ -120,3 +120,4 @@ Rules:
         memory_types: ['fact', 'decision', 'risk', 'obligation', 'insight'],
     }
 }
+ 

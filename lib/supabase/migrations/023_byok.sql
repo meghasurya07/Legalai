@@ -16,3 +16,4 @@ COMMENT ON COLUMN organizations.encrypted_api_key IS 'AES-256-GCM encrypted API 
 COMMENT ON COLUMN organizations.byok_key_hint IS 'Last 4 chars of key for display (e.g. sk-...a1b2)';
 COMMENT ON COLUMN organizations.azure_endpoint IS 'Azure OpenAI endpoint URL (e.g. https://firm.openai.azure.com)';
 COMMENT ON COLUMN organizations.azure_deployment IS 'Azure deployment name (e.g. gpt-4o)';
+ 

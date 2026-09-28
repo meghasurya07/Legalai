@@ -66,3 +66,4 @@ WITH (lists = 100);
 GRANT EXECUTE ON FUNCTION match_memories TO service_role;
 GRANT EXECUTE ON FUNCTION match_memories TO anon;
 GRANT EXECUTE ON FUNCTION match_memories TO authenticated;
+ 

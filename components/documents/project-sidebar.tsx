@@ -247,3 +247,4 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
         </div>
     )
 }
+ 

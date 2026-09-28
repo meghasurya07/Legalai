@@ -86,3 +86,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
           PINECONE_API_KEY: ci-placeholder
           PINECONE_INDEX: ci-placeholder
+ 

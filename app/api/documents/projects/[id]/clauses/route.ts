@@ -72,3 +72,4 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return apiError('Internal server error', 500, error)
     }
 }
+ 

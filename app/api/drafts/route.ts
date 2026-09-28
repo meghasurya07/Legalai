@@ -116,3 +116,4 @@ export async function POST(request: NextRequest) {
         return apiError('Failed to create draft', 500)
     }
 }
+ 

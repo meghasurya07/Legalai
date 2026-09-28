@@ -118,3 +118,4 @@ export async function retrieveProjectSummary(projectId: string): Promise<string>
 
     return summary
 }
+ 

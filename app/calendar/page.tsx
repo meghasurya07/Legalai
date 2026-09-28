@@ -7,3 +7,4 @@ export default async function CalendarPage() {
 
     redirect("/calendar/schedule");
 }
+ 

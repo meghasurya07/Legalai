@@ -241,3 +241,4 @@ export async function callAISafe(
         return { result: '', tokensUsed: 0, error: 'AI processing engine failed. Please try again.' }
     }
 }
+ 

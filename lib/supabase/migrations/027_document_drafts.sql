@@ -54,3 +54,4 @@ BEGIN
         CREATE POLICY draft_versions_access ON draft_versions FOR ALL USING (true);
     END IF;
 END $$;
+ 

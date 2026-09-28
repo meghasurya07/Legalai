@@ -116,3 +116,4 @@ export function formatResearchContext(result: WebResearchResult): string {
   
   return lines.join('\n')
 }
+ 

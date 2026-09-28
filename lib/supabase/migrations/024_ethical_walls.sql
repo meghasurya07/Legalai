@@ -48,3 +48,4 @@ CREATE INDEX IF NOT EXISTS idx_wall_projects_project ON ethical_wall_projects(pr
 -- "Which walls protect this project?"
 CREATE INDEX IF NOT EXISTS idx_wall_projects_project_wall
     ON ethical_wall_projects(project_id, wall_id);
+ 

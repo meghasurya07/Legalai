@@ -105,3 +105,4 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         return apiError('Failed to delete draft', 500)
     }
 }
+ 

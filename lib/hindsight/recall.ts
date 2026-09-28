@@ -152,3 +152,4 @@ function formatHindsightContext(memories: HindsightMemory[]): string {
 
   return lines.join('\n')
 }
+ 

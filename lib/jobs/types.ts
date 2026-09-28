@@ -30,3 +30,4 @@ export interface Job {
     started_at: string | null
     completed_at: string | null
 }
+ 

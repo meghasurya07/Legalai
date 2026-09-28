@@ -76,3 +76,4 @@ export function FileIcon({ filename, className = "h-4 w-4" }: FileIconProps) {
 function FilePresentation({ className }: { className?: string }) {
     return <FileText className={className} />
 }
+ 

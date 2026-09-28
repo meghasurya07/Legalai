@@ -60,3 +60,4 @@ export function getProjectBankId(projectId: string): string {
 export function getGlobalBankId(): string {
   return 'wesley-global'
 }
+ 

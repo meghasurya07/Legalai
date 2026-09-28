@@ -189,3 +189,4 @@ Integrating long-term memory into a production app taught us a few key lessons:
 4. **Tune for Your Domain**: The default settings of a memory engine might not fit your use case. By configuring high skepticism and literalism, we tuned Hindsight specifically for the stringent requirements of legal research.
 
 If you're building an AI application that feels trapped in a 50-message context window, it's time to add state. Check out the [Hindsight documentation](https://hindsight.vectorize.io/) to get started with building truly stateful agents.
+ 

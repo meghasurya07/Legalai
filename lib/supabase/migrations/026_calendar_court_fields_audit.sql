@@ -37,3 +37,4 @@ CREATE INDEX IF NOT EXISTS idx_deadlines_case_number ON deadlines(case_number) W
 -- 5. Indexes for org-wide queries
 CREATE INDEX IF NOT EXISTS idx_events_org ON calendar_events(org_id) WHERE org_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_deadlines_org ON deadlines(org_id) WHERE org_id IS NOT NULL;
+ 

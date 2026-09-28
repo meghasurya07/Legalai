@@ -45,3 +45,4 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         return apiError('Failed to load version', 500)
     }
 }
+ 

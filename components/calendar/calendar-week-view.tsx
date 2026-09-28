@@ -98,3 +98,4 @@ export function CalendarWeekView({ currentDate, getItemsForDay, isToday, onDayCl
         </div>
     )
 }
+ 

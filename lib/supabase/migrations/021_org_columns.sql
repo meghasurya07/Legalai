@@ -33,3 +33,4 @@ BEGIN
         EXECUTE 'CREATE INDEX IF NOT EXISTS idx_recent_chats_org ON recent_chats(org_id)';
     END IF;
 END $$;
+ 

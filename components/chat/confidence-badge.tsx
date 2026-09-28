@@ -49,3 +49,4 @@ export function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
         </TooltipProvider>
     )
 }
+ 

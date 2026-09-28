@@ -197,3 +197,4 @@ export function toPersistedAttachment(file: ChatUploadPayload): Attachment {
         size: file.size,
     }
 }
+ 

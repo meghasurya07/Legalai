@@ -92,3 +92,4 @@ export async function GET(request: NextRequest) {
         return apiError('Failed to retrieve graph', 500)
     }
 }
+ 

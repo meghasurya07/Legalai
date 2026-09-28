@@ -313,3 +313,4 @@ export function PdfCitationPanel({ target, sources, onClose, onCitationClick }: 
 
     return panelContent
 }
+ 

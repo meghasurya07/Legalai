@@ -86,3 +86,4 @@ export function outranks(actorRole: string, targetRole: string): boolean {
     const target = ROLE_HIERARCHY[targetRole as OrgRole] ?? -1
     return actor > target
 }
+ 

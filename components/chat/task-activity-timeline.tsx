@@ -104,3 +104,4 @@ export function TaskActivityTimeline({ phase, entries, completedPhases, currentV
         </div>
     );
 }
+ 

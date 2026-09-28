@@ -20,3 +20,4 @@ export function downloadTextFile(content: string, filename: string, mimeType: st
     URL.revokeObjectURL(url)
     toast.success(`Downloaded ${filename}`)
 }
+ 

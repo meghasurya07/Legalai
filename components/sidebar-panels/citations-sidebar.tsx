@@ -295,3 +295,4 @@ export function CitationsSidebar({ isOpen, sources, entries, onClose, onViewPdf 
 
     return content
 }
+ 

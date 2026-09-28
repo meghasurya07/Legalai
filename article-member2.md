@@ -254,3 +254,4 @@ Adding agent memory fundamentally changed our application from a generic wrapper
 2. **Scoping bugs are silent killers.** If you attach telemetry, analytics, or retention calls to a conditional block, make absolutely sure you understand every execution path. Our simple `projectId` scoping bug meant a huge portion of our chats were completely failing to build memory, and there were no thrown errors to warn us.
 3. **Make the invisible visible.** Memory happens entirely on the backend. Building the Memory Panel transformed a silent infrastructure upgrade into a core product feature that users actively care about and engage with.
 4. **Reflection is infinitely better than retrieval.** Storing verbatim chat logs is easy, but it often leads to messy, contradictory context windows. Having an agent asynchronously synthesize those raw logs into clean atomic facts and behavioral observations is what actually makes the AI feel intelligent.
+ 

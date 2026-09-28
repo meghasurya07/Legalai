@@ -75,3 +75,4 @@ WHERE us.default_org_id IS NULL;
 -- ALTER TABLE projects ALTER COLUMN org_id SET NOT NULL;
 -- ALTER TABLE files ALTER COLUMN org_id SET NOT NULL;
 -- etc.
+ 

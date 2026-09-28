@@ -54,3 +54,4 @@ CREATE POLICY "Users can insert messages" ON messages
     FOR INSERT WITH CHECK (
         conversation_id IN (SELECT id FROM conversations WHERE user_id = auth.uid())
     );
+ 

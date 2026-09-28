@@ -173,3 +173,4 @@ export async function embedChunks(chunks: ChunkInput[]): Promise<EmbeddingResult
 
     return results
 }
+ 

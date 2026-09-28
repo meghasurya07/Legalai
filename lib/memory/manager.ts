@@ -459,3 +459,4 @@ export async function logMemoryAccess(params: {
         // Non-critical — fire and forget
     }
 }
+ 

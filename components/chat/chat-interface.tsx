@@ -571,3 +571,4 @@ export function ChatInterface({ onMessageSent, mode = "default", projectTitle, p
         </div>
     )
 }
+ 

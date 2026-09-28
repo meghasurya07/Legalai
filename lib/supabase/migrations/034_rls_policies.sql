@@ -52,3 +52,4 @@ CREATE POLICY relationships_org_access ON project_relationships FOR SELECT TO au
         JOIN organization_members om ON p.organization_id = om.organization_id
         WHERE om.user_id = auth.uid()::text
     ));
+ 

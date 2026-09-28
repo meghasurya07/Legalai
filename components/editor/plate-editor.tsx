@@ -226,3 +226,4 @@ export const PlateEditor = forwardRef<PlateEditorHandle, PlateEditorProps>(funct
         </Plate>
     )
 })
+ 

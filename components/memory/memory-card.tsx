@@ -245,3 +245,4 @@ export default function MemoryCard({ memory: mem, onPin, onDelete, onSave, onCon
         </Card>
     )
 }
+ 

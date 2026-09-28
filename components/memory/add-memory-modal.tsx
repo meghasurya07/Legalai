@@ -223,3 +223,4 @@ export default function AddMemoryModal({ projectId, onMemoryAdded, triggerButton
         </Dialog>
     )
 }
+ 

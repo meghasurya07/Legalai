@@ -166,3 +166,4 @@ export async function retrieveConflicts(projectId: string): Promise<string> {
         `- [${(c.severity as string).toUpperCase()}] ${c.conflict_type}: ${c.description}`
     ).join('\n')
 }
+ 

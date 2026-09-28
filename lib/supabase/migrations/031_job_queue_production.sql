@@ -64,3 +64,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION claim_next_job TO service_role;
 GRANT EXECUTE ON FUNCTION claim_next_job TO authenticated;
+ 

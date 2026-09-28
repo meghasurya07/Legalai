@@ -105,3 +105,4 @@ export default function GeneralTab({ org, canManage, refreshOrg }: {
         </Card>
     )
 }
+ 

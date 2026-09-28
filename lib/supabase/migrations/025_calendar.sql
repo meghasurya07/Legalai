@@ -81,3 +81,4 @@ CREATE POLICY "Users can manage their own deadlines"
   ON deadlines FOR ALL
   USING (true)
   WITH CHECK (true);
+ 

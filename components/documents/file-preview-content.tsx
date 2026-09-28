@@ -236,3 +236,4 @@ export function FilePreviewContent({ attachment }: FilePreviewContentProps) {
 
     return <div className="h-full w-full">{content}</div>
 }
+ 
